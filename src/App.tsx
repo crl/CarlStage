@@ -1,24 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
-import { clone, makeProject, mockImage, sectionLabel, uid } from './model';
+import { clone, makeDocs, makeProject, mockImage, sectionLabel, uid } from './model';
 import type { Asset, AssetType, Character, DocKey, Project, Shot, Store } from './model';
 import { listenForUpdates, loadStore, mergeStores, saveStore } from './db';
 import { cancelJob, consult, continueJob, createJob, getHealth, getJob, removeProjectRuns } from './codex';
 import type { Job } from './codex';
+import SettingsPage from './SettingsPage';
+import { decodeImportedText } from './textImport';
 
 const EMPTY: Store = { projects: [], library: [] };
-type Route = { page: 'dashboard' | 'library' | 'templates' | 'project'; id?: string; tab?: string };
+type Route = { page: 'dashboard' | 'library' | 'templates' | 'settings' | 'project'; id?: string; tab?: string };
 const assetNames: Record<AssetType, string> = { character: '角色', scene: '场景', prop: '道具' };
 
 function parseRoute(): Route {
   const parts = location.pathname.split('/').filter(Boolean);
   if (parts[0] === 'asset-library') return { page: 'library' };
   if (parts[0] === 'creative-templates') return { page: 'templates' };
+  if (parts[0] === 'settings') return { page: 'settings' };
   if ((parts[0] === 'p' || parts[0] === 'c') && parts[1]) return { page: 'project', id: parts[1], tab: parts[2] || 'overview' };
   return { page: 'dashboard' };
 }
 
 function readFile(file: File): Promise<string> {
-  return file.text().then(text => file.name.toLowerCase().endsWith('.html') ? new DOMParser().parseFromString(text, 'text/html').body.textContent || '' : text);
+  return file.arrayBuffer().then(buffer => {
+    const { text } = decodeImportedText(new Uint8Array(buffer), file.name);
+    const content = file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')
+      ? new DOMParser().parseFromString(text, 'text/html').body.textContent || '' : text;
+    if ((content.match(/\uFFFD/g) || []).length >= 3) throw new Error('原文中包含大量乱码字符，请选择未损坏的原始文件，或先另存为 UTF-8。');
+    return content;
+  });
 }
 function readImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
@@ -91,11 +100,12 @@ export default function App() {
     {saveError && <div className="save-error">{saveError}</div>}
     {route.page === 'dashboard' ? <Dashboard projects={state.projects} go={go} create={create} openNovel={() => setNovelOpen(true)} onDelete={setConfirmDelete}/> :
       <div className="app-shell">
-        <Header go={go} project={project} onMenu={() => setMobileNav(v => !v)}/>
+        <Header go={go} project={project} page={route.page} onMenu={() => setMobileNav(v => !v)}/>
         {project && <ProjectNav project={project} tab={route.tab || 'overview'} go={go} mobileNav={mobileNav}/>}
         <main className="main-page">
           {route.page === 'library' && <GlobalLibrary state={state} importAsset={importAsset} go={go}/>}
           {route.page === 'templates' && <div className="empty-page"><div className="eyebrow">CREATIVE TEMPLATES</div><h1>创意模板</h1><p>模板内容正在整理，暂未开放。</p><button className="btn" onClick={() => go('/dashboard')}>返回工作台</button></div>}
+          {route.page === 'settings' && <SettingsPage/>}
           {route.page === 'project' && (project ? <ProjectPage project={project} tab={route.tab || 'overview'} go={go} saveDoc={saveDoc} updateProject={updateProject} addToLibrary={addToLibrary} importAsset={importAsset} globalAssets={state.library} notify={setToast}/> : <div className="empty-page"><h1>找不到这个项目</h1><button className="btn" onClick={() => go('/dashboard')}>返回工作台</button></div>)}
         </main>
       </div>}
@@ -105,8 +115,8 @@ export default function App() {
   </>;
 }
 
-function Header({ go, project, onMenu }: { go: (path: string) => void; project?: Project; onMenu: () => void }) {
-  return <header className="topbar"><button className="mobile-menu" onClick={onMenu}>☰</button><button className="brand-mini" onClick={() => go('/dashboard')}>RB</button><button className="crumb" onClick={() => go('/dashboard')}>工作台</button><span className="crumb-sep">›</span><span className="crumb-current">{project?.name || '资产库'}</span><div className="top-spacer"/><span className="demo-pill">本机 Codex 版</span></header>;
+function Header({ go, project, page, onMenu }: { go: (path: string) => void; project?: Project; page: Route['page']; onMenu: () => void }) {
+  return <header className="topbar"><button className="mobile-menu" onClick={onMenu}>☰</button><button className="brand-mini" onClick={() => go('/dashboard')}>RB</button><button className="crumb" onClick={() => go('/dashboard')}>工作台</button><span className="crumb-sep">›</span><span className="crumb-current">{project?.name || (page === 'settings' ? '设置' : page === 'templates' ? '创意模板' : '资产库')}</span><div className="top-spacer"/><span className="demo-pill">本机 Codex 版</span><button className="settings-trigger" onClick={() => go('/settings')}>⚙ 设置</button></header>;
 }
 
 function Dashboard({ projects, go, create, openNovel, onDelete }: { projects: Project[]; go: (path: string) => void; create: (input: Partial<Project> & Pick<Project, 'kind' | 'name' | 'prompt'>) => void; openNovel: () => void; onDelete: (id: string) => void }) {
@@ -127,7 +137,7 @@ function Dashboard({ projects, go, create, openNovel, onDelete }: { projects: Pr
       <div className="recent-title">最近项目</div><div className="recent-list">{projects.length ? projects.map(p => <div className="recent-item" key={p.id}><button className="recent-link" onClick={() => go(`/p/${p.id}/${p.kind === 'novel' ? 'overview' : 'outline'}`)}><span className="recent-icon">{p.kind === 'novel' ? '文' : '创'}</span><span className="recent-copy"><strong>{p.name}</strong><small>{p.kind === 'novel' ? p.genre || '小说项目' : `${p.docs.script.episodes.length} 条剧本`} · {new Date(p.updatedAt).toLocaleDateString('zh-CN')}</small></span></button><button className="recent-delete" title="删除项目" onClick={() => onDelete(p.id)}>×</button></div>) : <p className="sidebar-empty">还没有项目，从一个创意开始吧。</p>}</div>
       <button className="sidebar-create" onClick={openNovel}>＋ 小说项目</button>
     </aside>
-    <main className="dash-main"><div className="dash-top"><span>✦ 独立创作，从灵感到分镜</span><span className="demo-pill">本机 Codex 版</span></div><div className="hero-wrap">
+    <main className="dash-main"><div className="dash-top"><span>✦ 独立创作，从灵感到分镜</span><div className="dash-top-actions"><span className="demo-pill">本机 Codex 版</span><button className="settings-trigger" onClick={() => go('/settings')}>⚙ 设置</button></div></div><div className="hero-wrap">
       <div className="hero-art"><div className="hero-frame frame-left"><span>SCENE 01</span></div><div className="hero-frame frame-center"><div className="reel-disc"/><span>YOUR STORY</span></div><div className="hero-frame frame-right"><span>TAKE 02</span></div></div>
       <div className="hero-eyebrow">✦ Reelbench · AI 影视创作工作台</div><h1>把脑海里的画面，<br/>交给 Reelbench 拍出来</h1><p className="hero-subtitle">输入一个镜头、一段故事或完整创意。我们会先确认创作方案，再按项目需要生成剧本、角色、美术和分镜。</p>
       <div className="composer"><textarea placeholder="输入你的镜头、画面或故事；也可以粘贴参考图开始创作" value={prompt} onChange={e => setPrompt(e.target.value)} onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit(); }}/><div className="composer-bottom"><label className="reference-button">＋ <span>参考内容<small>创建后进入项目资产库</small></span><input type="file" accept="image/*" multiple onChange={e => addImages(e.target.files)}/></label><span className="composer-note">创意项目<small>支持单条或多条</small></span><div className="segmented"><button className={ratio === '16:9' ? 'selected' : ''} onClick={() => setRatio('16:9')}>16:9</button><button className={ratio === '9:16' ? 'selected' : ''} onClick={() => setRatio('9:16')}>9:16</button></div><label className="check-pill"><input type="checkbox" checked={needCast} onChange={e => setNeedCast(e.target.checked)}/> 需要角色</label><label className="check-pill"><input type="checkbox" checked={needArt} onChange={e => setNeedArt(e.target.checked)}/> 需要美术</label><button className="send-button" disabled={!prompt.trim()} onClick={submit}>↑</button></div>{images.length > 0 && <div className="image-previews">{images.map((src, i) => <div key={i}><img src={src}/><button onClick={() => setImages(v => v.filter((_, j) => j !== i))}>×</button></div>)}</div>}{imageError && <p className="field-error">{imageError}</p>}</div>
@@ -210,7 +220,7 @@ function ProjectPage({ project, tab, go, saveDoc, updateProject, addToLibrary, i
       {['queued', 'running'].includes(job.status) && <button className="btn" onClick={cancel}>取消任务</button>}
       {['failed', 'cancelled'].includes(job.status) && <button className="btn" onClick={() => { sessionStorage.removeItem(storageKey); setJob(null); }}>关闭</button>}
     </section>}
-    {tab === 'overview' && <Overview project={project} go={go}/>}
+    {tab === 'overview' && <><Overview project={project} go={go}/>{project.kind === 'novel' && <ReimportNovel project={project} updateProject={updateProject} notify={notify}/>}</>}
     {key === 'outline' && <OutlinePage project={project} save={value => saveDoc(project, 'outline', value)} regenerate={() => doRegenerate('outline')}/>}
     {key === 'script' && <ScriptPage project={project} save={value => saveDoc(project, 'script', value)} regenerate={() => doRegenerate('script')} notify={notify}/>}
     {key === 'cast' && <CastPage project={project} save={value => saveDoc(project, 'cast', value)} regenerate={() => doRegenerate('cast')} addToLibrary={addToLibrary}/>}
@@ -226,6 +236,40 @@ function Field({ label, value, onChange, rows = 3 }: { label: string; value: str
 function SimulationBadge() { return <span className="simulation-badge">出图 / 出片模拟</span>; }
 
 function Overview({ project, go }: { project: Project; go: (path: string) => void }) { const metrics = [{ key: 'outline', number: '01', label: '大纲', summary: `${project.docs.outline.episodes.length} 集 · ${project.docs.outline.retain.length} 项保留` }, { key: 'cast', number: '02', label: '角色', summary: `${project.docs.cast.length} 个角色` }, { key: 'art', number: '03', label: '美术', summary: `${project.docs.art.scenes.length} 个场景 · ${project.docs.art.props.length} 个道具` }, { key: 'script', number: '04', label: '剧本', summary: `${project.docs.script.episodes.length} 集 · ${project.docs.script.episodes.reduce((n, e) => n + e.scenes.length, 0)} 场` }, { key: 'storyboard', number: '05', label: '分镜', summary: `${project.docs.storyboard.shots.length} 个镜头` }]; return <><PageHeading stage="工作台 · 项目总览" title={project.name} subtitle="从大纲到分镜，创作内容都可以编辑。每次保存都会留下版本，随时可以在变更里恢复。"/><div className="overview-meta"><span>小说原文：{project.sourceName || '未上传'}</span><span>题材：{project.genre || '未设置'}</span><span>改编幅度：{project.adaptation}</span><span>画面比例：{project.ratio}</span></div><div className="workflow"><div className="workflow-label">创作流程 · FIVE STAGES</div>{metrics.map(m => <button key={m.key} className="workflow-card" onClick={() => go(`/p/${project.id}/${m.key}`)}><b>{m.number}</b><span><strong>{m.label}</strong><small>{m.summary}</small></span><em>进入 →</em></button>)}</div></>; }
+
+function ReimportNovel({ project, updateProject, notify }: { project: Project; updateProject: (id: string, change: (project: Project) => Project) => void; notify: (message: string) => void }) {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function reimport(file: File | undefined) {
+    if (!file) return;
+    setError('');
+    if (!/\.(txt|md|markdown|html|htm)$/i.test(file.name)) return setError('仅支持 TXT、Markdown 或 HTML 文件。');
+    if (file.size > 20 * 1024 * 1024) return setError('文件不得超过 20 MB。');
+    setBusy(true);
+    try {
+      const sourceText = (await readFile(file)).trim();
+      if (!sourceText) throw new Error('小说文件为空。');
+      if (!window.confirm('重新导入会根据原文重建大纲、剧本、角色、美术和分镜。当前版本会保存在「变更」中，确定继续吗？')) return;
+      updateProject(project.id, p => {
+        const nextDocs = makeDocs(sourceText, p.episodeCount, 'novel');
+        const keys: DocKey[] = ['outline', 'script', 'cast', 'art', 'storyboard'];
+        for (const section of keys) {
+          p.changes.unshift({ id: uid(), at: Date.now(), section, label: '重新导入小说原文', before: clone(p.docs[section]), beforeArtifact: p.skillArtifacts?.[section] ? clone(p.skillArtifacts[section]) : undefined, beforeGeneratedSource: section === 'outline' ? p.generatedSource : undefined });
+        }
+        p.docs = nextDocs;
+        p.sourceName = file.name;
+        p.sourceText = sourceText;
+        p.prompt = sourceText.slice(0, 300);
+        p.generatedSource = undefined;
+        p.skillArtifacts = {};
+        return p;
+      });
+      notify('原文已重新导入；旧内容可在「变更」中恢复。');
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
+  }
+  return <section className="panel reimport-panel"><h2>重新导入小说原文</h2><p>如原文或占位草稿出现乱码，请选择原始文件重新导入。支持 UTF-8、GB18030 和带编码标记的 UTF-16；当前创作内容会保留在「变更」中。</p><label className="btn small">{busy ? '正在读取…' : '选择原始文件'}<input type="file" disabled={busy} accept=".txt,.md,.markdown,.html,.htm" onChange={e => { void reimport(e.target.files?.[0]); e.target.value = ''; }}/></label>{error && <p className="field-error">{error}</p>}</section>;
+}
 
 function OutlinePage({ project, save, regenerate }: { project: Project; save: (value: Project['docs']['outline']) => void; regenerate: () => void }) {
   const [draft, setDraft] = useState(() => clone(project.docs.outline));

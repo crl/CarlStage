@@ -8,12 +8,12 @@ import { spawn } from 'node:child_process';
 import { Codex } from '@openai/codex-sdk';
 import { mapSkillResult } from './map.mjs';
 import { singleEpisodeOutlineWarning } from './quality.mjs';
+import { loadSettings, normalizeSettings, saveSettings, testComfyConnection, validateWorkflow } from './settings.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RUNS = join(ROOT, '.local-runs');
 const VENDOR = join(ROOT, 'vendor', 'shuohao-skills-pinned', 'skills');
 const VERSION = 'ca1c30be78bde70fa84d3817453c71e0ef25b751';
-const MODEL = process.env.REELBENCH_CODEX_MODEL || 'gpt-5.5';
 const SKILLS = { outline: 'novel-outline', cast: 'novel-characters', art: 'novel-art', script: 'novel-script', storyboard: 'novel-storyboard' };
 const NAMES = { outline: 'outline', cast: 'cast', art: 'art', script: 'script', storyboard: 'storyboard' };
 const jobs = new Map();
@@ -22,6 +22,7 @@ const globalCodex = process.platform === 'win32' && process.env.APPDATA
   ? join(process.env.APPDATA, 'npm', 'node_modules', '@openai', 'codex', 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe')
   : '';
 const codex = new Codex(globalCodex && existsSync(globalCodex) ? { codexPathOverride: globalCodex } : undefined);
+let settings = await loadSettings();
 
 function send(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -94,10 +95,11 @@ function validate(job, file) {
   });
 }
 async function execute(job, phase = 'final') {
+  const timeout = setTimeout(() => { job.timedOut = true; job.controller.abort(); }, job.config.timeoutMinutes * 60_000);
   try {
     job.status = 'running'; job.phase = phase; job.message = phase === 'skeleton' ? '正在生成大纲骨架…' : 'Codex 正在执行 skill…';
     const workspace = job.workspace || await prepare(job);
-    job.thread ||= codex.startThread({ model: MODEL, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'workspace-write', approvalPolicy: 'never', networkAccessEnabled: false });
+    job.thread ||= codex.startThread({ model: job.config.model, modelReasoningEffort: job.config.reasoningEffort, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'workspace-write', approvalPolicy: 'never', networkAccessEnabled: false });
     await runTurn(job, promptFor(job, phase));
     if (job.controller.signal.aborted) throw new Error('任务已取消。');
     if (phase === 'skeleton') {
@@ -117,16 +119,17 @@ async function execute(job, phase = 'final') {
     job.validationWarning = singleEpisodeException ? '单集项目无法满足“大爆点早于最终集”的结构门；其余质量门已通过。' : undefined;
     job.message = singleEpisodeException ? '已生成，存在单集结构质量门例外，请审阅后决定是否写入。' : '已生成并通过校验，请预览后确认写入。';
   } catch (e) {
-    job.status = job.controller.signal.aborted ? 'cancelled' : 'failed';
-    job.error = e instanceof Error ? e.message : String(e);
+    job.status = job.timedOut ? 'failed' : job.controller.signal.aborted ? 'cancelled' : 'failed';
+    job.error = job.timedOut ? `Codex 任务超过 ${job.config.timeoutMinutes} 分钟。` : e instanceof Error ? e.message : String(e);
   } finally {
+    clearTimeout(timeout);
     if (job.status !== 'awaiting_confirmation') activeProjects.delete(job.project.id);
   }
 }
 async function consult(project, mode, message) {
   const workspace = projectPath(project.id);
   await mkdir(workspace, { recursive: true });
-  const thread = codex.startThread({ model: MODEL, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'read-only', approvalPolicy: 'never', networkAccessEnabled: false });
+  const thread = codex.startThread({ model: settings.codex.model, modelReasoningEffort: settings.codex.reasoningEffort, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'read-only', approvalPolicy: 'never', networkAccessEnabled: false });
   const schema = mode === 'edit' ? { type: 'object', properties: { reply: { type: 'string' }, scene: { type: 'object', properties: { title: { type: 'string' }, location: { type: 'string' }, description: { type: 'string' }, beats: { type: 'array', items: { type: 'string' } } }, required: ['title', 'location', 'description', 'beats'], additionalProperties: false } }, required: ['reply', 'scene'], additionalProperties: false } : { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'], additionalProperties: false };
   const result = await thread.run(`你是影视创作顾问。项目与当前剧本 JSON：${JSON.stringify({ name: project.name, prompt: project.prompt, script: project.docs.script }).slice(0, 100000)}。用户请求：${message}。${mode === 'edit' ? '给出修改建议和一个具体的新增场景供预览，不写入文件。' : '讨论并给出具体建议，不写入文件。'}使用中文。`, { outputSchema: schema });
   return JSON.parse(result.finalResponse);
@@ -136,6 +139,27 @@ createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://127.0.0.1');
     if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { ok: true, skillVersion: VERSION });
+    if (req.method === 'GET' && url.pathname === '/api/settings') return send(res, 200, settings);
+    if (req.method === 'PUT' && url.pathname === '/api/settings') {
+      try { settings = await saveSettings(await body(req)); return send(res, 200, settings); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/settings/codex/test') {
+      try {
+        const candidate = normalizeSettings({ ...settings, codex: { ...settings.codex, ...await body(req) } }).codex;
+        const thread = codex.startThread({ model: candidate.model, modelReasoningEffort: candidate.reasoningEffort, workingDirectory: ROOT, sandboxMode: 'read-only', approvalPolicy: 'never', networkAccessEnabled: false });
+        const result = await thread.run('只回复 OK，不读取或修改文件。', { signal: AbortSignal.timeout(180_000) });
+        return send(res, 200, { ok: true, model: candidate.model, reply: result.finalResponse.slice(0, 100) });
+      } catch (e) { return send(res, 502, { error: `Codex 测试失败：${e instanceof Error ? e.message : String(e)}` }); }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/settings/comfy/test') {
+      try { const { baseUrl } = await body(req); return send(res, 200, await testComfyConnection(baseUrl)); }
+      catch (e) { return send(res, 502, { error: `ComfyUI 连接失败：${e instanceof Error ? e.message : String(e)}` }); }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/settings/workflow/check') {
+      try { const { workflowJson, promptNodeId, promptInput } = await body(req); return send(res, 200, validateWorkflow(workflowJson, promptNodeId, promptInput)); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
     if (req.method === 'POST' && url.pathname === '/api/jobs') {
       const { project, section } = await body(req);
       if (!project || !SKILLS[section] || typeof project.id !== 'string') return send(res, 400, { error: '生成请求无效。' });
@@ -143,7 +167,7 @@ createServer(async (req, res) => {
       if (activeProjects.has(project.id)) return send(res, 409, { error: '该项目已有运行中的任务。' });
       if (['cast', 'art', 'script'].includes(section) && !project.skillArtifacts?.outline?.raw) return send(res, 400, { error: '请先用 Codex 生成并确认大纲，再生成此阶段。' });
       if (section === 'storyboard' && !project.skillArtifacts?.script?.raw) return send(res, 400, { error: '请先用 Codex 生成并确认剧本，再生成分镜。' });
-      const job = { id: randomUUID(), project, section, status: 'queued', message: '等待启动…', controller: new AbortController() };
+      const job = { id: randomUUID(), project, section, status: 'queued', message: '等待启动…', controller: new AbortController(), config: { ...settings.codex } };
       jobs.set(job.id, job); activeProjects.add(project.id); void execute(job, section === 'outline' ? 'skeleton' : 'final');
       return send(res, 202, publicJob(job));
     }

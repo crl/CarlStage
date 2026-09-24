@@ -31,3 +31,13 @@ export const continueJob = (id: string) => request<Job>(`/jobs/${id}/continue`, 
 export const cancelJob = (id: string) => request<Job>(`/jobs/${id}/cancel`, { method: 'POST' });
 export const removeProjectRuns = (id: string) => request<{ ok: boolean }>(`/projects/${id}`, { method: 'DELETE' });
 export const consult = (project: Project, mode: 'talk' | 'edit', message: string) => request<{ reply: string; scene?: Project['docs']['script']['episodes'][number]['scenes'][number] }>('/consult', { method: 'POST', body: JSON.stringify({ project, mode, message }) });
+
+export type Settings = {
+  codex: { model: string; reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh'; timeoutMinutes: number };
+  comfy: { baseUrl: string; workflowJson: string; promptNodeId: string; promptInput: string; seedNodeId: string; seedInput: string; width: number; height: number; steps: number; cfg: number; seed: number };
+};
+export const getSettings = () => request<Settings>('/settings');
+export const saveSettings = (settings: Settings) => request<Settings>('/settings', { method: 'PUT', body: JSON.stringify(settings) });
+export const testComfy = (baseUrl: string) => request<{ ok: boolean; version: string; devices: string[] }>('/settings/comfy/test', { method: 'POST', body: JSON.stringify({ baseUrl }) });
+export const testCodex = (codex: Settings['codex']) => request<{ ok: boolean; model: string; reply: string }>('/settings/codex/test', { method: 'POST', body: JSON.stringify(codex) });
+export const checkWorkflow = (workflowJson: string, promptNodeId: string, promptInput: string) => request<{ nodeCount: number }>('/settings/workflow/check', { method: 'POST', body: JSON.stringify({ workflowJson, promptNodeId, promptInput }) });
