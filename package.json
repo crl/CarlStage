@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "server": "node server/index.mjs",
-    "test": "node --test server/map.test.mjs server/settings.test.mjs",
+    "test": "node --test server/map.test.mjs server/settings.test.mjs server/media.test.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0"
   },

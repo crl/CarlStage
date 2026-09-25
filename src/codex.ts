@@ -34,8 +34,14 @@ export const consult = (project: Project, mode: 'talk' | 'edit', message: string
 
 export type Settings = {
   codex: { model: string; reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh'; timeoutMinutes: number };
-  comfy: { baseUrl: string; workflowJson: string; promptNodeId: string; promptInput: string; seedNodeId: string; seedInput: string; width: number; height: number; steps: number; cfg: number; seed: number };
+  comfy: { baseUrl: string; image: MediaWorkflow & { width: number; height: number; steps: number; cfg: number; widthNodeId: string; widthInput: string; heightNodeId: string; heightInput: string; stepsNodeId: string; stepsInput: string; cfgNodeId: string; cfgInput: string }; video: MediaWorkflow & { duration: number; durationNodeId: string; durationInput: string } };
 };
+export type MediaWorkflow = { workflowJson: string; promptNodeId: string; promptInput: string; referenceNodeId: string; referenceInput: string; seedNodeId: string; seedInput: string; seed: number };
+export type MediaJob = { id: string; kind: 'image' | 'video'; status: 'queued' | 'running' | 'completed' | 'failed'; message?: string; error?: string; result?: { url: string; mime: string; prompt: string; generatedAt: number } };
+export const createMediaJob = (input: { projectId: string; kind: 'image' | 'video'; prompt: string; source?: string; duration?: number }) => request<MediaJob>('/media/jobs', { method: 'POST', body: JSON.stringify(input) });
+export const getMediaJob = (id: string) => request<MediaJob>(`/media/jobs/${id}`);
+export const discardMediaJob = (id: string) => request<{ ok: boolean }>(`/media/jobs/${id}`, { method: 'POST' });
+export const copyMediaToLibrary = (url: string) => request<{ url: string }>('/media/library-copy', { method: 'POST', body: JSON.stringify({ url }) });
 export const getSettings = () => request<Settings>('/settings');
 export const saveSettings = (settings: Settings) => request<Settings>('/settings', { method: 'PUT', body: JSON.stringify(settings) });
 export const testComfy = (baseUrl: string) => request<{ ok: boolean; version: string; devices: string[] }>('/settings/comfy/test', { method: 'POST', body: JSON.stringify({ baseUrl }) });

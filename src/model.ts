@@ -6,7 +6,7 @@ export type Outline = { core: string; retain: string[]; cut: string[]; merge: st
 export type Script = { episodes: { title: string; duration: number; hook: string; ending: string; scenes: { title: string; location: string; description: string; beats: string[] }[] }[] };
 export type Character = { id: string; name: string; role: string; description: string; arc: string; image?: string };
 export type Art = { scenes: Asset[]; props: Asset[]; style: string };
-export type Shot = { id: string; scene: string; framing: string; action: string; duration: number; image?: string };
+export type Shot = { id: string; scene: string; framing: string; action: string; duration: number; image?: string; video?: string };
 export type Storyboard = { shots: Shot[] };
 export type Docs = { outline: Outline; script: Script; cast: Character[]; art: Art; storyboard: Storyboard };
 export type Change = { id: string; at: number; section: DocKey; label: string; before: Docs[DocKey]; beforeArtifact?: { raw: unknown; skillVersion: string; generatedAt: number }; beforeGeneratedSource?: string };
@@ -16,12 +16,6 @@ export type Store = { projects: Project[]; library: Asset[]; deletedProjectIds?:
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const clone = <T,>(value: T): T => structuredClone(value);
 const short = (value: string, size = 32) => value.replace(/\s+/g, ' ').trim().slice(0, size);
-export function mockImage(label: string): string {
-  const safe = label.replace(/[<>&"']/g, '').slice(0, 24);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#5b594e"/><stop offset=".48" stop-color="#29342e"/><stop offset="1" stop-color="#151917"/></linearGradient><radialGradient id="r"><stop stop-color="#c2a87b" stop-opacity=".45"/><stop offset="1" stop-color="#c2a87b" stop-opacity="0"/></radialGradient></defs><rect width="800" height="520" fill="url(#g)"/><circle cx="570" cy="190" r="185" fill="url(#r)"/><path d="M0 415 Q220 270 390 390 T800 285 V520 H0" fill="#111816" opacity=".67"/><path d="M0 460 Q190 350 360 450 T800 345 V520 H0" fill="#0c1210" opacity=".75"/><text x="44" y="65" fill="#dbc8a4" font-family="serif" font-size="17" letter-spacing="4">REELBENCH · DEMO FRAME</text><text x="44" y="470" fill="#e8ddc8" font-family="sans-serif" font-size="29">${safe}</text><text x="44" y="495" fill="#a99d85" font-family="sans-serif" font-size="12">本地模拟画面 · 非 AI 实际出图</text></svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
 export function makeDocs(seed: string, count: number, kind: ProjectKind, version = 0): Docs {
   const topic = short(seed, 36) || '一个尚未命名的故事';
   const suffix = version ? ` · 方案 ${version + 1}` : '';

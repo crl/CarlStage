@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile, cp, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { mkdir, writeFile, readFile, cp, rm, stat } from 'node:fs/promises';
+import { existsSync, createReadStream } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -9,6 +9,7 @@ import { Codex } from '@openai/codex-sdk';
 import { mapSkillResult } from './map.mjs';
 import { singleEpisodeOutlineWarning } from './quality.mjs';
 import { loadSettings, normalizeSettings, saveSettings, testComfyConnection, validateWorkflow } from './settings.mjs';
+import { createMediaJob, getMediaJob, mediaFilePath, copyMediaToLibrary, discardMediaJobResult, cancelProjectMediaJobs, removeProjectMedia } from './media.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RUNS = join(ROOT, '.local-runs');
@@ -160,6 +161,35 @@ createServer(async (req, res) => {
       try { const { workflowJson, promptNodeId, promptInput } = await body(req); return send(res, 200, validateWorkflow(workflowJson, promptNodeId, promptInput)); }
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
+    if (req.method === 'POST' && url.pathname === '/api/media/jobs') {
+      try { return send(res, 202, createMediaJob(settings, await body(req))); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    const mediaJobMatch = url.pathname.match(/^\/api\/media\/jobs\/([a-f0-9-]{36})$/);
+    if (req.method === 'GET' && mediaJobMatch) { const job = getMediaJob(mediaJobMatch[1]); return job ? send(res, 200, job) : send(res, 404, { error: '任务不存在或服务已重启。' }); }
+    if (req.method === 'POST' && mediaJobMatch) { try { await discardMediaJobResult(mediaJobMatch[1]); return send(res, 200, { ok: true }); } catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); } }
+    if (req.method === 'POST' && url.pathname === '/api/media/library-copy') {
+      try { const { url: sourceUrl } = await body(req); return send(res, 200, { url: await copyMediaToLibrary(sourceUrl) }); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    const mediaFileMatch = url.pathname.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(?:png|jpg|jpeg|webp|mp4|webm|mov))$/);
+    if (req.method === 'GET' && mediaFileMatch) {
+      try {
+        const path = mediaFilePath(mediaFileMatch[1], mediaFileMatch[2]);
+        const info = await stat(path);
+        const ext = mediaFileMatch[2].split('.').pop();
+        const mime = ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' })[ext];
+        const range = req.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
+        if (range) {
+          const start = Number(range[1]); const end = range[2] ? Math.min(Number(range[2]), info.size - 1) : info.size - 1;
+          if (start >= info.size || end < start) { res.writeHead(416, { 'content-range': `bytes */${info.size}` }); res.end(); return; }
+          res.writeHead(206, { 'content-type': mime, 'content-length': end - start + 1, 'content-range': `bytes ${start}-${end}/${info.size}`, 'accept-ranges': 'bytes', 'cache-control': 'private, max-age=3600' });
+          createReadStream(path, { start, end }).pipe(res); return;
+        }
+        res.writeHead(200, { 'content-type': mime, 'content-length': info.size, 'accept-ranges': 'bytes', 'cache-control': 'private, max-age=3600' });
+        createReadStream(path).pipe(res); return;
+      } catch { return send(res, 404, { error: '本机媒体文件不存在。' }); }
+    }
     if (req.method === 'POST' && url.pathname === '/api/jobs') {
       const { project, section } = await body(req);
       if (!project || !SKILLS[section] || typeof project.id !== 'string') return send(res, 400, { error: '生成请求无效。' });
@@ -188,7 +218,9 @@ createServer(async (req, res) => {
       const id = projectMatch[1];
       for (const job of jobs.values()) if (job.project.id === id) { job.controller.abort(); jobs.delete(job.id); }
       activeProjects.delete(id);
+      cancelProjectMediaJobs(id);
       await rm(projectPath(id), { recursive: true, force: true });
+      await removeProjectMedia(id);
       return send(res, 200, { ok: true });
     }
     send(res, 404, { error: '接口不存在。' });
