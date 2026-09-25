@@ -10,29 +10,37 @@ export function mapSkillResult(section, raw, project) {
     cut: list(raw.adaptation?.cut).map(itemText),
     merge: list(raw.adaptation?.merge).map(itemText),
     risks: list(raw.adaptation?.risks).map(v => str(v?.plan || v?.what || v)),
-    episodes: list(raw.episodes).map((ep, i) => ({ title: `第 ${ep.ep || i + 1} 集`, summary: str(ep.synopsis), hook: str(ep.hook || ep.suspense) }))
+    episodes: list(raw.episodes).map((ep, i) => ({ title: `第 ${ep.ep || i + 1} 集`, summary: str(ep.synopsis), hook: str(ep.hook || ep.suspense), crowdPlan: str(ep.crowdPlan), warnings: list(ep.warnings).map(str) })),
+    beats: list(raw.beats).map((beat, i) => ({ id: str(beat.id) || `B${i + 1}`, type: str(beat.type), episode: Number(beat.episode) || 1, setup: str(beat.setup), payoff: str(beat.payoff) })),
+    characters: list(raw.characters).map((character, i) => ({ id: str(character.id) || `C${i + 1}`, name: str(character.name), role: str(character.role), arc: str(character.arc), source: str(character.from) })),
+    scenes: list(raw.scenes).map((scene, i) => ({ id: str(scene.id) || `S${i + 1}`, name: str(scene.name), primary: !!scene.primary }))
   };
   if (section === 'cast') return list(raw.characters).map((c, i) => ({
     id: str(c.id) || `C${String(i + 1).padStart(2, '0')}`,
     name: str(c.name), role: str(c.importance || c.role),
     description: str(c.oneLiner || c.persona?.identity || c.persona?.appearance),
-    arc: str(c.persona?.arc || c.arc)
+    arc: str(c.persona?.arc || c.arc), aliases: list(c.aliases).map(str),
+    persona: c.persona && typeof c.persona === 'object' ? c.persona : undefined,
+    imagePrompt: str(c.image?.prompt), imageStyle: str(c.image?.style),
+    voice: c.voice && typeof c.voice === 'object' ? c.voice : undefined
   }));
   if (section === 'art') return {
     style: project.style || '',
-    scenes: list(raw.scenes).map((s, i) => ({ id: str(s.id) || `S${i + 1}`, type: 'scene', name: str(s.name), description: str(s.summary || s.image?.prompt) })),
-    props: list(raw.props).map((p, i) => ({ id: str(p.id) || `P${i + 1}`, type: 'prop', name: str(p.name), description: str(p.summary || p.image?.prompt) }))
+    scenes: list(raw.scenes).map((s, i) => ({ id: str(s.id) || `S${i + 1}`, type: 'scene', name: str(s.name), description: str(s.summary || s.image?.prompt), primary: !!s.primary, anchors: list(s.anchors), states: list(s.lighting), prompt: str(s.image?.prompt), negativePrompt: str(s.image?.negativePrompt) })),
+    props: list(raw.props).map((p, i) => ({ id: str(p.id) || `P${i + 1}`, type: 'prop', name: str(p.name), description: str(p.summary || p.image?.prompt), anchors: list(p.anchors), states: list(p.states), scale: str(p.scale), prompt: str(p.image?.prompt), negativePrompt: str(p.image?.negativePrompt) }))
   };
   if (section === 'script') return { episodes: list(raw.episodes).map((ep, i) => ({
     title: `第 ${ep.ep || i + 1} 集`, duration: Number(ep.targetSeconds) || 120,
-    hook: str(ep.hook), ending: str(ep.cliff),
+    hook: str(ep.hook), ending: str(ep.cliff), beatsClaimed: list(ep.beatsClaimed).map(str),
     scenes: list(ep.scenes).map((s, j) => ({
       title: str(s.title) || `场景 ${j + 1}`, location: str(s.location || s.sceneId || s.lighting),
-      description: str(s.summary), beats: list(s.flow).map(b => str(b.action || (b.line ? `${b.speaker || ''}：${b.line}` : ''))).filter(Boolean)
+      description: str(s.summary), beats: list(s.flow).map(b => str(b.action || (b.line ? `${b.speaker || ''}：${b.line}` : ''))).filter(Boolean),
+      sceneId: str(s.sceneId), lighting: str(s.lighting), characters: list(s.characters).map(str), props: list(s.props).map(str), flow: list(s.flow).filter(b => str(b.action || (b.line ? `${b.speaker || ''}：${b.line}` : ''))).map(b => ({ ...b, seconds: Number(b.seconds) > 0 ? Number(b.seconds) : undefined }))
     }))
   })) };
   if (section === 'storyboard') return { shots: list(raw.episodes).flatMap(ep => list(ep.segments).flatMap(segment => list(segment.cuts).map((cut, i) => ({
-    id: `${segment.id || ep.ep}-${i + 1}`, scene: str(segment.id), framing: str(cut.size), action: str(cut.frame || cut.shot), duration: Number(cut.seconds) || 4
+    id: `${segment.id || ep.ep}-${i + 1}`, scene: str(segment.id), framing: str(cut.size), action: str(cut.frame || cut.shot), duration: Number(cut.seconds) || 4,
+    episode: Number(ep.ep) || 1, segmentId: str(segment.id), camera: str(cut.camera), characters: list(cut.characters).map(str), props: list(cut.props).map(str), beats: list(cut.beats).map(Number), videoPrompt: str(segment.h3Prompt)
   })))) };
   throw new Error('未知的生成阶段。');
 }

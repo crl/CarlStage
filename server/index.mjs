@@ -6,32 +6,33 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { Codex } from '@openai/codex-sdk';
+import { ollamaChat } from './ollama.mjs';
 import { mapSkillResult } from './map.mjs';
 import { singleEpisodeOutlineWarning } from './quality.mjs';
-import { loadSettings, normalizeSettings, saveSettings, testComfyConnection, validateWorkflow } from './settings.mjs';
-import { createMediaJob, getMediaJob, mediaFilePath, copyMediaToLibrary, discardMediaJobResult, cancelProjectMediaJobs, removeProjectMedia } from './media.mjs';
+import { loadSettings, normalizeSettings, saveSettings, publicSettings, getPreset, checkComfyWorkflow, testComfyConnection, validateWorkflow } from './settings.mjs';
+import { createMediaJob, getMediaJob, cancelMediaJob, mediaFilePath, copyMediaToLibrary, uploadLibraryMedia, discardMediaJobResult, cancelProjectMediaJobs, removeProjectMedia, removeMediaUrl } from './media.mjs';
+import { resolveCodexPath } from './codex-path.mjs';
+import { readStore, saveStore } from './store.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const RUNS = join(ROOT, '.local-runs');
+const RUNS = process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs');
 const VENDOR = join(ROOT, 'vendor', 'shuohao-skills-pinned', 'skills');
+const DIST = join(ROOT, 'dist');
 const VERSION = 'ca1c30be78bde70fa84d3817453c71e0ef25b751';
 const SKILLS = { outline: 'novel-outline', cast: 'novel-characters', art: 'novel-art', script: 'novel-script', storyboard: 'novel-storyboard' };
 const NAMES = { outline: 'outline', cast: 'cast', art: 'art', script: 'script', storyboard: 'storyboard' };
 const jobs = new Map();
 const activeProjects = new Set();
-const globalCodex = process.platform === 'win32' && process.env.APPDATA
-  ? join(process.env.APPDATA, 'npm', 'node_modules', '@openai', 'codex', 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe')
-  : '';
-const codex = new Codex(globalCodex && existsSync(globalCodex) ? { codexPathOverride: globalCodex } : undefined);
+const codexFor = config => new Codex({ codexPathOverride: resolveCodexPath(config) });
 let settings = await loadSettings();
 
 function send(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   res.end(JSON.stringify(value));
 }
-async function body(req) {
+async function body(req, limit = 25 * 1024 * 1024) {
   let size = 0; const chunks = [];
-  for await (const chunk of req) { size += chunk.length; if (size > 25 * 1024 * 1024) throw new Error('请求内容超过 25 MB。'); chunks.push(chunk); }
+  for await (const chunk of req) { size += chunk.length; if (size > limit) throw new Error('请求内容超过允许大小。'); chunks.push(chunk); }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 function publicJob(job) { const { controller, project, workspace, thread, ...visible } = job; return visible; }
@@ -67,6 +68,14 @@ function promptFor(job, phase) {
   return `${base} 用户已审阅并确认 output/outline-skeleton.md。请按已确认骨架完成原生大纲。${p.kind === 'idea' ? '使用已生成的 story-source.txt 作为扩写素材，同时保留 source.txt 原始创意。' : ''}`;
 }
 async function runTurn(job, prompt) {
+  if (job.config.provider === 'ollama') {
+    const skill = SKILLS[job.section];
+    await ollamaChat({ ...job.config, model: job.config.ollamaModel }, [
+      { role: 'system', content: `你是影视创作代理。先调用 read_file 阅读 .agents/skills/${skill}/SKILL.md 和所需文件，再用工具完成任务。推理强度：${job.config.reasoningEffort}。必须按 skill 要求运行脚本并写出目标文件。` },
+      { role: 'user', content: prompt },
+    ], { signal: job.controller.signal, workspace: job.workspace, skill, onMessage: value => { job.message = value.slice(-1200); } });
+    return;
+  }
   const stream = await job.thread.runStreamed(prompt, { signal: job.controller.signal });
   let completed = false;
   let lastError = '';
@@ -100,7 +109,7 @@ async function execute(job, phase = 'final') {
   try {
     job.status = 'running'; job.phase = phase; job.message = phase === 'skeleton' ? '正在生成大纲骨架…' : 'Codex 正在执行 skill…';
     const workspace = job.workspace || await prepare(job);
-    job.thread ||= codex.startThread({ model: job.config.model, modelReasoningEffort: job.config.reasoningEffort, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'workspace-write', approvalPolicy: 'never', networkAccessEnabled: false });
+    if (job.config.provider === 'codex') job.thread ||= codexFor(job.config).startThread({ model: job.config.model, modelReasoningEffort: job.config.reasoningEffort, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'workspace-write', approvalPolicy: 'never', networkAccessEnabled: false });
     await runTurn(job, promptFor(job, phase));
     if (job.controller.signal.aborted) throw new Error('任务已取消。');
     if (phase === 'skeleton') {
@@ -130,27 +139,36 @@ async function execute(job, phase = 'final') {
 async function consult(project, mode, message) {
   const workspace = projectPath(project.id);
   await mkdir(workspace, { recursive: true });
-  const thread = codex.startThread({ model: settings.codex.model, modelReasoningEffort: settings.codex.reasoningEffort, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'read-only', approvalPolicy: 'never', networkAccessEnabled: false });
+  const config = { ...settings.codex };
+  const thread = config.provider === 'codex' ? codexFor(config).startThread({ model: config.model, modelReasoningEffort: config.reasoningEffort, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'read-only', approvalPolicy: 'never', networkAccessEnabled: false }) : null;
   const schema = mode === 'edit' ? { type: 'object', properties: { reply: { type: 'string' }, scene: { type: 'object', properties: { title: { type: 'string' }, location: { type: 'string' }, description: { type: 'string' }, beats: { type: 'array', items: { type: 'string' } } }, required: ['title', 'location', 'description', 'beats'], additionalProperties: false } }, required: ['reply', 'scene'], additionalProperties: false } : { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'], additionalProperties: false };
-  const result = await thread.run(`你是影视创作顾问。项目与当前剧本 JSON：${JSON.stringify({ name: project.name, prompt: project.prompt, script: project.docs.script }).slice(0, 100000)}。用户请求：${message}。${mode === 'edit' ? '给出修改建议和一个具体的新增场景供预览，不写入文件。' : '讨论并给出具体建议，不写入文件。'}使用中文。`, { outputSchema: schema });
-  return JSON.parse(result.finalResponse);
+  const prompt = `你是影视创作顾问。项目与当前剧本 JSON：${JSON.stringify({ name: project.name, prompt: project.prompt, script: project.docs.script }).slice(0, 100000)}。用户请求：${message}。${mode === 'edit' ? '给出修改建议和一个具体的新增场景供预览，不写入文件。' : '讨论并给出具体建议，不写入文件。'}使用中文。只返回符合此 JSON Schema 的 JSON：${JSON.stringify(schema)}`;
+  const output = thread ? (await thread.run(prompt, { outputSchema: schema })).finalResponse : await ollamaChat({ ...config, model: config.ollamaModel }, [{ role: 'user', content: prompt }], { signal: AbortSignal.timeout(config.timeoutMinutes * 60_000), json: true });
+  return JSON.parse(output);
 }
 
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://127.0.0.1');
     if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { ok: true, skillVersion: VERSION });
-    if (req.method === 'GET' && url.pathname === '/api/settings') return send(res, 200, settings);
+    if (req.method === 'GET' && url.pathname === '/api/store') return send(res, 200, await readStore());
+    if (req.method === 'PUT' && url.pathname === '/api/store') return send(res, 200, await saveStore(await body(req, 200 * 1024 * 1024)));
+    if (req.method === 'GET' && url.pathname === '/api/settings') return send(res, 200, publicSettings(settings));
     if (req.method === 'PUT' && url.pathname === '/api/settings') {
-      try { settings = await saveSettings(await body(req)); return send(res, 200, settings); }
+      try { const update = await body(req); settings = await saveSettings({ ...update, gptImage: { ...update.gptImage, apiKey: update.gptImage?.apiKey ?? settings.gptImage.apiKey } }); return send(res, 200, publicSettings(settings)); }
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    const presetMatch = url.pathname.match(/^\/api\/settings\/presets\/(image|imageEdit|video)$/);
+    if (req.method === 'GET' && presetMatch) return send(res, 200, getPreset(presetMatch[1]));
+    if (req.method === 'POST' && url.pathname === '/api/settings/presets/check') {
+      try { const { baseUrl, workflow } = await body(req); return send(res, 200, await checkComfyWorkflow(baseUrl, workflow)); }
+      catch (e) { return send(res, 502, { error: e instanceof Error ? e.message : String(e) }); }
     }
     if (req.method === 'POST' && url.pathname === '/api/settings/codex/test') {
       try {
         const candidate = normalizeSettings({ ...settings, codex: { ...settings.codex, ...await body(req) } }).codex;
-        const thread = codex.startThread({ model: candidate.model, modelReasoningEffort: candidate.reasoningEffort, workingDirectory: ROOT, sandboxMode: 'read-only', approvalPolicy: 'never', networkAccessEnabled: false });
-        const result = await thread.run('只回复 OK，不读取或修改文件。', { signal: AbortSignal.timeout(180_000) });
-        return send(res, 200, { ok: true, model: candidate.model, reply: result.finalResponse.slice(0, 100) });
+        const reply = candidate.provider === 'ollama' ? await ollamaChat({ ...candidate, model: candidate.ollamaModel }, [{ role: 'user', content: '只回复 OK。' }], { signal: AbortSignal.timeout(180_000) }) : (await codexFor(candidate).startThread({ model: candidate.model, modelReasoningEffort: candidate.reasoningEffort, workingDirectory: ROOT, sandboxMode: 'read-only', approvalPolicy: 'never', networkAccessEnabled: false }).run('只回复 OK，不读取或修改文件。', { signal: AbortSignal.timeout(180_000) })).finalResponse;
+        return send(res, 200, { ok: true, model: candidate.provider === 'ollama' ? candidate.ollamaModel : candidate.model, reply: reply.slice(0, 100) });
       } catch (e) { return send(res, 502, { error: `Codex 测试失败：${e instanceof Error ? e.message : String(e)}` }); }
     }
     if (req.method === 'POST' && url.pathname === '/api/settings/comfy/test') {
@@ -166,10 +184,20 @@ createServer(async (req, res) => {
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
     const mediaJobMatch = url.pathname.match(/^\/api\/media\/jobs\/([a-f0-9-]{36})$/);
+    const mediaCancelMatch = url.pathname.match(/^\/api\/media\/jobs\/([a-f0-9-]{36})\/cancel$/);
+    if (req.method === 'POST' && mediaCancelMatch) { try { return send(res, 200, await cancelMediaJob(mediaCancelMatch[1])); } catch (e) { return send(res, 404, { error: e instanceof Error ? e.message : String(e) }); } }
     if (req.method === 'GET' && mediaJobMatch) { const job = getMediaJob(mediaJobMatch[1]); return job ? send(res, 200, job) : send(res, 404, { error: '任务不存在或服务已重启。' }); }
     if (req.method === 'POST' && mediaJobMatch) { try { await discardMediaJobResult(mediaJobMatch[1]); return send(res, 200, { ok: true }); } catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); } }
     if (req.method === 'POST' && url.pathname === '/api/media/library-copy') {
       try { const { url: sourceUrl } = await body(req); return send(res, 200, { url: await copyMediaToLibrary(sourceUrl) }); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/media/library-upload') {
+      try { return send(res, 201, { url: await uploadLibraryMedia(req, url.searchParams.get('kind')) }); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/media/delete') {
+      try { const { url: mediaUrl } = await body(req); await removeMediaUrl(mediaUrl); return send(res, 200, { ok: true }); }
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
     const mediaFileMatch = url.pathname.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(?:png|jpg|jpeg|webp|mp4|webm|mov))$/);
@@ -218,11 +246,22 @@ createServer(async (req, res) => {
       const id = projectMatch[1];
       for (const job of jobs.values()) if (job.project.id === id) { job.controller.abort(); jobs.delete(job.id); }
       activeProjects.delete(id);
-      cancelProjectMediaJobs(id);
+      await cancelProjectMediaJobs(id);
       await rm(projectPath(id), { recursive: true, force: true });
       await removeProjectMedia(id);
       return send(res, 200, { ok: true });
     }
+    if (req.method === 'GET' && !url.pathname.startsWith('/api/')) {
+      const asset = url.pathname.startsWith('/assets/') && /^\/assets\/[a-zA-Z0-9._-]+$/.test(url.pathname) ? url.pathname.slice(1) : 'index.html';
+      const path = join(DIST, asset);
+      try {
+        const info = await stat(path);
+        const ext = asset.split('.').pop();
+        const mime = ({ html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', svg: 'image/svg+xml', png: 'image/png', ico: 'image/x-icon' })[ext] || 'application/octet-stream';
+        res.writeHead(200, { 'content-type': mime, 'content-length': info.size, 'cache-control': asset === 'index.html' ? 'no-store' : 'public, max-age=31536000, immutable' });
+        createReadStream(path).pipe(res); return;
+      } catch { return send(res, 404, { error: '前端文件不存在，请先运行 npm run build。' }); }
+    }
     send(res, 404, { error: '接口不存在。' });
   } catch (e) { send(res, 500, { error: e instanceof Error ? e.message : String(e) }); }
-}).listen(8787, '127.0.0.1', () => console.log('Codex 本机服务：http://127.0.0.1:8787'));
+}).listen(Number(process.env.REELBENCH_PORT || 8787), '127.0.0.1', () => console.log('Codex 本机服务：http://127.0.0.1:' + (process.env.REELBENCH_PORT || 8787)));

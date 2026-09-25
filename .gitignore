@@ -1,5 +1,7 @@
 node_modules/
 dist/
+desktop-runtime/
+src-tauri/target/
 .npm-cache/
 *.tsbuildinfo
 .local-runs/

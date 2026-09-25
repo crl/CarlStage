@@ -1,21 +1,23 @@
-# Reelbench 本地创作工作台
+# CarlStage 本地创作工作台
 
-基于 React、TypeScript 和 Vite 的创作工作台复刻。项目、原文、历史版本及已确认的 skill 原生 JSON 保存在浏览器 IndexedDB 中；真实生成的图片和视频保存在本机文件。内容生成由本机 Codex 调用 [shuohao-skills](https://github.com/eternityspring/shuohao-skills) 的五个 skill，媒体生成通过本机 ComfyUI。Skill 仓库固定在提交 `ca1c30be78bde70fa84d3817453c71e0ef25b751`（2.0.0），位于 `vendor/shuohao-skills-pinned`。
+基于 React、TypeScript、Vite 和 Tauri 的本地创作工作台。项目、原文、历史版本及已确认的 skill 原生 JSON 保存在本机项目文件中；真实生成的图片和视频也保存在本机文件。内容生成由本机 Codex 调用 [shuohao-skills](https://github.com/eternityspring/shuohao-skills) 的五个 skill；Qwen 图片与 MiniMax H3 视频通过本机 ComfyUI，GPT Image 2.5 图片通过 OpenAI API。Skill 仓库固定在提交 `ca1c30be78bde70fa84d3817453c71e0ef25b751`（2.0.0），位于 `vendor/shuohao-skills-pinned`。
 
-需要 Node.js 18+，以及本机已登录的 Codex CLI（`codex login status`）。默认模型为 `gpt-5.5`，可通过 `REELBENCH_CODEX_MODEL` 环境变量调整。本机服务仅监听 `127.0.0.1:8787`，浏览器经 Vite 代理访问。
+网页开发模式需要 Node.js 18+；桌面安装包自带 Node.js 运行环境。内容生成需要本机已登录的 Codex CLI（`codex login status`）。桌面安装包不包含 Codex 执行文件，可在“设置 → 创作模型”填写自己的 `codex.exe` 路径，留空时尝试查找本机安装。默认模型为 `gpt-5.5`，可通过 `REELBENCH_CODEX_MODEL` 环境变量调整。本机服务仅监听 `127.0.0.1:8787`，浏览器经 Vite 代理访问。
 
 ```bash
 npm install
 npm run dev
 ```
 
-打开 `http://127.0.0.1:5173`。`npm run dev` 同时启动 Vite 和 Codex 服务；如果已有 Vite 进程，请先停止旧进程再启动。运行 `npm run build` 可生成前端构建。也可单独运行 `npm run server`。
+按终端显示的“网页地址”打开页面（默认 `http://127.0.0.1:5173`）。`npm run dev` 同时启动 Vite 和 Codex 服务；若默认端口已被占用，会自动选择可用端口并同步配置 API 代理。浏览器旧 IndexedDB 数据按网址端口隔离；要迁移原来 5173 的项目，请先关闭占用 5173 的旧 Vite，再从该端口打开新版页面。运行 `npm run build` 可生成前端构建。使用 `npm run web:start` 可以构建并直接在 `http://127.0.0.1:8787` 运行网页和本机 Codex 服务，无需打开 Tauri 应用。网页和桌面版的设置页都能填写自己的 `codex.exe` 路径；浏览器本身不会直接执行本机程序，生成任务由本机服务执行。
 
-在项目的大纲、角色、美术、剧本或分镜页面点击“重新生成”以启动对应 skill。大纲先产出供确认的骨架，确认后才生成完整结果。所有结果均先预览，点击“确认写入”后进入项目和变更历史。生成与校验结果写在本机 `.local-runs/`（已加入忽略列表）；清除浏览器站点数据会删除浏览器保存的项目。更改原生 skill 版本时须明确更新固定提交和适配代码。
+在项目的大纲、角色、美术、剧本或分镜页面点击“重新生成”以启动对应 skill。大纲先产出供确认的骨架，确认后才生成完整结果。所有结果均先预览，点击“确认写入”后进入项目和变更历史。生成与校验结果写在本机 `.local-runs/`（已加入忽略列表）；首次在原来的浏览器打开新版开发页面时，会把该浏览器的旧 IndexedDB 项目迁入本机项目文件。更改原生 skill 版本时须明确更新固定提交和适配代码。
 
-页面右上角的「设置」入口可配置 Codex 参数，以及本机 ComfyUI 的 Qwen-Image-2.1 生图和 MiniMax H3 生视频工作流。两个工作流分别导入 ComfyUI 的 **API 格式 JSON**，填写提示词、参考图或首帧、时长等节点 ID 与输入字段；普通画布 JSON 不能直接提交给 `/prompt`。建议从 [Qwen-Image-2.1 文生图模板](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_t2i.json)、[参考图编辑模板](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_image_edit.json)和 [MiniMax H3 图生视频模板](https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_i2v.json)开始，在本机 ComfyUI 配好模型后导出 API 格式。使用参考图时，生图工作流必须包含可映射的图片输入节点。视频时长节点须接受秒数，单镜为 1–15 秒。
+页面右上角的「设置」入口可配置 Codex、默认生图方式，以及 ComfyUI 的 Qwen 文生图、Qwen 参考图编辑和 MiniMax H3 首帧图生视频工作流。三个工作流提供可恢复的默认 API 节点配置，也可导入自定义 **API 格式 JSON**；普通画布 JSON 不能直接提交给 `/prompt`。点击「检查当前节点与模型」可查看缺失项。默认 H3 工作流的 `length` 节点以 24 fps 将秒数换算为帧数；自定义时长字段沿用原值。可在每次生图时切换 Qwen 或 GPT Image 2.5，后者需要在设置中填写有额度的 OpenAI API Key，可能产生费用。
 
-设置保存在 `.local-runs/settings.json`，不会推送到 GitHub。旧版平铺的 ComfyUI 设置会自动迁移为生图设置。连接测试只读取 `/system_stats`。角色、美术和分镜可以生图，分镜在保存首帧图片后可用 MiniMax H3 生视频；生成结果先预览，确认后写入项目。媒体文件在 `.local-runs/media/`，浏览器项目只保存引用；本机服务关闭或媒体文件被删除后，项目仍可编辑但媒体无法加载。当前版本不安装或下载 ComfyUI 模型。
+设置保存在 `.local-runs/settings.json`，不会推送到 GitHub；API Key 不通过设置读取接口回传。旧版平铺的 ComfyUI 设置会自动迁移为生图设置，不覆盖已保存的自定义工作流。角色、美术和分镜可以生图，分镜在保存首帧图片后可用 MiniMax H3 生视频；生成结果先预览，确认后同时写入条目和项目资产库，多次生成保留各次结果。旧项目已保存的图片和视频会自动补入项目库。全局资产库可上传图片或视频，按角色、场景、道具和其它分类；选图时可切换项目库和全局库。媒体文件在 `.local-runs/media/`，浏览器项目只保存引用；删除资产或历史记录时需要确认，被删除媒体的其他引用会显示“已被删除”。当前版本不安装或下载 ComfyUI 模型。
+
+分镜分段页按镜头时长计算 H3 提示词切点，可依次生成缺失的镜头图并确认，再生成整段视频，历史版本保存在分段中。默认 MiniMax H3 工作流只读取首镜图；若自定义工作流已为后续图片和切点准备节点，可在设置的「分段视频多图切点」中逐项映射。分段视频须有首镜图且总时长不超过 15 秒；超长时可在逐镜卡片修改分段 ID 或时长。
 
 小说导入会尝试识别 UTF-8、GB18030，以及带 BOM 的 UTF-16。若旧项目中的占位内容已经出现乱码，请进入该项目的「概览」，使用「重新导入小说原文」选择原始文件。重新导入会重建各页面草稿，并在「变更」中保存原版本。
 
@@ -25,4 +27,4 @@ npm run dev
 
 原仓库的大纲质量门要求大爆点早于最终集；单集项目无法满足这一项。单集生成结果会显示该校验提示，由你审阅后决定是否写入。
 
-浏览器数据只保存在当前站点的本地存储中。清除站点数据会删除项目内容；不同浏览器或设备之间不会自动同步。
+桌面版使用 Tauri 窗口，并由应用启动本机服务。运行 `npm run desktop:dev` 可开发调试；运行 `npm run desktop:build` 可生成 Windows 安装包（需要 Rust 和 WebView2 构建环境）。桌面数据位于系统应用数据目录 `com.carlstage.desktop`，开发网页数据位于仓库 `.local-runs/`。同一台机器上，访问同一个本机服务的浏览器共用项目文件；不同设备之间不会自动同步。旧浏览器项目需要先用原来的浏览器访问新版开发页一次，再关闭桌面应用并运行 `npm run desktop:migrate`，将项目文件和媒体并入桌面数据目录。

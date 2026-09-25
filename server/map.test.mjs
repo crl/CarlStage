@@ -17,14 +17,20 @@ test('五个 skill 的 2.0 原生示例可映射到工作台编辑结构', async
   const project = { style: '半写实' };
   const outline = mapSkillResult('outline', await fixture('novel-outline'), project);
   assert.ok(outline.core && outline.episodes[0]?.summary);
+  assert.ok(outline.beats.length && outline.characters.length && outline.scenes.length);
   const cast = mapSkillResult('cast', await fixture('novel-characters'), project);
   assert.ok(cast[0]?.name && cast[0]?.description);
+  assert.ok(cast[0]?.persona?.appearance && cast[0]?.voice?.prompt);
   const art = mapSkillResult('art', await fixture('novel-art'), project);
   assert.ok(art.scenes[0]?.name && art.props[0]?.name);
+  assert.ok(art.scenes[0]?.anchors.length && art.scenes[0]?.prompt);
   const script = mapSkillResult('script', await fixture('novel-script'), project);
   assert.ok(script.episodes[0]?.scenes[0]?.beats.length);
+  assert.ok(script.episodes[0]?.scenes[0]?.flow.length);
+  for (const scene of script.episodes.flatMap(episode => episode.scenes)) assert.equal(scene.beats.length, scene.flow.length);
   const storyboard = mapSkillResult('storyboard', await fixture('novel-storyboard'), project);
   assert.ok(storyboard.shots[0]?.action && storyboard.shots[0]?.duration > 0);
+  assert.ok(storyboard.shots[0]?.segmentId && storyboard.shots[0]?.episode);
 });
 
 test('仅单集大纲的固有结构门可作为明确提示', () => {

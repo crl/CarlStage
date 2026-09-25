@@ -33,17 +33,25 @@ export const removeProjectRuns = (id: string) => request<{ ok: boolean }>(`/proj
 export const consult = (project: Project, mode: 'talk' | 'edit', message: string) => request<{ reply: string; scene?: Project['docs']['script']['episodes'][number]['scenes'][number] }>('/consult', { method: 'POST', body: JSON.stringify({ project, mode, message }) });
 
 export type Settings = {
-  codex: { model: string; reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh'; timeoutMinutes: number };
-  comfy: { baseUrl: string; image: MediaWorkflow & { width: number; height: number; steps: number; cfg: number; widthNodeId: string; widthInput: string; heightNodeId: string; heightInput: string; stepsNodeId: string; stepsInput: string; cfgNodeId: string; cfgInput: string }; video: MediaWorkflow & { duration: number; durationNodeId: string; durationInput: string } };
+  codex: { provider: 'codex' | 'ollama'; executablePath: string; model: string; ollamaModel: string; reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh'; timeoutMinutes: number };
+  imageProvider: 'qwen' | 'gpt';
+  gptImage: { model: 'gpt-image-2.5-sunburst' | 'gpt-image-2.5-flare'; quality: 'low' | 'medium' | 'high' | 'xhigh' | 'max'; hasApiKey: boolean; apiKey?: string };
+  comfy: { baseUrl: string; image: ImageWorkflow; imageEdit: ImageWorkflow; video: MediaWorkflow & { duration: number; durationNodeId: string; durationInput: string; referenceSlots?: { imageNodeId: string; imageInput: string; timeNodeId: string; timeInput: string }[] } };
 };
 export type MediaWorkflow = { workflowJson: string; promptNodeId: string; promptInput: string; referenceNodeId: string; referenceInput: string; seedNodeId: string; seedInput: string; seed: number };
-export type MediaJob = { id: string; kind: 'image' | 'video'; status: 'queued' | 'running' | 'completed' | 'failed'; message?: string; error?: string; result?: { url: string; mime: string; prompt: string; generatedAt: number } };
-export const createMediaJob = (input: { projectId: string; kind: 'image' | 'video'; prompt: string; source?: string; duration?: number }) => request<MediaJob>('/media/jobs', { method: 'POST', body: JSON.stringify(input) });
+export type ImageWorkflow = MediaWorkflow & { width: number; height: number; steps: number; cfg: number; widthNodeId: string; widthInput: string; heightNodeId: string; heightInput: string; stepsNodeId: string; stepsInput: string; cfgNodeId: string; cfgInput: string };
+export type MediaJob = { id: string; kind: 'image' | 'video'; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'; queuePosition?: number; message?: string; error?: string; result?: { url: string; mime: string; prompt: string; generatedAt: number } };
+export const createMediaJob = (input: { projectId: string; kind: 'image' | 'video'; provider?: 'qwen' | 'gpt'; prompt: string; source?: string; sources?: string[]; cutPoints?: number[]; duration?: number; ratio?: '16:9' | '9:16' }) => request<MediaJob>('/media/jobs', { method: 'POST', body: JSON.stringify(input) });
 export const getMediaJob = (id: string) => request<MediaJob>(`/media/jobs/${id}`);
+export const cancelMediaJob = (id: string) => request<MediaJob>(`/media/jobs/${id}/cancel`, { method: 'POST' });
 export const discardMediaJob = (id: string) => request<{ ok: boolean }>(`/media/jobs/${id}`, { method: 'POST' });
 export const copyMediaToLibrary = (url: string) => request<{ url: string }>('/media/library-copy', { method: 'POST', body: JSON.stringify({ url }) });
+export const uploadLibraryMedia = (file: File, kind: 'image' | 'video') => request<{ url: string }>(`/media/library-upload?kind=${kind}`, { method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file });
+export const deleteMedia = (url: string) => request<{ ok: boolean }>('/media/delete', { method: 'POST', body: JSON.stringify({ url }) });
 export const getSettings = () => request<Settings>('/settings');
 export const saveSettings = (settings: Settings) => request<Settings>('/settings', { method: 'PUT', body: JSON.stringify(settings) });
 export const testComfy = (baseUrl: string) => request<{ ok: boolean; version: string; devices: string[] }>('/settings/comfy/test', { method: 'POST', body: JSON.stringify({ baseUrl }) });
 export const testCodex = (codex: Settings['codex']) => request<{ ok: boolean; model: string; reply: string }>('/settings/codex/test', { method: 'POST', body: JSON.stringify(codex) });
 export const checkWorkflow = (workflowJson: string, promptNodeId: string, promptInput: string) => request<{ nodeCount: number }>('/settings/workflow/check', { method: 'POST', body: JSON.stringify({ workflowJson, promptNodeId, promptInput }) });
+export const getPreset = (kind: 'image' | 'imageEdit' | 'video') => request<Settings['comfy'][typeof kind]>(`/settings/presets/${kind}`);
+export const checkPreset = (baseUrl: string, workflow: MediaWorkflow) => request<{ ok: boolean; missingNodes: string[]; missingModels: string[]; nodeCount: number }>('/settings/presets/check', { method: 'POST', body: JSON.stringify({ baseUrl, workflow }) });

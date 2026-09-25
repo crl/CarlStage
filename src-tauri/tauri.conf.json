@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CarlStage",
+  "version": "1.0.0",
+  "identifier": "com.carlstage.desktop",
+  "build": {
+    "beforeDevCommand": "node scripts/dev.mjs --fixed-vite-port",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "npm run desktop:prepare",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": {
+      "../desktop-runtime/": "runtime"
+    }
+  }
+}

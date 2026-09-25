@@ -1,20 +1,31 @@
 export type ProjectKind = 'idea' | 'novel';
-export type AssetType = 'character' | 'scene' | 'prop';
+export type AssetType = 'character' | 'scene' | 'prop' | 'other';
 export type DocKey = 'outline' | 'script' | 'cast' | 'art' | 'storyboard';
-export type Asset = { id: string; type: AssetType; name: string; description: string; image?: string; sourceProjectId?: string };
-export type Outline = { core: string; retain: string[]; cut: string[]; merge: string[]; risks: string[]; episodes: { title: string; summary: string; hook: string }[] };
-export type Script = { episodes: { title: string; duration: number; hook: string; ending: string; scenes: { title: string; location: string; description: string; beats: string[] }[] }[] };
-export type Character = { id: string; name: string; role: string; description: string; arc: string; image?: string };
-export type Art = { scenes: Asset[]; props: Asset[]; style: string };
-export type Shot = { id: string; scene: string; framing: string; action: string; duration: number; image?: string; video?: string };
-export type Storyboard = { shots: Shot[] };
+export type Asset = { id: string; type: AssetType; name: string; description: string; mediaKind?: 'image' | 'video'; image?: string; video?: string; sourceProjectId?: string; sourceItemId?: string; generatedAt?: number; provider?: string };
+export type Outline = { core: string; retain: string[]; cut: string[]; merge: string[]; risks: string[]; episodes: { title: string; summary: string; hook: string; crowdPlan?: string; warnings?: string[] }[]; beats?: { id: string; type: string; episode: number; setup: string; payoff: string }[]; characters?: { id: string; name: string; role: string; arc: string; source: string }[]; scenes?: { id: string; name: string; primary: boolean }[] };
+export type ScriptBeat = { action?: string; speaker?: string; line?: string; delivery?: string; seconds?: number };
+export type Script = { episodes: { title: string; duration: number; hook: string; ending: string; beatsClaimed?: string[]; scenes: { title: string; location: string; description: string; beats: string[]; sceneId?: string; lighting?: string; characters?: string[]; props?: string[]; flow?: ScriptBeat[] }[] }[] };
+export type Character = { id: string; name: string; role: string; description: string; arc: string; image?: string; aliases?: string[]; persona?: { gender?: string; ageRange?: string; identity?: string; appearance?: string; temperament?: string; motivation?: string; personality?: string[]; relations?: unknown; evidence?: string[] }; imagePrompt?: string; imageStyle?: string; voice?: Record<string, string> };
+export type ArtAsset = Asset & { primary?: boolean; anchors?: { name: string; desc: string }[]; states?: { state: string; prompt: string }[]; scale?: string; prompt?: string; negativePrompt?: string };
+export type Art = { scenes: ArtAsset[]; props: ArtAsset[]; style: string };
+export type Shot = { id: string; scene: string; framing: string; action: string; duration: number; image?: string; video?: string; episode?: number; segmentId?: string; camera?: string; characters?: string[]; props?: string[]; beats?: number[]; videoPrompt?: string };
+export type SegmentVideo = { id: string; url: string; createdAt: number; prompt: string };
+export type Storyboard = { shots: Shot[]; segments?: { episode: number; id: string; videos: SegmentVideo[]; activeVideoId?: string }[] };
 export type Docs = { outline: Outline; script: Script; cast: Character[]; art: Art; storyboard: Storyboard };
-export type Change = { id: string; at: number; section: DocKey; label: string; before: Docs[DocKey]; beforeArtifact?: { raw: unknown; skillVersion: string; generatedAt: number }; beforeGeneratedSource?: string };
-export type Project = { id: string; kind: ProjectKind; name: string; prompt: string; sourceName?: string; sourceText?: string; generatedSource?: string; genre?: string; episodeCount: number; minDuration: number; maxDuration: number; adaptation: string; ratio: '16:9' | '9:16'; style: string; needCast: boolean; needArt: boolean; referenceImages: string[]; keep: string; createdAt: number; updatedAt: number; docs: Docs; assets: Asset[]; changes: Change[]; skillArtifacts?: Partial<Record<DocKey, { raw: unknown; skillVersion: string; generatedAt: number }>> };
-export type Store = { projects: Project[]; library: Asset[]; deletedProjectIds?: string[] };
+export type Change = { id: string; at: number; section: DocKey; label: string; before: Docs[DocKey]; after?: Docs[DocKey]; beforeArtifact?: { raw: unknown; skillVersion: string; generatedAt: number }; beforeGeneratedSource?: string };
+export type Consultation = { id: string; at: number; mode: 'talk' | 'edit'; question: string; reply: string; scene?: Script['episodes'][number]['scenes'][number] };
+export type Project = { id: string; kind: ProjectKind; name: string; prompt: string; sourceName?: string; sourceText?: string; generatedSource?: string; genre?: string; episodeCount: number; minDuration: number; maxDuration: number; adaptation: string; ratio: '16:9' | '9:16'; style: string; needCast: boolean; needArt: boolean; referenceImages: string[]; keep: string; createdAt: number; updatedAt: number; docs: Docs; assets: Asset[]; changes: Change[]; consultations?: Consultation[]; skillArtifacts?: Partial<Record<DocKey, { raw: unknown; skillVersion: string; generatedAt: number }>> };
+export type Store = { projects: Project[]; library: Asset[]; deletedProjectIds?: string[]; deletedAssetIds?: string[]; deletedImages?: string[]; deletedReferenceKeys?: string[]; deletedChangeIds?: string[]; deletedConsultationIds?: string[] };
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const clone = <T,>(value: T): T => structuredClone(value);
+export function estimateBeatSeconds(beat: ScriptBeat, fallback = ''): number {
+  const text = [beat.line, beat.action || fallback].filter(Boolean).join('');
+  return Math.round(Math.min(12, Math.max(1.5, text.replace(/\s/g, '').length / 7)) * 10) / 10;
+}
+export function beatSeconds(beat: ScriptBeat | undefined, fallback = ''): number {
+  return beat?.seconds && Number.isFinite(beat.seconds) && beat.seconds > 0 ? beat.seconds : estimateBeatSeconds(beat || {}, fallback);
+}
 const short = (value: string, size = 32) => value.replace(/\s+/g, ' ').trim().slice(0, size);
 export function makeDocs(seed: string, count: number, kind: ProjectKind, version = 0): Docs {
   const topic = short(seed, 36) || '一个尚未命名的故事';
@@ -54,7 +65,7 @@ export function makeProject(input: Partial<Project> & Pick<Project, 'kind' | 'na
   const now = Date.now();
   const requested = input.prompt.match(/(?:生成|创作|写)?\s*(\d{1,2})\s*(?:条|集)/);
   const episodeCount = input.episodeCount || (input.kind === 'novel' ? 6 : requested ? Number(requested[1]) : 1);
-  return { id: uid(), kind: input.kind, name: input.name, prompt: input.prompt, sourceName: input.sourceName, sourceText: input.sourceText, genre: input.genre || '', episodeCount, minDuration: input.minDuration || 2, maxDuration: input.maxDuration || 5, adaptation: input.adaptation || '抽核', ratio: input.ratio || '16:9', style: input.style || '半写实', needCast: input.needCast ?? true, needArt: input.needArt ?? true, referenceImages: input.referenceImages || [], keep: input.keep || '', createdAt: now, updatedAt: now, docs: makeDocs(input.prompt || input.sourceText || input.name, episodeCount, input.kind), assets: [], changes: [] };
+  return { id: uid(), kind: input.kind, name: input.name, prompt: input.prompt, sourceName: input.sourceName, sourceText: input.sourceText, genre: input.genre || '', episodeCount, minDuration: input.minDuration || 2, maxDuration: input.maxDuration || 5, adaptation: input.adaptation || '抽核', ratio: input.ratio || '16:9', style: input.style || '半写实', needCast: input.needCast ?? true, needArt: input.needArt ?? true, referenceImages: input.referenceImages || [], keep: input.keep || '', createdAt: now, updatedAt: now, docs: makeDocs(input.prompt || input.sourceText || input.name, episodeCount, input.kind), assets: [], changes: [], consultations: [] };
 }
 
 export const sectionLabel = (section: DocKey) => ({ outline: '大纲', script: '剧本', cast: '角色', art: '美术', storyboard: '分镜' })[section];
