@@ -2,17 +2,18 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
 import { rm } from 'node:fs/promises';
+import sharp from 'sharp';
 import { defaultSettings } from './settings.mjs';
 import { buildMediaWorkflow, copyMediaToLibrary, createMediaJob, cancelMediaJob, cancelProjectMediaJobs, discardMediaJobResult, getMediaJob, mediaFilePath, readMedia, removeProjectMedia } from './media.mjs';
 
 const graph = { '1': { class_type: 'Text', inputs: { text: '' } }, '2': { class_type: 'LoadImage', inputs: { image: '' } }, '3': { class_type: 'SaveImage', inputs: { duration: 5 } } };
-const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/R9sAAAAASUVORK5CYII=';
+const pixel = `data:image/png;base64,${await sharp({ create: { width: 2, height: 2, channels: 3, background: '#777777' } }).png().toBuffer().then(bytes => bytes.toString('base64'))}`;
 const finished = async id => { for (let i = 0; i < 100; i++) { const job = getMediaJob(id); if (['completed', 'failed'].includes(job.status)) return job; await new Promise(resolve => setTimeout(resolve, 30)); } throw new Error('任务未完成'); };
 const until = async (id, predicate) => { for (let i = 0; i < 100; i++) { const job = getMediaJob(id); if (predicate(job)) return job; await new Promise(resolve => setTimeout(resolve, 20)); } throw new Error('任务状态未按预期变化'); };
 
 test('图片与视频工作流只覆盖已映射的输入', () => {
   const settings = defaultSettings(); const image = settings.comfy.image;
-  image.workflowJson = JSON.stringify(graph); image.promptNodeId = '1'; image.promptInput = 'text'; image.referenceNodeId = '2'; image.seedNodeId = ''; image.stepsNodeId = ''; image.cfgNodeId = ''; image.widthNodeId = '';
+  image.workflowJson = JSON.stringify(graph); image.promptNodeId = '1'; image.promptInput = 'text'; image.referenceNodeId = '2'; image.seedNodeId = ''; image.stepsNodeId = ''; image.cfgNodeId = ''; image.widthNodeId = ''; image.heightNodeId = '';
   const output = buildMediaWorkflow(image, 'image', { prompt: '人物肖像' }, 'file.png');
   assert.equal(output['1'].inputs.text, '人物肖像'); assert.equal(output['2'].inputs.image, 'file.png'); assert.equal(graph['1'].inputs.text, '');
   assert.throws(() => buildMediaWorkflow({ ...image, referenceNodeId: '' }, 'image', { prompt: '测试' }, 'file.png'), /参考图/);
@@ -31,6 +32,20 @@ test('图片工作流按项目画幅写入宽高与 Qwen 构图提示', () => {
   assert.deepEqual([landscape['2'].inputs.width, landscape['2'].inputs.height], [768, 432]);
   assert.match(portrait['1'].inputs.prompt, /9:16 竖屏/);
   assert.match(landscape['1'].inputs.prompt, /16:9 横屏/);
+});
+
+test('默认 Qwen 文生图和参考图编辑工作流将项目画幅写入真实 latent', () => {
+  const settings = defaultSettings();
+  for (const kind of ['image', 'imageEdit']) {
+    const config = settings.comfy[kind];
+    const graph = buildMediaWorkflow(config, kind, { prompt: '生成画面', ratio: '16:9' }, kind === 'imageEdit' ? 'ref.png' : undefined);
+    const latentId = kind === 'image' ? '9' : '10';
+    assert.deepEqual(graph['6'].inputs.latent_image, [latentId, 0]);
+    assert.deepEqual([graph[latentId].inputs.width, graph[latentId].inputs.height], [768, 432]);
+    assert.equal(graph[latentId].inputs.batch_size, 1);
+    const portrait = buildMediaWorkflow(config, kind, { prompt: '生成画面', ratio: '9:16' }, kind === 'imageEdit' ? 'ref.png' : undefined);
+    assert.deepEqual([portrait[latentId].inputs.width, portrait[latentId].inputs.height], [432, 768]);
+  }
 });
 
 test('MiniMax H3 视频尺寸跟随项目画面比例', () => {
@@ -81,12 +96,15 @@ test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t 
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => server.close());
   const settings = defaultSettings(); settings.comfy.baseUrl = `http://127.0.0.1:${server.address().port}`;
-  const image = settings.comfy.image; image.workflowJson = JSON.stringify(graph); image.promptNodeId = '1'; image.promptInput = 'text'; image.referenceNodeId = '2'; image.seedNodeId = ''; image.stepsNodeId = ''; image.cfgNodeId = ''; image.widthNodeId = '';
+  const image = settings.comfy.image; image.workflowJson = JSON.stringify(graph); image.promptNodeId = '1'; image.promptInput = 'text'; image.referenceNodeId = '2'; image.seedNodeId = ''; image.stepsNodeId = ''; image.cfgNodeId = ''; image.widthNodeId = ''; image.heightNodeId = '';
   const projectId = 'testmedia123';
   t.after(async () => { await removeProjectMedia(projectId); });
   const started = createMediaJob(settings, { projectId, kind: 'image', prompt: '人物肖像', source: pixel });
   const result = await finished(started.id);
   assert.equal(result.status, 'completed', result.error);
+  const landscapeSize = await sharp(await readMedia(projectId, result.result.url.split('/').pop())).metadata();
+  assert.equal(landscapeSize.width, 1536);
+  assert.equal(landscapeSize.height, 864);
   assert.match(result.result.url, /^\/api\/media\/testmedia123\//);
   const name = result.result.url.split('/').pop(); assert.ok((await readMedia(projectId, name)).length > 0);
   const copied = await copyMediaToLibrary(result.result.url);
@@ -97,6 +115,12 @@ test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t 
   const multipleResult = await finished(multiple.id);
   assert.equal(multipleResult.status, 'completed', multipleResult.error);
   assert.equal(multiple.sources, undefined);
+  const portrait = createMediaJob(settings, { projectId, kind: 'image', prompt: '竖版角色', ratio: '9:16' });
+  const portraitResult = await finished(portrait.id);
+  assert.equal(portraitResult.status, 'completed', portraitResult.error);
+  const portraitSize = await sharp(await readMedia(projectId, portraitResult.result.url.split('/').pop())).metadata();
+  assert.equal(portraitSize.width, 864);
+  assert.equal(portraitSize.height, 1536);
   const video = settings.comfy.video; video.workflowJson = JSON.stringify(graph); video.promptNodeId = '1'; video.promptInput = 'text'; video.referenceNodeId = '2'; video.durationNodeId = '3'; video.durationInput = 'duration'; video.seedNodeId = '';
   const startedVideo = createMediaJob(settings, { projectId, kind: 'video', prompt: '镜头缓缓推进', source: result.result.url, duration: 7 });
   const videoResult = await finished(startedVideo.id);

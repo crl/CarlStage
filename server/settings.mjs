@@ -74,7 +74,18 @@ export function normalizeSettings(input) {
   if (!['gpt-image-2.5-sunburst', 'gpt-image-2.5-flare'].includes(gpt.model)) throw new Error('GPT Image 2.5 模型无效。');
   if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(gpt.quality)) throw new Error('GPT Image 2.5 质量无效。');
   if (typeof gpt.apiKey !== 'string' || gpt.apiKey.length > 500) throw new Error('API Key 无效。');
-  return { codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image: normalizeWorkflow({ ...imageDefaults, ...legacyImage, ...comfy.image }, imageDefaults, 'image'), imageEdit: normalizeWorkflow({ ...PRESETS.imageEdit, ...comfy.imageEdit }, imageDefaults, 'imageEdit'), video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video') } };
+  const image = normalizeWorkflow({ ...imageDefaults, ...legacyImage, ...comfy.image }, imageDefaults, 'image');
+  const imageEdit = normalizeWorkflow({ ...PRESETS.imageEdit, ...comfy.imageEdit }, imageDefaults, 'imageEdit');
+  for (const [kind, workflow] of [['image', image], ['imageEdit', imageEdit]]) {
+    try {
+      const graph = JSON.parse(workflow.workflowJson);
+      const sampler = Object.values(graph).find(node => node.class_type === 'KSampler' && node.inputs?.latent_image?.[1] === 2);
+      const textEncoder = sampler && graph[sampler.inputs.latent_image[0]];
+      const bundledDefault = graph['1']?.class_type === 'UNETLoader' && graph['1'].inputs?.unet_name === 'qwen_image_2.1_int8_convrot.safetensors' && textEncoder?.class_type === 'TextEncodeQwenImage21' && !Object.values(graph).some(node => ['EmptySD3LatentImage', 'EmptyLatentImage'].includes(node.class_type));
+      if (bundledDefault) Object.assign(workflow, PRESETS[kind]);
+    } catch { /* Custom workflows are validated and preserved below. */ }
+  }
+  return { codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video') } };
 }
 export async function loadSettings() { try { return normalizeSettings(JSON.parse(await readFile(SETTINGS_FILE, 'utf8'))); } catch (error) { if (error?.code === 'ENOENT') return defaultSettings(); throw error; } }
 export async function saveSettings(value) { const normalized = normalizeSettings(value); await mkdir(dirname(SETTINGS_FILE), { recursive: true }); await writeFile(SETTINGS_FILE, JSON.stringify(normalized, null, 2), { encoding: 'utf8', mode: 0o600 }); return normalized; }

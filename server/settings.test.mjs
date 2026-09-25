@@ -18,6 +18,7 @@ test('设置校验 API 工作流节点与参数范围', () => {
   settings.comfy.image.stepsNodeId = '';
   settings.comfy.image.cfgNodeId = '';
   settings.comfy.image.widthNodeId = '';
+  settings.comfy.image.heightNodeId = '';
   assert.equal(validateWorkflow(settings.comfy.image.workflowJson, '6', 'text').nodeCount, 2);
   assert.equal(normalizeSettings(settings).comfy.baseUrl, 'http://127.0.0.1:8188');
   assert.throws(() => normalizeSettings({ ...settings, comfy: { ...settings.comfy, image: { ...settings.comfy.image, seedNodeId: '99' } } }), /种子节点/);
@@ -42,6 +43,28 @@ test('旧版 ComfyUI 平铺设置迁移到生图设置', () => {
   assert.equal(migrated.comfy.image.promptNodeId, '12');
   assert.equal(migrated.comfy.image.width, 768);
   assert.equal(migrated.comfy.video.duration, 5);
+});
+
+test('旧版内置 Qwen 方形 latent 工作流自动升级为项目画幅 latent', () => {
+  const defaults = defaultSettings();
+  const comfy = structuredClone(defaults.comfy);
+  for (const kind of ['image', 'imageEdit']) {
+    const graph = JSON.parse(comfy[kind].workflowJson);
+    const latentId = kind === 'image' ? '9' : '10';
+    delete graph[latentId];
+    graph['6'].inputs.latent_image = ['5', 2];
+    comfy[kind].workflowJson = JSON.stringify(graph);
+    comfy[kind].widthNodeId = '5'; comfy[kind].widthInput = 'resolution';
+    comfy[kind].heightNodeId = '';
+  }
+  const migrated = normalizeSettings({ ...defaults, comfy });
+  for (const kind of ['image', 'imageEdit']) {
+    const graph = JSON.parse(migrated.comfy[kind].workflowJson);
+    const latentId = kind === 'image' ? '9' : '10';
+    assert.equal(graph['6'].inputs.latent_image[0], latentId);
+    assert.equal(migrated.comfy[kind].widthNodeId, latentId);
+    assert.equal(migrated.comfy[kind].heightNodeId, latentId);
+  }
 });
 
 test('创作模型设置默认 Codex 并允许本机 Ollama', () => {

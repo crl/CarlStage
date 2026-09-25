@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { validateComfyUrl, validateWorkflow, validateMapping } from './settings.mjs';
 import { generateGptImage } from './gpt-image.mjs';
+import sharp from 'sharp';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const MEDIA = join(process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs'), 'media');
@@ -35,6 +36,16 @@ const validImageSource = source => {
   if (data) return Buffer.byteLength(data[1], 'base64') <= 20 * 1024 * 1024;
   return /^\/api\/media\/[a-zA-Z0-9_-]{3,80}\/[a-f0-9-]{36}\.(?:png|jpg|jpeg|webp)$/.test(source);
 };
+
+async function normalizeImageRatio(bytes, ratio) {
+  const width = ratio === '9:16' ? 864 : 1536;
+  const height = ratio === '9:16' ? 1536 : 864;
+  const image = sharp(bytes, { limitInputPixels: 100_000_000 });
+  const metadata = await image.metadata();
+  if (!metadata.width || !metadata.height) throw new Error('无法读取生成图片尺寸。');
+  if (Math.abs(metadata.width / metadata.height - width / height) < 0.005) return sharp(bytes).png().toBuffer();
+  return sharp(bytes, { limitInputPixels: 100_000_000 }).resize(width, height, { fit: 'cover', position: sharp.strategy.attention }).png().toBuffer();
+}
 
 async function responseJson(response, label) {
   const text = await response.text();
@@ -101,6 +112,7 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
         const long = Math.max(node.inputs.width, node.inputs.height);
         const short = Math.min(node.inputs.width, node.inputs.height);
         [node.inputs.width, node.inputs.height] = portrait ? [short, long] : [long, short];
+        node.inputs.batch_size = 1;
       }
       if (node.class_type === 'TextEncodeQwenImage21' && Number.isFinite(node.inputs?.resolution)) {
         node.inputs.resolution = Math.max(64, Math.min(2048, Math.round(portrait ? Math.min(configuredWidth, configuredHeight) : Math.max(configuredWidth, configuredHeight))));
@@ -117,7 +129,9 @@ async function execute(job) {
     job.status = 'running'; job.message = '正在准备工作流…';
     if (job.kind === 'image' && job.provider === 'gpt') {
       job.message = 'GPT Image 2.5 正在生成…';
-      const bytes = await generateGptImage(job.config, job.prompt, job.sources, undefined, job.controller.signal, job.ratio);
+      const generated = await generateGptImage(job.config, job.prompt, job.sources, undefined, job.controller.signal, job.ratio);
+      if (job.cancelled) return;
+      const bytes = await normalizeImageRatio(generated, job.ratio);
       if (job.cancelled) return;
       const name = `${randomUUID()}.png`; const path = filePath(job.projectId, name);
       await mkdir(dirname(path), { recursive: true }); await writeFile(path, bytes);
@@ -160,12 +174,14 @@ async function execute(job) {
     const params = new URLSearchParams({ filename: output.filename, subfolder: output.subfolder || '', type: output.type || 'output' });
     const response = await fetch(`${origin}/view?${params}`, { signal: timedSignal(job, 120_000) });
     if (!response.ok) throw new Error(`读取 ComfyUI 结果失败（HTTP ${response.status}）。`);
-    const bytes = Buffer.from(await response.arrayBuffer());
+    let bytes = Buffer.from(await response.arrayBuffer());
     if (job.cancelled) return;
     if (bytes.length > (job.kind === 'video' ? 1024 : 40) * 1024 * 1024) throw new Error('生成文件过大，未能导入本机项目。');
-    const extension = extname(output.filename).slice(1).toLowerCase();
+    let extension = extname(output.filename).slice(1).toLowerCase();
     const allowed = job.kind === 'video' ? ['mp4', 'webm', 'mov'] : ['png', 'jpg', 'jpeg', 'webp'];
     if (!allowed.includes(extension)) throw new Error(`不支持的生成文件格式：${extension || '未知'}。`);
+    if (job.kind === 'image') { bytes = await normalizeImageRatio(bytes, job.ratio); extension = 'png'; }
+    if (job.cancelled) return;
     const name = `${randomUUID()}.${extension}`;
     const path = filePath(job.projectId, name);
     await mkdir(dirname(path), { recursive: true }); await writeFile(path, bytes);
