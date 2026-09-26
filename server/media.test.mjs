@@ -39,13 +39,38 @@ test('默认 Qwen 文生图和参考图编辑工作流将项目画幅写入真�
   for (const kind of ['image', 'imageEdit']) {
     const config = settings.comfy[kind];
     const graph = buildMediaWorkflow(config, kind, { prompt: '生成画面', ratio: '16:9' }, kind === 'imageEdit' ? 'ref.png' : undefined);
-    const latentId = kind === 'image' ? '9' : '10';
-    assert.deepEqual(graph['6'].inputs.latent_image, [latentId, 0]);
-    assert.deepEqual([graph[latentId].inputs.width, graph[latentId].inputs.height], [768, 432]);
-    assert.equal(graph[latentId].inputs.batch_size, 1);
+    if (kind === 'image') {
+      assert.deepEqual(graph['6'].inputs.latent_image, ['9', 0]);
+      assert.deepEqual([graph['9'].inputs.width, graph['9'].inputs.height], [768, 432]);
+      assert.equal(graph['9'].inputs.batch_size, 1);
+    } else {
+      assert.deepEqual(graph['6'].inputs.latent_image, ['5', 2]);
+      assert.equal(graph['10'], undefined);
+    }
+    if (kind === 'imageEdit') {
+      assert.equal(graph['9'].inputs.image, 'ref.png');
+      assert.deepEqual(graph['5'].inputs.images.image_1, ['9', 0]);
+      assert.match(graph['5'].inputs.prompt, /<image1>/);
+      assert.match(graph['5'].inputs.prompt, /生成画面/);
+    }
     const portrait = buildMediaWorkflow(config, kind, { prompt: '生成画面', ratio: '9:16' }, kind === 'imageEdit' ? 'ref.png' : undefined);
-    assert.deepEqual([portrait[latentId].inputs.width, portrait[latentId].inputs.height], [432, 768]);
+    if (kind === 'image') assert.deepEqual([portrait['9'].inputs.width, portrait['9'].inputs.height], [432, 768]);
+    else assert.deepEqual(portrait['6'].inputs.latent_image, ['5', 2]);
   }
+});
+
+test('Qwen 编辑工作流将多张参考图分别绑定为 image 标记', () => {
+  const config = defaultSettings().comfy.imageEdit;
+  const workflow = buildMediaWorkflow(config, 'imageEdit', { prompt: '人物参考 <image1>，场景参考 <image2>', ratio: '16:9' }, 'first.png', ['second.png', 'third.png']);
+  assert.equal(workflow['9'].inputs.image, 'first.png');
+  assert.deepEqual(workflow['5'].inputs.images.image_1, ['9', 0]);
+  assert.equal(workflow['11'].class_type, 'LoadImage');
+  assert.equal(workflow['11'].inputs.image, 'second.png');
+  assert.equal(workflow['12'].inputs.image, 'third.png');
+  assert.deepEqual(workflow['5'].inputs.images.image_2, ['11', 0]);
+  assert.deepEqual(workflow['5'].inputs.images.image_3, ['12', 0]);
+  assert.match(workflow['5'].inputs.prompt, /<image1>、<image2>、<image3>/);
+  assert.match(workflow['5'].inputs.prompt, /场景参考 <image2>/);
 });
 
 test('MiniMax H3 视频尺寸跟随项目画面比例', () => {
@@ -75,12 +100,12 @@ test('分段视频逐图写入图片和递增切点，缺少映射时拒绝提�
   assert.throws(() => createMediaJob({ ...settings, comfy: { ...settings.comfy, video: { ...settings.comfy.video, referenceSlots: [] } } }, { ...input, cutPoints: [0, 3] }), /多图/);
 });
 
-test('生图参考图数量、格式和 Qwen 参考板校验', () => {
+test('生图参考图数量、格式和引用顺序校验', () => {
   const settings = defaultSettings(); settings.imageProvider = 'gpt';
   const base = { projectId: 'testmedia123', kind: 'image', prompt: '测试', provider: 'gpt' };
   assert.throws(() => createMediaJob(settings, { ...base, sources: Array(5).fill(pixel) }), /最多选择 4 张/);
   assert.throws(() => createMediaJob(settings, { ...base, sources: ['https://example.com/image.png'] }), /参考图无效/);
-  assert.throws(() => createMediaJob(settings, { ...base, sources: [pixel, pixel], provider: 'qwen' }), /合成参考板/);
+  assert.throws(() => createMediaJob(settings, { ...base, sources: [pixel, pixel], provider: 'qwen' }), /引用顺序/);
 });
 
 test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t => {
@@ -110,8 +135,7 @@ test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t 
   const copied = await copyMediaToLibrary(result.result.url);
   t.after(() => rm(mediaFilePath('library', copied.split('/').pop()), { force: true }));
   assert.ok((await readMedia('library', copied.split('/').pop())).length > 0);
-  const board = pixel.replace('data:image/png;', 'data:image/jpeg;');
-  const multiple = createMediaJob(settings, { projectId, kind: 'image', prompt: '组合肖像', sources: [pixel, pixel], source: board });
+  const multiple = createMediaJob(settings, { projectId, kind: 'image', prompt: '组合肖像', sources: [pixel, pixel], source: pixel });
   const multipleResult = await finished(multiple.id);
   assert.equal(multipleResult.status, 'completed', multipleResult.error);
   assert.equal(multiple.sources, undefined);

@@ -21,10 +21,9 @@ const image = {
 
 const imageEdit = {
   ...qwenBase,
-  '6': node('KSampler', { model: link(4), seed: 1, steps: 25, cfg: 1, sampler_name: 'euler', scheduler: 'simple', positive: link(5), negative: link(5, 1), latent_image: link(10), denoise: 1 }),
+  '6': node('KSampler', { model: link(4), seed: 1, steps: 25, cfg: 1, sampler_name: 'euler', scheduler: 'simple', positive: link(5), negative: link(5, 1), latent_image: link(5, 2), denoise: 1 }),
   '5': node('TextEncodeQwenImage21', { clip: link(2), prompt: '保持参考图主体，生成电影感画面', negative_prompt: '', resolution: 768, images: { image_1: link(9) }, vae: link(3) }),
-  '9': node('LoadImage', { image: 'reference.png' }),
-  '10': node('EmptySD3LatentImage', { width: 768, height: 432, batch_size: 1 })
+  '9': node('LoadImage', { image: 'reference.png' })
 };
 
 const video = {
@@ -42,6 +41,6 @@ const video = {
 
 export const PRESETS = {
   image: { workflowJson: JSON.stringify(image, null, 2), promptNodeId: '5', promptInput: 'prompt', referenceNodeId: '', referenceInput: 'image', seedNodeId: '6', seedInput: 'seed', widthNodeId: '9', widthInput: 'width', heightNodeId: '9', heightInput: 'height', stepsNodeId: '6', stepsInput: 'steps', cfgNodeId: '6', cfgInput: 'cfg', width: 768, height: 432, steps: 25, cfg: 1, seed: -1 },
-  imageEdit: { workflowJson: JSON.stringify(imageEdit, null, 2), promptNodeId: '5', promptInput: 'prompt', referenceNodeId: '9', referenceInput: 'image', seedNodeId: '6', seedInput: 'seed', widthNodeId: '10', widthInput: 'width', heightNodeId: '10', heightInput: 'height', stepsNodeId: '6', stepsInput: 'steps', cfgNodeId: '6', cfgInput: 'cfg', width: 768, height: 432, steps: 25, cfg: 1, seed: -1 },
+  imageEdit: { workflowJson: JSON.stringify(imageEdit, null, 2), promptNodeId: '5', promptInput: 'prompt', referenceNodeId: '9', referenceInput: 'image', seedNodeId: '6', seedInput: 'seed', widthNodeId: '', widthInput: 'width', heightNodeId: '', heightInput: 'height', stepsNodeId: '6', stepsInput: 'steps', cfgNodeId: '6', cfgInput: 'cfg', width: 768, height: 432, steps: 25, cfg: 1, seed: -1 },
   video: { workflowJson: JSON.stringify(video, null, 2), promptNodeId: '5', promptInput: 'prompt', referenceNodeId: '4', referenceInput: 'image', durationNodeId: '5', durationInput: 'length', seedNodeId: '6', seedInput: 'seed', duration: 5, seed: -1, referenceSlots: [] }
 };

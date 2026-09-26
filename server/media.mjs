@@ -47,13 +47,21 @@ async function normalizeImageRatio(bytes, ratio) {
   return sharp(bytes, { limitInputPixels: 100_000_000 }).resize(width, height, { fit: 'cover', position: sharp.strategy.attention }).png().toBuffer();
 }
 
+async function fitReferenceCanvas(bytes, ratio) {
+  const width = ratio === '9:16' ? 864 : 1536;
+  const height = ratio === '9:16' ? 1536 : 864;
+  const background = await sharp(bytes, { limitInputPixels: 100_000_000 }).resize(width, height, { fit: 'cover' }).blur(32).png().toBuffer();
+  const foreground = await sharp(bytes, { limitInputPixels: 100_000_000 }).resize(width, height, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+  return sharp(background).composite([{ input: foreground }]).png().toBuffer();
+}
+
 async function responseJson(response, label) {
   const text = await response.text();
   let data; try { data = JSON.parse(text); } catch { throw new Error(`${label}返回非 JSON：${text.slice(0, 300)}`); }
   if (!response.ok) throw new Error(`${label}失败（HTTP ${response.status}）：${JSON.stringify(data).slice(0, 500)}`);
   return data;
 }
-async function inputImage(source, origin, signal) {
+async function inputImage(source, origin, signal, canvasRatio) {
   let bytes, mime;
   if (/^data:image\/(png|jpeg|webp);base64,/i.test(source)) {
     const match = source.match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/i);
@@ -61,9 +69,16 @@ async function inputImage(source, origin, signal) {
   } else {
     const match = source.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(png|jpg|jpeg|webp))$/);
     if (!match) throw new Error('参考图必须是本机项目图片或上传的 PNG、JPEG、WebP。');
-    bytes = await readFile(filePath(match[1], match[2])); mime = `image/${extname(match[2]).slice(1).replace('jpg', 'jpeg')}`;
+    try {
+      bytes = await readFile(filePath(match[1], match[2]));
+    } catch (error) {
+      if (error?.code === 'ENOENT') throw new Error('参考图文件不存在或已被移动，请重新上传或从资产库重新导入。');
+      throw error;
+    }
+    mime = `image/${extname(match[2]).slice(1).replace('jpg', 'jpeg')}`;
   }
   if (bytes.length > 20 * 1024 * 1024) throw new Error('参考图不得超过 20 MB。');
+  if (canvasRatio) { bytes = await fitReferenceCanvas(bytes, canvasRatio); mime = 'image/png'; }
   const form = new FormData();
   form.append('image', new Blob([bytes], { type: mime }), `${randomUUID()}.${mime.split('/')[1]}`);
   form.append('overwrite', 'false');
@@ -83,6 +98,25 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
   const graph = JSON.parse(config.workflowJson);
   setInput(graph, config, 'prompt', input.prompt, true);
   if (uploadedName) setInput(graph, config, 'reference', uploadedName, true);
+  if (kind === 'imageEdit' && uploadedName) {
+    const promptNode = graph[config.promptNodeId];
+    // Qwen Image 2.1 uses explicit image tokens in the prompt to bind an
+    // attached image to the edit request. The image node alone is not enough
+    // to reliably tell the model which image the prompt refers to.
+    if (promptNode?.class_type === 'TextEncodeQwenImage21' && promptNode.inputs?.images?.image_1) {
+      const imageInputs = promptNode.inputs.images;
+      const referenceNodeId = String(config.referenceNodeId);
+      imageInputs.image_1 = [referenceNodeId, 0];
+      let nextNodeId = Math.max(0, ...Object.keys(graph).map(id => Number(id)).filter(Number.isFinite)) + 1;
+      uploadedExtraNames.forEach((name, index) => {
+        const nodeId = String(nextNodeId++);
+        graph[nodeId] = { class_type: 'LoadImage', inputs: { image: name } };
+        imageInputs[`image_${index + 2}`] = [nodeId, 0];
+      });
+      const referenceTokens = Array.from({ length: uploadedExtraNames.length + 1 }, (_, index) => `<image${index + 1}>`).join('、');
+      promptNode.inputs[config.promptInput] = `参考图依次对应 ${referenceTokens}。按照提示词中引用的图片标记使用对应参考图，并保留相关主体特征和关键视觉关系。\n${promptNode.inputs[config.promptInput] || ''}`;
+    }
+  }
   if (kind === 'video') {
     setInput(graph, config, 'duration', config.durationInput === 'length' ? Math.round(input.duration * 24) + 1 : input.duration, true);
     uploadedExtraNames.forEach((name, index) => { const slot = config.referenceSlots?.[index]; if (!slot) throw new Error('视频工作流缺少多图节点映射。'); validateMapping(graph, slot.imageNodeId, slot.imageInput, '多图图片'); validateMapping(graph, slot.timeNodeId, slot.timeInput, '多图切点'); graph[slot.imageNodeId].inputs[slot.imageInput] = name; graph[slot.timeNodeId].inputs[slot.timeInput] = input.cutPoints[index + 1]; });
@@ -140,9 +174,9 @@ async function execute(job) {
       job.status = 'completed'; job.message = '生成完成，请预览并确认。'; return;
     }
     const origin = validateComfyUrl(job.config.comfy.baseUrl);
-    const reference = job.kind === 'image' ? (job.sources.length > 1 ? job.source : job.sources[0]) : job.source;
-    const uploadedName = reference ? await inputImage(reference, origin, job.controller.signal) : undefined;
-    const uploadedExtraNames = job.kind === 'video' ? await Promise.all(job.sources.slice(1).map(source => inputImage(source, origin, job.controller.signal))) : [];
+    const reference = job.kind === 'image' ? job.sources[0] : job.source;
+    const uploadedName = reference ? await inputImage(reference, origin, job.controller.signal, job.kind === 'image' ? job.ratio : undefined) : undefined;
+    const uploadedExtraNames = job.kind === 'image' || job.kind === 'video' ? await Promise.all(job.sources.slice(1).map(source => inputImage(source, origin, job.controller.signal))) : [];
     if (job.cancelled) return;
     const workflowKind = job.kind === 'image' && reference && !job.config.comfy.image.referenceNodeId ? 'imageEdit' : job.kind;
     const graph = buildMediaWorkflow(job.config.comfy[workflowKind], workflowKind, job, uploadedName, uploadedExtraNames);
@@ -198,14 +232,14 @@ export function createMediaJob(settings, input) {
   if (input.kind === 'image' && !['qwen', 'gpt'].includes(provider)) throw new Error('生图方式无效。');
   const sources = input.sources ?? (input.source ? [input.source] : []);
   if (!Array.isArray(sources) || sources.length > (input.kind === 'video' ? 8 : 4) || sources.some(source => typeof source !== 'string' || !validImageSource(source))) throw new Error(input.kind === 'video' ? '参考图无效，视频最多选择 8 张 PNG、JPEG 或 WebP 图片。' : '参考图无效，最多选择 4 张 PNG、JPEG 或 WebP 图片。');
-  if (input.kind === 'image' && provider === 'qwen' && sources.length > 1 && (!validImageSource(input.source) || !input.source.startsWith('data:image/jpeg;base64,'))) throw new Error('多张参考图需要先合成参考板。');
+  if (input.kind === 'image' && provider === 'qwen' && sources.length > 1 && input.source !== sources[0]) throw new Error('多张参考图必须按提示词引用顺序提交。');
   if (input.kind === 'video' && (!input.source || !Number.isFinite(input.duration) || input.duration < 1 || input.duration > 15)) throw new Error('MiniMax H3 需要首帧图片，时长须在 1–15 秒之间。');
   if (input.kind === 'video' && (sources[0] !== input.source || (sources.length > 1 && (!Array.isArray(input.cutPoints) || input.cutPoints.length !== sources.length || input.cutPoints[0] !== 0 || input.cutPoints.some((time, index) => !Number.isFinite(time) || time < 0 || time >= input.duration || (index > 0 && time <= input.cutPoints[index - 1])) || (settings.comfy.video.referenceSlots?.length || 0) < sources.length - 1)))) throw new Error('多图视频需要完整的图片节点映射和严格递增的切点。');
   if (input.ratio !== undefined && !['16:9', '9:16'].includes(input.ratio)) throw new Error('项目画面比例无效。');
   if (provider === 'qwen' || input.kind === 'video') {
-    const reference = input.kind === 'image' ? (sources.length > 1 ? input.source : sources[0]) : input.source;
+    const reference = input.kind === 'image' ? sources[0] : input.source;
     const workflowKind = input.kind === 'image' && reference && !settings.comfy.image.referenceNodeId ? 'imageEdit' : input.kind;
-    buildMediaWorkflow(settings.comfy[workflowKind], workflowKind, input, reference ? '__reference__' : undefined, input.kind === 'video' ? sources.slice(1).map((_, index) => `__reference_${index + 2}__`) : []);
+    buildMediaWorkflow(settings.comfy[workflowKind], workflowKind, input, reference ? '__reference__' : undefined, (input.kind === 'image' || input.kind === 'video') ? sources.slice(1).map((_, index) => `__reference_${index + 2}__`) : []);
   }
   const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, prompt: input.prompt.trim(), duration: input.duration, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
   jobs.set(job.id, job); pending.push(job.id); queueMicrotask(startNext);

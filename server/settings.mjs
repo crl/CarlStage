@@ -82,7 +82,15 @@ export function normalizeSettings(input) {
       const sampler = Object.values(graph).find(node => node.class_type === 'KSampler' && node.inputs?.latent_image?.[1] === 2);
       const textEncoder = sampler && graph[sampler.inputs.latent_image[0]];
       const bundledDefault = graph['1']?.class_type === 'UNETLoader' && graph['1'].inputs?.unet_name === 'qwen_image_2.1_int8_convrot.safetensors' && textEncoder?.class_type === 'TextEncodeQwenImage21' && !Object.values(graph).some(node => ['EmptySD3LatentImage', 'EmptyLatentImage'].includes(node.class_type));
-      if (bundledDefault) Object.assign(workflow, PRESETS[kind]);
+      const bundledLegacyEdit = kind === 'imageEdit'
+        && graph['1']?.class_type === 'UNETLoader'
+        && graph['1'].inputs?.unet_name === 'qwen_image_2.1_int8_convrot.safetensors'
+        && graph['5']?.class_type === 'TextEncodeQwenImage21'
+        && graph['6']?.class_type === 'KSampler'
+        && graph['6'].inputs?.latent_image?.[0] === '10'
+        && graph['9']?.class_type === 'LoadImage'
+        && graph['10']?.class_type === 'EmptySD3LatentImage';
+      if (bundledDefault || bundledLegacyEdit) Object.assign(workflow, PRESETS[kind]);
     } catch { /* Custom workflows are validated and preserved below. */ }
   }
   return { codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video') } };
