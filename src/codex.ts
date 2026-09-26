@@ -3,6 +3,7 @@ import type { DocKey, Project } from './model';
 export type Job = {
   id: string;
   section: DocKey;
+  provider?: 'codex' | 'ollama';
   status: 'queued' | 'running' | 'awaiting_confirmation' | 'completed' | 'failed' | 'cancelled';
   phase?: string;
   message?: string;
@@ -16,7 +17,14 @@ export type Job = {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try { response = await fetch(`/api${path}`, { ...init, headers: { 'content-type': 'application/json', ...init?.headers } }); }
-  catch { throw new Error('无法连接本机 Codex 服务。请运行 npm run dev。'); }
+  catch (error) {
+    if (init?.signal?.aborted) {
+      const reason = init.signal.reason;
+      if (reason instanceof Error && reason.name === 'TimeoutError') throw new Error('请求超时，请检查本机服务后重试。');
+      throw reason instanceof Error ? reason : new Error('请求已取消。');
+    }
+    throw new Error('无法连接本机 Codex 服务。请运行 npm run dev。');
+  }
   let data: { error?: string };
   try { data = await response.json(); }
   catch { throw new Error('无法连接本机 Codex 服务。请运行 npm run dev。'); }
@@ -41,12 +49,12 @@ export type Settings = {
 export type MediaWorkflow = { workflowJson: string; promptNodeId: string; promptInput: string; referenceNodeId: string; referenceInput: string; seedNodeId: string; seedInput: string; seed: number };
 export type ImageWorkflow = MediaWorkflow & { width: number; height: number; steps: number; cfg: number; widthNodeId: string; widthInput: string; heightNodeId: string; heightInput: string; stepsNodeId: string; stepsInput: string; cfgNodeId: string; cfgInput: string };
 export type MediaJob = { id: string; kind: 'image' | 'video'; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'; queuePosition?: number; message?: string; error?: string; result?: { url: string; mime: string; prompt: string; generatedAt: number } };
-export const createMediaJob = (input: { projectId: string; kind: 'image' | 'video'; provider?: 'qwen' | 'gpt'; prompt: string; source?: string; sources?: string[]; cutPoints?: number[]; duration?: number; ratio?: '16:9' | '9:16' }) => request<MediaJob>('/media/jobs', { method: 'POST', body: JSON.stringify(input) });
+export const createMediaJob = (input: { projectId: string; kind: 'image' | 'video'; provider?: 'qwen' | 'gpt'; imageMode?: 'edit' | 'compose'; prompt: string; source?: string; sources?: string[]; cutPoints?: number[]; duration?: number; ratio?: '16:9' | '9:16' }) => request<MediaJob>('/media/jobs', { method: 'POST', body: JSON.stringify(input) });
 export const getMediaJob = (id: string) => request<MediaJob>(`/media/jobs/${id}`);
 export const cancelMediaJob = (id: string) => request<MediaJob>(`/media/jobs/${id}/cancel`, { method: 'POST' });
 export const discardMediaJob = (id: string) => request<{ ok: boolean }>(`/media/jobs/${id}`, { method: 'POST' });
 export const copyMediaToLibrary = (url: string) => request<{ url: string }>('/media/library-copy', { method: 'POST', body: JSON.stringify({ url }) });
-export const uploadLibraryMedia = (file: File, kind: 'image' | 'video') => request<{ url: string }>(`/media/library-upload?kind=${kind}`, { method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file });
+export const uploadLibraryMedia = (file: File, kind: 'image' | 'video', signal?: AbortSignal) => request<{ url: string }>(`/media/library-upload?kind=${kind}`, { method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(kind === 'image' ? 120_000 : 300_000)]) : AbortSignal.timeout(kind === 'image' ? 120_000 : 300_000) });
 export const deleteMedia = (url: string) => request<{ ok: boolean }>('/media/delete', { method: 'POST', body: JSON.stringify({ url }) });
 export const getSettings = () => request<Settings>('/settings');
 export const saveSettings = (settings: Settings) => request<Settings>('/settings', { method: 'PUT', body: JSON.stringify(settings) });

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "server": "node server/index.mjs",
-    "test": "node --test server/map.test.mjs server/settings.test.mjs server/media.test.mjs server/gpt-image.test.mjs server/upload.test.mjs server/store.test.mjs server/file-store.test.mjs server/codex-path.test.mjs server/web-codex.test.mjs",
+    "test": "node --test server/map.test.mjs server/settings.test.mjs server/media.test.mjs server/gpt-image.test.mjs server/upload.test.mjs server/store.test.mjs server/file-store.test.mjs server/codex-path.test.mjs server/web-codex.test.mjs server/ollama.test.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "desktop:prepare": "npm run build && node scripts/prepare-desktop.mjs",

@@ -48,22 +48,39 @@ test('旧版 ComfyUI 平铺设置迁移到生图设置', () => {
 test('旧版内置 Qwen 方形 latent 工作流自动升级为项目画幅 latent', () => {
   const defaults = defaultSettings();
   const comfy = structuredClone(defaults.comfy);
-  for (const kind of ['image', 'imageEdit']) {
-    const graph = JSON.parse(comfy[kind].workflowJson);
-    const latentId = kind === 'image' ? '9' : '10';
-    delete graph[latentId];
-    graph['6'].inputs.latent_image = ['5', 2];
-    comfy[kind].workflowJson = JSON.stringify(graph);
-    comfy[kind].widthNodeId = '5'; comfy[kind].widthInput = 'resolution';
-    comfy[kind].heightNodeId = '';
-  }
+  const imageGraph = JSON.parse(comfy.image.workflowJson);
+  delete imageGraph['9']; imageGraph['6'].inputs.latent_image = ['5', 2];
+  comfy.image.workflowJson = JSON.stringify(imageGraph);
+  comfy.image.widthNodeId = '5'; comfy.image.widthInput = 'resolution'; comfy.image.heightNodeId = '';
+  const oldEdit = {
+    '1': { class_type: 'UNETLoader', inputs: { unet_name: 'qwen_image_2.1_int8_convrot.safetensors', weight_dtype: 'default' } },
+    '2': { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen3vl_8b_int8_convrot.safetensors', type: 'qwen_image', device: 'default' } },
+    '3': { class_type: 'VAELoader', inputs: { vae_name: 'qwen_image_2.1_vae_bf16.safetensors' } },
+    '4': { class_type: 'QwenImage21Cache', inputs: { model: ['1', 0], device: 'auto', dtype: 'default' } },
+    '5': { class_type: 'TextEncodeQwenImage21', inputs: { clip: ['2', 0], prompt: 'portrait', negative_prompt: '', resolution: 768, images: { image_1: ['9', 0] }, vae: ['3', 0] } },
+    '6': { class_type: 'KSampler', inputs: { model: ['4', 0], seed: 1, steps: 25, cfg: 1, sampler_name: 'euler', scheduler: 'simple', positive: ['5', 0], negative: ['5', 1], latent_image: ['10', 0], denoise: 1 } },
+    '7': { class_type: 'VAEDecode', inputs: { samples: ['6', 0], vae: ['3', 0] } },
+    '8': { class_type: 'SaveImage', inputs: { images: ['7', 0], filename_prefix: 'Qwen' } },
+    '9': { class_type: 'LoadImage', inputs: { image: 'reference.png' } },
+    '10': { class_type: 'EmptySD3LatentImage', inputs: { width: 1024, height: 1024, batch_size: 1 } }
+  };
+  comfy.imageEdit.workflowJson = JSON.stringify(oldEdit);
+  Object.assign(comfy.imageEdit, { promptNodeId: '5', referenceNodeId: '9', seedNodeId: '6', stepsNodeId: '6', cfgNodeId: '6', widthNodeId: '5', widthInput: 'resolution', heightNodeId: '' });
   const migrated = normalizeSettings({ ...defaults, comfy });
   for (const kind of ['image', 'imageEdit']) {
     const graph = JSON.parse(migrated.comfy[kind].workflowJson);
-    const latentId = kind === 'image' ? '9' : '10';
-    assert.equal(graph['6'].inputs.latent_image[0], latentId);
-    assert.equal(migrated.comfy[kind].widthNodeId, latentId);
-    assert.equal(migrated.comfy[kind].heightNodeId, latentId);
+    if (kind === 'image') {
+      assert.equal(graph['6'].inputs.latent_image[0], '9');
+      assert.equal(migrated.comfy[kind].widthNodeId, '9');
+      assert.equal(migrated.comfy[kind].heightNodeId, '9');
+    } else {
+      assert.equal(graph['459:458'].inputs.latent_image[0], '459:468');
+      assert.equal(graph['459:468'].class_type, 'ComfySwitchNode');
+      assert.equal(graph['459:456'].inputs.width[0], '13');
+      assert.equal(graph['13'].inputs.aspect_ratio, '16:9 (Widescreen)');
+      assert.equal(migrated.comfy[kind].widthNodeId, '');
+      assert.equal(migrated.comfy[kind].heightNodeId, '');
+    }
   }
 });
 

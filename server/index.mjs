@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile, cp, rm, stat } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, cp, rm, stat, copyFile, appendFile } from 'node:fs/promises';
 import { existsSync, createReadStream } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,23 +35,64 @@ async function body(req, limit = 25 * 1024 * 1024) {
   for await (const chunk of req) { size += chunk.length; if (size > limit) throw new Error('请求内容超过允许大小。'); chunks.push(chunk); }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
-function publicJob(job) { const { controller, project, workspace, thread, ...visible } = job; return visible; }
+function publicJob(job) { const { controller, project, workspace, thread, config, ...visible } = job; return { ...visible, provider: config.provider }; }
 function projectPath(id) { if (!/^[a-zA-Z0-9_-]{3,80}$/.test(id)) throw new Error('项目 ID 无效。'); return join(RUNS, id); }
+function skillRecordsPath(job) { return join(job.workspace, 'skill-records', SKILLS[job.section]); }
+function timestampFilePart(at = Date.now()) { return new Date(at).toISOString().replace(/[:.]/g, '-'); }
+async function archiveFile(job, source, label) {
+  if (!existsSync(source)) return;
+  const directory = skillRecordsPath(job);
+  await mkdir(directory, { recursive: true });
+  await copyFile(source, join(directory, `${timestampFilePart()}-${job.id.slice(0, 8)}-${label}`));
+}
+async function recordJob(job) {
+  try {
+    const directory = skillRecordsPath(job);
+    await mkdir(directory, { recursive: true });
+    if (job.phase === 'skeleton' && job.skeleton) {
+      await writeFile(join(directory, `${timestampFilePart()}-${job.id.slice(0, 8)}-outline-skeleton.md`), job.skeleton, 'utf8');
+    }
+    if (job.status === 'completed' && job.result?.raw) {
+      const outputName = `${timestampFilePart(job.result.generatedAt)}-${job.id.slice(0, 8)}-${NAMES[job.section]}.json`;
+      await writeFile(join(directory, outputName), JSON.stringify(job.result.raw, null, 2), 'utf8');
+    }
+    await appendFile(join(directory, 'runs.jsonl'), `${JSON.stringify({ id: job.id, at: Date.now(), phase: job.phase, status: job.status, provider: job.config.provider, message: job.message, error: job.error, validation: job.validation })}\n`, 'utf8');
+  } catch (error) {
+    job.recordWarning = `Skill 记录未能保存：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
 async function prepare(job) {
-  const workspace = join(projectPath(job.project.id), job.id);
+  const workspace = projectPath(job.project.id);
+  job.workspace = workspace;
   const skills = join(workspace, '.agents', 'skills');
   await mkdir(skills, { recursive: true });
   const skillName = SKILLS[job.section];
   await cp(join(VENDOR, skillName), join(skills, skillName), { recursive: true, force: true });
-  await mkdir(join(workspace, 'output'), { recursive: true });
+  const output = join(workspace, 'output');
+  await mkdir(output, { recursive: true });
+  const outputFile = join(output, `${NAMES[job.section]}.json`);
+  await archiveFile(job, outputFile, `previous-${NAMES[job.section]}.json`);
+  await rm(outputFile, { force: true });
   const p = job.project;
   await writeFile(join(workspace, 'source.txt'), p.kind === 'novel' ? p.sourceText : p.generatedSource || p.prompt, 'utf8');
   if (p.kind === 'idea') await writeFile(join(workspace, 'original-prompt.txt'), p.prompt, 'utf8');
+  else await rm(join(workspace, 'original-prompt.txt'), { force: true });
+  if (job.section === 'outline') {
+    const skeleton = join(output, 'outline-skeleton.md');
+    await archiveFile(job, skeleton, 'previous-outline-skeleton.md');
+    await rm(skeleton, { force: true });
+    await archiveFile(job, join(workspace, 'story-source.txt'), 'previous-story-source.txt');
+    await rm(join(workspace, 'story-source.txt'), { force: true });
+  }
   await writeFile(join(workspace, 'project.json'), JSON.stringify({ name: p.name, kind: p.kind, genre: p.genre, episodeCount: p.episodeCount, minDuration: p.minDuration, maxDuration: p.maxDuration, adaptation: p.adaptation, ratio: p.ratio, style: p.style, keep: p.keep }, null, 2));
   await writeFile(join(workspace, 'current-docs.json'), JSON.stringify(p.docs, null, 2));
   const artifacts = p.skillArtifacts || {};
   for (const [key, artifact] of Object.entries(artifacts)) {
-    if (SKILLS[key] && artifact?.raw) await writeFile(join(workspace, `${NAMES[key]}.json`), JSON.stringify(artifact.raw, null, 2));
+    if (!SKILLS[key] || !artifact?.raw) continue;
+    const inputPath = join(workspace, `${NAMES[key]}.json`);
+    const nextInput = JSON.stringify(artifact.raw, null, 2);
+    if (existsSync(inputPath) && await readFile(inputPath, 'utf8') !== nextInput) await archiveFile(job, inputPath, `previous-input-${NAMES[key]}.json`);
+    await writeFile(inputPath, nextInput);
   }
   job.workspace = workspace;
   return workspace;
@@ -70,10 +111,11 @@ function promptFor(job, phase) {
 async function runTurn(job, prompt) {
   if (job.config.provider === 'ollama') {
     const skill = SKILLS[job.section];
+    const outputPath = job.phase === 'skeleton' ? 'output/outline-skeleton.md' : `output/${NAMES[job.section]}.json`;
     await ollamaChat({ ...job.config, model: job.config.ollamaModel }, [
-      { role: 'system', content: `你是影视创作代理。先调用 read_file 阅读 .agents/skills/${skill}/SKILL.md 和所需文件，再用工具完成任务。推理强度：${job.config.reasoningEffort}。必须按 skill 要求运行脚本并写出目标文件。` },
+      { role: 'system', content: `你是影视创作代理。先调用 read_file 阅读 .agents/skills/${skill}/SKILL.md 和所需文件，再用工具完成任务。推理强度：${job.config.reasoningEffort}。必须按 skill 要求运行脚本。最终交付内容必须调用 write_output 工具保存；该工具会自动写入正确文件，无需自行指定路径。只有收到“最终产物已写入”的工具结果后，才能说明任务完成。` },
       { role: 'user', content: prompt },
-    ], { signal: job.controller.signal, workspace: job.workspace, skill, onMessage: value => { job.message = value.slice(-1200); } });
+    ], { signal: job.controller.signal, workspace: job.workspace, skill, outputPath, onMessage: value => { job.message = value.slice(-1200); } });
     return;
   }
   const stream = await job.thread.runStreamed(prompt, { signal: job.controller.signal });
@@ -83,10 +125,10 @@ async function runTurn(job, prompt) {
     if (event.type === 'item.completed' && event.item.type === 'agent_message') job.message = event.item.text.slice(-1200);
     if (event.type === 'item.started' && event.item.type === 'command_execution') job.message = `正在运行：${event.item.command.slice(0, 160)}`;
     if (event.type === 'turn.completed') completed = true;
-    if (event.type === 'turn.failed') throw new Error(event.error?.message || 'Codex 生成失败。');
+    if (event.type === 'turn.failed') throw new Error(event.error?.message || `${job.config.provider === 'ollama' ? 'Ollama' : 'Codex'} 生成失败。`);
     if (event.type === 'error') { lastError = event.message; job.message = event.message; }
   }
-  if (!completed) throw new Error(lastError || 'Codex 未能完成生成。');
+  if (!completed) throw new Error(lastError || `${job.config.provider === 'ollama' ? 'Ollama' : 'Codex'} 未能完成生成。`);
 }
 function validate(job, file) {
   return new Promise(resolvePromise => {
@@ -107,32 +149,53 @@ function validate(job, file) {
 async function execute(job, phase = 'final') {
   const timeout = setTimeout(() => { job.timedOut = true; job.controller.abort(); }, job.config.timeoutMinutes * 60_000);
   try {
-    job.status = 'running'; job.phase = phase; job.message = phase === 'skeleton' ? '正在生成大纲骨架…' : 'Codex 正在执行 skill…';
+    job.status = 'running'; job.phase = phase; job.message = phase === 'skeleton' ? '正在生成大纲骨架…' : `${job.config.provider === 'ollama' ? 'Ollama' : 'Codex'} 正在执行 skill…`;
     const workspace = job.workspace || await prepare(job);
     if (job.config.provider === 'codex') job.thread ||= codexFor(job.config).startThread({ model: job.config.model, modelReasoningEffort: job.config.reasoningEffort, workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'workspace-write', approvalPolicy: 'never', networkAccessEnabled: false });
     await runTurn(job, promptFor(job, phase));
     if (job.controller.signal.aborted) throw new Error('任务已取消。');
     if (phase === 'skeleton') {
-      job.skeleton = await readFile(join(workspace, 'output', 'outline-skeleton.md'), 'utf8');
+      const skeletonPath = join(workspace, 'output', 'outline-skeleton.md');
+      if (!existsSync(skeletonPath)) throw new Error(job.config.provider === 'ollama' ? 'Ollama 没有写入大纲骨架。请重试；任务完成回复不会代替实际文件。' : '大纲骨架文件未生成，请重试。');
+      job.skeleton = await readFile(skeletonPath, 'utf8');
       job.status = 'awaiting_confirmation'; job.message = '请审阅并确认大纲骨架。'; return;
     }
     const file = join(workspace, 'output', `${NAMES[job.section]}.json`);
-    const raw = JSON.parse(await readFile(file, 'utf8'));
-    const checked = await validate(job, file);
-    job.validation = checked.output;
-    const singleEpisodeException = singleEpisodeOutlineWarning(job.section, job.project.episodeCount, checked.output);
-    if (!checked.ok && !singleEpisodeException) throw new Error('Skill 质量门未通过，请查看校验结果。');
+    if (!existsSync(file)) throw new Error(job.config.provider === 'ollama' ? `Ollama 没有写入 ${NAMES[job.section]}.json。请重试；任务完成回复不会代替实际文件。` : `${NAMES[job.section]}.json 文件未生成，请重试。`);
+    let raw;
+    let checked = { ok: false, output: '' };
+    let singleEpisodeException;
+    const maxValidationAttempts = job.config.provider === 'ollama' ? 3 : 1;
+    for (let attempt = 0; attempt < maxValidationAttempts; attempt++) {
+      if (attempt > 0) {
+        job.message = `质量门未通过，Ollama 正在按实际校验结果修正（${attempt}/${maxValidationAttempts - 1}）…`;
+        await runTurn(job, `上一次生成的 ${NAMES[job.section]}.json 未通过服务端质量门。请先读取当前 JSON 和 .agents/skills/${SKILLS[job.section]}/SKILL.md，按下方校验器的每一条错误修正原文件。必须通过 write_output 保存完整的修正后 JSON，再运行 skill 的 validate 工具确认。不可只回复说明，也不可声称未经验证的内容已通过。\n\n服务端校验结果：\n${checked.output}`);
+        if (job.controller.signal.aborted) throw new Error('任务已取消。');
+      }
+      try {
+        raw = JSON.parse(await readFile(file, 'utf8'));
+        checked = await validate(job, file);
+      } catch (error) {
+        checked = { ok: false, output: `输出 JSON 无法解析：${error instanceof Error ? error.message : String(error)}` };
+      }
+      job.validation = checked.output;
+      singleEpisodeException = singleEpisodeOutlineWarning(job.section, job.project.episodeCount, checked.output);
+      if (checked.ok || singleEpisodeException) break;
+    }
+    if (!checked.ok && !singleEpisodeException) throw new Error(job.config.provider === 'ollama' ? 'Ollama 自动修正后仍未通过 Skill 质量门，请查看实际校验明细。' : 'Skill 质量门未通过，请查看校验结果。');
     const expansion = job.section === 'outline' && job.project.kind === 'idea' && existsSync(join(workspace, 'story-source.txt'))
       ? await readFile(join(workspace, 'story-source.txt'), 'utf8') : undefined;
     job.result = { mapped: mapSkillResult(job.section, raw, job.project), raw, skillVersion: VERSION, generatedAt: Date.now(), sourceExpansion: expansion };
     job.status = 'completed';
+    await recordJob(job);
     job.validationWarning = singleEpisodeException ? '单集项目无法满足“大爆点早于最终集”的结构门；其余质量门已通过。' : undefined;
     job.message = singleEpisodeException ? '已生成，存在单集结构质量门例外，请审阅后决定是否写入。' : '已生成并通过校验，请预览后确认写入。';
   } catch (e) {
     job.status = job.timedOut ? 'failed' : job.controller.signal.aborted ? 'cancelled' : 'failed';
-    job.error = job.timedOut ? `Codex 任务超过 ${job.config.timeoutMinutes} 分钟。` : e instanceof Error ? e.message : String(e);
+    job.error = job.timedOut ? `${job.config.provider === 'ollama' ? 'Ollama' : 'Codex'} 任务超过 ${job.config.timeoutMinutes} 分钟。` : e instanceof Error ? e.message : String(e);
   } finally {
     clearTimeout(timeout);
+    if (job.status !== 'completed') await recordJob(job);
     if (job.status !== 'awaiting_confirmation') activeProjects.delete(job.project.id);
   }
 }

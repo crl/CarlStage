@@ -43,16 +43,10 @@ async function normalizeImageRatio(bytes, ratio) {
   const image = sharp(bytes, { limitInputPixels: 100_000_000 });
   const metadata = await image.metadata();
   if (!metadata.width || !metadata.height) throw new Error('无法读取生成图片尺寸。');
-  if (Math.abs(metadata.width / metadata.height - width / height) < 0.005) return sharp(bytes).png().toBuffer();
-  return sharp(bytes, { limitInputPixels: 100_000_000 }).resize(width, height, { fit: 'cover', position: sharp.strategy.attention }).png().toBuffer();
-}
-
-async function fitReferenceCanvas(bytes, ratio) {
-  const width = ratio === '9:16' ? 864 : 1536;
-  const height = ratio === '9:16' ? 1536 : 864;
-  const background = await sharp(bytes, { limitInputPixels: 100_000_000 }).resize(width, height, { fit: 'cover' }).blur(32).png().toBuffer();
-  const foreground = await sharp(bytes, { limitInputPixels: 100_000_000 }).resize(width, height, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
-  return sharp(background).composite([{ input: foreground }]).png().toBuffer();
+  const actualRatio = metadata.width / metadata.height;
+  const expectedRatio = width / height;
+  if (Math.abs(actualRatio / expectedRatio - 1) > 0.012) throw new Error(`生成图片比例不符合 ${ratio || '16:9'}：实际 ${metadata.width}×${metadata.height}（${actualRatio.toFixed(4)}）。未裁切或补边，请检查工作流输出尺寸。`);
+  return sharp(bytes).png().toBuffer();
 }
 
 async function responseJson(response, label) {
@@ -61,7 +55,7 @@ async function responseJson(response, label) {
   if (!response.ok) throw new Error(`${label}失败（HTTP ${response.status}）：${JSON.stringify(data).slice(0, 500)}`);
   return data;
 }
-async function inputImage(source, origin, signal, canvasRatio) {
+async function inputImage(source, origin, signal) {
   let bytes, mime;
   if (/^data:image\/(png|jpeg|webp);base64,/i.test(source)) {
     const match = source.match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/i);
@@ -78,7 +72,6 @@ async function inputImage(source, origin, signal, canvasRatio) {
     mime = `image/${extname(match[2]).slice(1).replace('jpg', 'jpeg')}`;
   }
   if (bytes.length > 20 * 1024 * 1024) throw new Error('参考图不得超过 20 MB。');
-  if (canvasRatio) { bytes = await fitReferenceCanvas(bytes, canvasRatio); mime = 'image/png'; }
   const form = new FormData();
   form.append('image', new Blob([bytes], { type: mime }), `${randomUUID()}.${mime.split('/')[1]}`);
   form.append('overwrite', 'false');
@@ -100,21 +93,58 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
   if (uploadedName) setInput(graph, config, 'reference', uploadedName, true);
   if (kind === 'imageEdit' && uploadedName) {
     const promptNode = graph[config.promptNodeId];
-    // Qwen Image 2.1 uses explicit image tokens in the prompt to bind an
-    // attached image to the edit request. The image node alone is not enough
-    // to reliably tell the model which image the prompt refers to.
-    if (promptNode?.class_type === 'TextEncodeQwenImage21' && promptNode.inputs?.images?.image_1) {
-      const imageInputs = promptNode.inputs.images;
+    if (input.imageMode === 'compose' && promptNode?.class_type !== 'TextEncodeQwenImage21') throw new Error('分镜多参考图需要 TextEncodeQwenImage21 节点，请更新 Qwen 工作流。');
+    // Qwen Image 2.1 consumes the image list in slot order. Keep this order
+    // aligned with the selected references and preserve their original size.
+    if (promptNode?.class_type === 'TextEncodeQwenImage21') {
+      const inputs = promptNode.inputs;
+      const flattenedImageKeys = Object.keys(inputs).filter(key => /^images\.image_\d+$/.test(key));
+      const nestedImageSlots = Object.hasOwn(inputs, 'images') && flattenedImageKeys.length === 0;
+      if (nestedImageSlots) inputs.images = {};
+      else for (const key of flattenedImageKeys) delete inputs[key];
+      const setReferenceSlot = (slot, link) => {
+        if (nestedImageSlots) inputs.images[`image_${slot}`] = link;
+        else inputs[`images.image_${slot}`] = link;
+      };
       const referenceNodeId = String(config.referenceNodeId);
-      imageInputs.image_1 = [referenceNodeId, 0];
+      setReferenceSlot(1, [referenceNodeId, 0]);
       let nextNodeId = Math.max(0, ...Object.keys(graph).map(id => Number(id)).filter(Number.isFinite)) + 1;
       uploadedExtraNames.forEach((name, index) => {
         const nodeId = String(nextNodeId++);
         graph[nodeId] = { class_type: 'LoadImage', inputs: { image: name } };
-        imageInputs[`image_${index + 2}`] = [nodeId, 0];
+        setReferenceSlot(index + 2, [nodeId, 0]);
       });
-      const referenceTokens = Array.from({ length: uploadedExtraNames.length + 1 }, (_, index) => `<image${index + 1}>`).join('、');
-      promptNode.inputs[config.promptInput] = `参考图依次对应 ${referenceTokens}。按照提示词中引用的图片标记使用对应参考图，并保留相关主体特征和关键视觉关系。\n${promptNode.inputs[config.promptInput] || ''}`;
+      const originalPrompt = promptNode.inputs[config.promptInput] || '';
+      if (input.imageMode === 'compose') {
+        promptNode.inputs[config.promptInput] = originalPrompt.replace(/@参考图\s*(\d+)/g, '第$1张参考图中的').replace(/<image\d+>/g, '');
+        const resolutionNode = Object.entries(graph).find(([, node]) => node.class_type === 'ResolutionSelector');
+        const selectorId = resolutionNode?.[0] || String(nextNodeId++);
+        if (!resolutionNode) graph[selectorId] = { class_type: 'ResolutionSelector', inputs: { aspect_ratio: '16:9 (Widescreen)', megapixels: 1, multiple: 32 } };
+        graph[selectorId].inputs.aspect_ratio = input.ratio === '9:16' ? '9:16 (Portrait Widescreen)' : '16:9 (Widescreen)';
+        const samplerIds = Object.entries(graph).filter(([, node]) => node.class_type === 'KSampler' && String(node.inputs?.positive?.[0]) === String(config.promptNodeId));
+        let sizeNodeId = Object.entries(graph).find(([, node]) => node.class_type === 'EmptyLatentImage' && Array.isArray(node.inputs?.width) && Array.isArray(node.inputs?.height))?.[0];
+        if (!sizeNodeId) {
+          sizeNodeId = String(nextNodeId++);
+          graph[sizeNodeId] = { class_type: 'EmptyLatentImage', inputs: { width: [selectorId, 0], height: [selectorId, 1], batch_size: 1 } };
+        } else {
+          graph[sizeNodeId].inputs.width = [selectorId, 0];
+          graph[sizeNodeId].inputs.height = [selectorId, 1];
+          graph[sizeNodeId].inputs.batch_size = 1;
+        }
+        if (!samplerIds.length) throw new Error('分镜工作流缺少连接 Qwen 条件的 KSampler，无法保证输出画幅。');
+        for (const [, sampler] of samplerIds) {
+          const switchEntry = Object.entries(graph).find(([id, node]) => node.class_type === 'ComfySwitchNode' && String(sampler.inputs?.latent_image?.[0]) === id);
+          if (switchEntry) {
+            const [, switchNode] = switchEntry;
+            switchNode.inputs.on_true = [sizeNodeId, 0];
+            switchNode.inputs.switch = true;
+          } else sampler.inputs.latent_image = [sizeNodeId, 0];
+        }
+        promptNode.inputs.resolution = 0;
+      } else {
+        const referenceTokens = Array.from({ length: uploadedExtraNames.length + 1 }, (_, index) => `<image${index + 1}>`).join('、');
+        promptNode.inputs[config.promptInput] = `参考图依次对应 ${referenceTokens}。按照提示词中引用的图片标记使用对应参考图，并保留相关主体特征和关键视觉关系。\n${originalPrompt}`;
+      }
     }
   }
   if (kind === 'video') {
@@ -132,23 +162,20 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
     const portrait = input.ratio === '9:16';
     const configuredWidth = config.width || 768;
     const configuredHeight = config.height || 432;
-    const longSide = Math.max(configuredWidth, configuredHeight);
-    const shortSide = Math.min(configuredWidth, configuredHeight);
-    const width = portrait ? shortSide : longSide;
-    const height = portrait ? longSide : shortSide;
+    const units = Math.max(1, Math.round(Math.max(configuredWidth, configuredHeight) / 256));
+    const width = portrait ? 144 * units : 256 * units;
+    const height = portrait ? 256 * units : 144 * units;
     for (const key of ['width', 'height', 'steps', 'cfg']) {
       if (!config[`${key}NodeId`]) continue;
       const value = key === 'width' ? width : key === 'height' ? height : config[key];
       setInput(graph, config, key, value);
     }
     for (const node of Object.values(graph)) {
-      if ((node.class_type === 'EmptySD3LatentImage' || node.class_type === 'EmptyLatentImage') && Number.isFinite(node.inputs?.width) && Number.isFinite(node.inputs?.height)) {
-        const long = Math.max(node.inputs.width, node.inputs.height);
-        const short = Math.min(node.inputs.width, node.inputs.height);
-        [node.inputs.width, node.inputs.height] = portrait ? [short, long] : [long, short];
+      if (input.imageMode !== 'compose' && (node.class_type === 'EmptySD3LatentImage' || node.class_type === 'EmptyLatentImage') && Number.isFinite(node.inputs?.width) && Number.isFinite(node.inputs?.height)) {
+        [node.inputs.width, node.inputs.height] = [width, height];
         node.inputs.batch_size = 1;
       }
-      if (node.class_type === 'TextEncodeQwenImage21' && Number.isFinite(node.inputs?.resolution)) {
+      if (input.imageMode !== 'compose' && node.class_type === 'TextEncodeQwenImage21' && Number.isFinite(node.inputs?.resolution)) {
         node.inputs.resolution = Math.max(64, Math.min(2048, Math.round(portrait ? Math.min(configuredWidth, configuredHeight) : Math.max(configuredWidth, configuredHeight))));
         node.inputs.prompt = `${node.inputs.prompt || ''}\n画面采用 ${input.ratio === '9:16' ? '9:16 竖屏' : '16:9 横屏'}构图。`;
       }
@@ -175,11 +202,15 @@ async function execute(job) {
     }
     const origin = validateComfyUrl(job.config.comfy.baseUrl);
     const reference = job.kind === 'image' ? job.sources[0] : job.source;
-    const uploadedName = reference ? await inputImage(reference, origin, job.controller.signal, job.kind === 'image' ? job.ratio : undefined) : undefined;
-    const uploadedExtraNames = job.kind === 'image' || job.kind === 'video' ? await Promise.all(job.sources.slice(1).map(source => inputImage(source, origin, job.controller.signal))) : [];
+    const uploadedName = reference ? await inputImage(reference, origin, job.controller.signal) : undefined;
+    const extraSources = job.kind === 'image' || job.kind === 'video' ? job.sources.slice(1) : [];
+    const uploadedExtraNames = await Promise.all(extraSources.map(source => inputImage(source, origin, job.controller.signal)));
     if (job.cancelled) return;
-    const workflowKind = job.kind === 'image' && reference && !job.config.comfy.image.referenceNodeId ? 'imageEdit' : job.kind;
+    const workflowKind = job.kind === 'image' && reference && (job.imageMode === 'compose' || !job.config.comfy.image.referenceNodeId) ? 'imageEdit' : job.kind;
     const graph = buildMediaWorkflow(job.config.comfy[workflowKind], workflowKind, job, uploadedName, uploadedExtraNames);
+    const auditPath = join(MEDIA, job.projectId, 'jobs', `${job.id}.json`);
+    await mkdir(dirname(auditPath), { recursive: true });
+    await writeFile(auditPath, JSON.stringify({ id: job.id, prompt: job.prompt, ratio: job.ratio, sources: job.sources, uploadedNames: [uploadedName, ...uploadedExtraNames], workflow: graph }, null, 2));
     job.message = '正在提交 ComfyUI 任务…';
     const submission = await responseJson(await fetch(`${origin}/prompt`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: graph, client_id: job.id }), signal: timedSignal(job, 30_000) }), 'ComfyUI 工作流提交');
     if (submission.node_errors && Object.keys(submission.node_errors).length) throw new Error(`工作流节点错误：${JSON.stringify(submission.node_errors).slice(0, 600)}`);
@@ -195,7 +226,11 @@ async function execute(job) {
       const completed = history[job.promptId];
       if (completed) {
         if (completed.status?.status_str === 'error') throw new Error(`ComfyUI 生成失败：${JSON.stringify(completed.status.messages || []).slice(0, 800)}`);
-        const entries = Object.values(completed.outputs || {}).flatMap(node => job.kind === 'video' ? [...(node.videos || []), ...(node.gifs || []), ...(node.images || []).filter(item => /\.(mp4|webm|mov)$/i.test(item.filename || ''))] : node.images || []);
+        const outputEntries = Object.entries(completed.outputs || {});
+        const preferredClasses = job.kind === 'video' ? new Set(['SaveVideo', 'SaveAnimatedWEBP']) : new Set(['SaveImage', 'SaveImageAdvanced']);
+        const preferredIds = new Set(Object.entries(graph).filter(([, node]) => preferredClasses.has(node.class_type)).map(([id]) => id));
+        const orderedOutputs = [...outputEntries.filter(([id]) => preferredIds.has(id)), ...outputEntries.filter(([id]) => !preferredIds.has(id))];
+        const entries = orderedOutputs.flatMap(([, node]) => job.kind === 'video' ? [...(node.videos || []), ...(node.gifs || []), ...(node.images || []).filter(item => /\.(mp4|webm|mov)$/i.test(item.filename || ''))] : node.images || []);
         output = entries.find(item => item.filename);
         if (!output) throw new Error('ComfyUI 已完成，但没有输出可读取的媒体文件。');
         break;
@@ -214,7 +249,11 @@ async function execute(job) {
     let extension = extname(output.filename).slice(1).toLowerCase();
     const allowed = job.kind === 'video' ? ['mp4', 'webm', 'mov'] : ['png', 'jpg', 'jpeg', 'webp'];
     if (!allowed.includes(extension)) throw new Error(`不支持的生成文件格式：${extension || '未知'}。`);
-    if (job.kind === 'image') { bytes = await normalizeImageRatio(bytes, job.ratio); extension = 'png'; }
+    if (job.kind === 'image') {
+      const metadata = await sharp(bytes).metadata();
+      await writeFile(auditPath, JSON.stringify({ id: job.id, promptId: job.promptId, prompt: job.prompt, ratio: job.ratio, sources: job.sources, uploadedNames: [uploadedName, ...uploadedExtraNames], workflow: graph, output, originalSize: { width: metadata.width, height: metadata.height } }, null, 2));
+      bytes = await normalizeImageRatio(bytes, job.ratio); extension = 'png';
+    }
     if (job.cancelled) return;
     const name = `${randomUUID()}.${extension}`;
     const path = filePath(job.projectId, name);
@@ -230,6 +269,8 @@ export function createMediaJob(settings, input) {
   safeId(input.projectId);
   const provider = input.kind === 'image' ? (input.provider || settings.imageProvider || 'qwen') : 'minimax';
   if (input.kind === 'image' && !['qwen', 'gpt'].includes(provider)) throw new Error('生图方式无效。');
+  if (input.kind === 'image' && input.imageMode !== undefined && !['edit', 'compose'].includes(input.imageMode)) throw new Error('生图模式无效。');
+  const imageMode = input.kind === 'image' ? (input.imageMode || 'edit') : undefined;
   const sources = input.sources ?? (input.source ? [input.source] : []);
   if (!Array.isArray(sources) || sources.length > (input.kind === 'video' ? 8 : 4) || sources.some(source => typeof source !== 'string' || !validImageSource(source))) throw new Error(input.kind === 'video' ? '参考图无效，视频最多选择 8 张 PNG、JPEG 或 WebP 图片。' : '参考图无效，最多选择 4 张 PNG、JPEG 或 WebP 图片。');
   if (input.kind === 'image' && provider === 'qwen' && sources.length > 1 && input.source !== sources[0]) throw new Error('多张参考图必须按提示词引用顺序提交。');
@@ -238,10 +279,11 @@ export function createMediaJob(settings, input) {
   if (input.ratio !== undefined && !['16:9', '9:16'].includes(input.ratio)) throw new Error('项目画面比例无效。');
   if (provider === 'qwen' || input.kind === 'video') {
     const reference = input.kind === 'image' ? sources[0] : input.source;
-    const workflowKind = input.kind === 'image' && reference && !settings.comfy.image.referenceNodeId ? 'imageEdit' : input.kind;
-    buildMediaWorkflow(settings.comfy[workflowKind], workflowKind, input, reference ? '__reference__' : undefined, (input.kind === 'image' || input.kind === 'video') ? sources.slice(1).map((_, index) => `__reference_${index + 2}__`) : []);
+    const workflowKind = input.kind === 'image' && reference && (imageMode === 'compose' || !settings.comfy.image.referenceNodeId) ? 'imageEdit' : input.kind;
+    const extraSources = (input.kind === 'image' || input.kind === 'video') ? sources.slice(1) : [];
+    buildMediaWorkflow(settings.comfy[workflowKind], workflowKind, { ...input, imageMode }, reference ? '__reference__' : undefined, extraSources.map((_, index) => `__reference_${index + 2}__`));
   }
-  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, prompt: input.prompt.trim(), duration: input.duration, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
+  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, imageMode, prompt: input.prompt.trim(), duration: input.duration, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
   jobs.set(job.id, job); pending.push(job.id); queueMicrotask(startNext);
   return publicJob(job);
 }

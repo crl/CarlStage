@@ -1,8 +1,31 @@
 import { useEffect, useState } from 'react';
 import { checkPreset, checkWorkflow, getPreset, getSettings, saveSettings, testCodex, testComfy } from './codex';
 import type { Settings } from './codex';
+import WorkflowGraph from './WorkflowGraph';
 
 type WorkflowKind = 'image' | 'imageEdit' | 'video';
+function inferWorkflowMappings(kind: WorkflowKind, workflowJson: string) {
+  const graph = JSON.parse(workflowJson) as Record<string, { class_type?: string; inputs?: Record<string, unknown> }>;
+  const nodes = Object.entries(graph);
+  const prompt = nodes.find(([, node]) => node.class_type === 'TextEncodeQwenImage21' && node.inputs && Object.hasOwn(node.inputs, 'prompt'))
+    || nodes.find(([, node]) => node.class_type?.includes('Text') && node.inputs && Object.hasOwn(node.inputs, 'text'));
+  const reference = nodes.find(([, node]) => node.class_type === 'LoadImage' && node.inputs && Object.hasOwn(node.inputs, 'image'));
+  const sampler = nodes.find(([, node]) => node.class_type === 'KSampler' && node.inputs && Object.hasOwn(node.inputs, 'seed') && (!prompt || String((node.inputs.positive as unknown[] | undefined)?.[0]) === prompt[0]))
+    || nodes.find(([, node]) => node.class_type === 'KSampler' && node.inputs && Object.hasOwn(node.inputs, 'seed'));
+  const latent = nodes.find(([, node]) => ['EmptyLatentImage', 'EmptySD3LatentImage'].includes(node.class_type || '') && node.inputs);
+  const mappings: Record<string, string> = {};
+  if (prompt) { mappings.promptNodeId = prompt[0]; mappings.promptInput = Object.hasOwn(prompt[1].inputs || {}, 'prompt') ? 'prompt' : 'text'; }
+  if (reference && kind !== 'video') { mappings.referenceNodeId = reference[0]; mappings.referenceInput = 'image'; }
+  if (sampler) {
+    mappings.seedNodeId = sampler[0]; mappings.seedInput = 'seed';
+    for (const input of ['steps', 'cfg']) if (Object.hasOwn(sampler[1].inputs || {}, input)) { mappings[`${input}NodeId`] = sampler[0]; mappings[`${input}Input`] = input; }
+  }
+  if (latent) for (const input of ['width', 'height']) {
+    if (Number.isFinite(latent[1].inputs?.[input])) { mappings[`${input}NodeId`] = latent[0]; mappings[`${input}Input`] = input; }
+    else { mappings[`${input}NodeId`] = ''; mappings[`${input}Input`] = input; }
+  }
+  return mappings;
+}
 export default function SettingsPage() {
   const [draft, setDraft] = useState<Settings | null>(null);
   const [busy, setBusy] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState('');
@@ -16,10 +39,16 @@ export default function SettingsPage() {
   const field = (kind: WorkflowKind, label: string, id: string, input: string, optional = false) => <div className="settings-fields" key={`${kind}-${id}`}><label>{label}节点 ID{optional ? ' · 可选' : ''}<input value={String(draft.comfy[kind][id as keyof typeof draft.comfy[typeof kind]])} onChange={e => workflow(kind, id, e.target.value)} placeholder="如 6"/></label><label>输入字段<input value={String(draft.comfy[kind][input as keyof typeof draft.comfy[typeof kind]])} onChange={e => workflow(kind, input, e.target.value)}/></label></div>;
   const section = (kind: WorkflowKind) => {
     const config = draft.comfy[kind]; const image = kind !== 'video'; const title = kind === 'image' ? 'Qwen 文生图' : kind === 'imageEdit' ? 'Qwen 参考图编辑' : 'MiniMax H3 首帧图生视频';
+    const graphMappings = image ? [
+      { id: config.promptNodeId, title: '提示词' }, { id: config.referenceNodeId, title: '参考图' }, { id: config.seedNodeId, title: '随机种子' },
+      { id: draft.comfy[kind as 'image' | 'imageEdit'].widthNodeId, title: '宽度' }, { id: draft.comfy[kind as 'image' | 'imageEdit'].heightNodeId, title: '高度' },
+      { id: draft.comfy[kind as 'image' | 'imageEdit'].stepsNodeId, title: '采样步数' }, { id: draft.comfy[kind as 'image' | 'imageEdit'].cfgNodeId, title: 'CFG' }
+    ] : [{ id: config.promptNodeId, title: '提示词' }, { id: config.referenceNodeId, title: '首帧图' }, { id: config.seedNodeId, title: '随机种子' }, { id: draft.comfy.video.durationNodeId, title: '视频时长' }];
     return <section className="panel settings-panel" key={kind}><div className="section-heading"><h2>本地{title}</h2><span className="eyebrow">{image ? 'IMAGE' : 'VIDEO'} WORKFLOW</span></div><p className="muted">已提供默认 API 节点配置，也可导入自己的 ComfyUI 工作流。{kind === 'video' ? '使用分镜图片作为首帧。' : kind === 'imageEdit' ? '有参考图时使用这个工作流。' : '不选择参考图时使用这个工作流。'}</p>
       <div className="inline-actions"><button className="btn small" disabled={!!busy} onClick={() => action(`preset-${kind}`, async () => { const preset = await getPreset(kind); setDraft(s => s ? { ...s, comfy: { ...s.comfy, [kind]: preset } } : s); return `${title}预设已填入，请保存设置。`; })}>恢复默认节点配置</button><button className="btn small" disabled={!!busy || !config.workflowJson} onClick={() => action(`preset-check-${kind}`, async () => { const result = await checkPreset(draft.comfy.baseUrl, config); return result.ok ? `${title}所需节点和模型已安装。` : `缺少节点：${result.missingNodes.join('、') || '无'}；缺少模型：${result.missingModels.join('、') || '无'}`; })}>检查当前节点与模型</button></div>
-      <div className="settings-workflow-head"><h3>工作流 JSON</h3><label className="btn small">导入文件<input type="file" accept=".json,application/json" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 2_000_000) return setError('工作流 JSON 不得超过 2 MB。'); workflow(kind, 'workflowJson', await file.text()); setMessage(`已导入 ${file.name}，请检查节点映射并保存。`); setError(''); e.target.value = ''; }}/></label></div>
-      <textarea className="settings-workflow" value={config.workflowJson} onChange={e => workflow(kind, 'workflowJson', e.target.value)} placeholder="粘贴或导入 ComfyUI API 格式工作流 JSON" spellCheck={false}/>
+      <div className="settings-workflow-head"><h3>ComfyUI 节点图</h3><label className="btn small">导入 API 工作流<input type="file" accept=".json,application/json" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; try { if (file.size > 2_000_000) throw new Error('工作流 JSON 不得超过 2 MB。'); const workflowJson = await file.text(); const mappings = inferWorkflowMappings(kind, workflowJson); setDraft(s => s ? { ...s, comfy: { ...s.comfy, [kind]: { ...s.comfy[kind], workflowJson, ...mappings } } } : s); setMessage(`已导入 ${file.name}，并自动识别提示词、参考图、随机种子、步数和 CFG 节点；请保存设置。`); setError(''); } catch (e) { setError((e as Error).message || '无法读取工作流 JSON。'); } finally { e.target.value = ''; } }}/></label></div>
+      <WorkflowGraph workflowJson={config.workflowJson} mappings={graphMappings.filter(item => !!item.id)}/>
+      <details className="settings-workflow-json"><summary>高级：查看或编辑 API 工作流 JSON</summary><textarea className="settings-workflow" value={config.workflowJson} onChange={e => workflow(kind, 'workflowJson', e.target.value)} placeholder="粘贴或导入 ComfyUI API 格式工作流 JSON" spellCheck={false}/></details>
       {field(kind, '提示词', 'promptNodeId', 'promptInput')}{field(kind, image ? '参考图' : '首帧图片', 'referenceNodeId', 'referenceInput', kind === 'image')}{!image && field(kind, '时长', 'durationNodeId', 'durationInput')}{field(kind, '随机种子', 'seedNodeId', 'seedInput', true)}
       {!image && <div className="settings-multi-refs"><div className="section-heading"><h3>分段视频多图切点</h3><button className="btn small" disabled={(draft.comfy.video.referenceSlots?.length || 0) >= 7} onClick={() => videoSlots(slots => [...slots, { imageNodeId: '', imageInput: 'image', timeNodeId: '', timeInput: 'seconds' }])}>＋ 添加图片节点</button></div><p className="hint">第 1 张使用上方首帧节点，之后每张需要图片节点和切点秒数节点。未配置时分段视频仅使用首镜图。</p>{(draft.comfy.video.referenceSlots || []).map((slot, index) => <div className="settings-fields" key={index}><label>图 {index + 2} 节点 ID<input value={slot.imageNodeId} onChange={e => videoSlots(slots => slots.map((item, i) => i === index ? { ...item, imageNodeId: e.target.value } : item))}/></label><label>图片字段<input value={slot.imageInput} onChange={e => videoSlots(slots => slots.map((item, i) => i === index ? { ...item, imageInput: e.target.value } : item))}/></label><label>切点节点 ID<input value={slot.timeNodeId} onChange={e => videoSlots(slots => slots.map((item, i) => i === index ? { ...item, timeNodeId: e.target.value } : item))}/></label><label>切点字段<input value={slot.timeInput} onChange={e => videoSlots(slots => slots.map((item, i) => i === index ? { ...item, timeInput: e.target.value } : item))}/></label><button className="btn small" onClick={() => videoSlots(slots => slots.filter((_, i) => i !== index))}>移除</button></div>)}</div>}
       {image && <>{field(kind, '宽度', 'widthNodeId', 'widthInput', true)}{field(kind, '高度', 'heightNodeId', 'heightInput', true)}{field(kind, '采样步数', 'stepsNodeId', 'stepsInput', true)}{field(kind, 'CFG', 'cfgNodeId', 'cfgInput', true)}</>}

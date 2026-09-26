@@ -1,7 +1,7 @@
 export type ProjectKind = 'idea' | 'novel';
 export type AssetType = 'character' | 'scene' | 'prop' | 'other';
 export type DocKey = 'outline' | 'script' | 'cast' | 'art' | 'storyboard';
-export type Asset = { id: string; type: AssetType; name: string; description: string; mediaKind?: 'image' | 'video'; image?: string; video?: string; sourceProjectId?: string; sourceItemId?: string; generatedAt?: number; provider?: string };
+export type Asset = { id: string; type: AssetType; name: string; description: string; prompt?: string; mediaKind?: 'image' | 'video'; image?: string; video?: string; sourceProjectId?: string; sourceItemId?: string; generatedAt?: number; provider?: string };
 export type Outline = { core: string; retain: string[]; cut: string[]; merge: string[]; risks: string[]; episodes: { title: string; summary: string; hook: string; crowdPlan?: string; warnings?: string[] }[]; beats?: { id: string; type: string; episode: number; setup: string; payoff: string }[]; characters?: { id: string; name: string; role: string; arc: string; source: string }[]; scenes?: { id: string; name: string; primary: boolean }[] };
 export type ScriptBeat = { action?: string; speaker?: string; line?: string; delivery?: string; seconds?: number };
 export type Script = { episodes: { title: string; duration: number; hook: string; ending: string; beatsClaimed?: string[]; scenes: { title: string; location: string; description: string; beats: string[]; sceneId?: string; lighting?: string; characters?: string[]; props?: string[]; flow?: ScriptBeat[] }[] }[] };

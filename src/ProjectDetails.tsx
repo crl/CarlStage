@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { beatSeconds, clone } from './model';
-import type { ArtAsset, Character, DocKey, Project, ScriptBeat, Shot } from './model';
+import type { ArtAsset, Asset, Character, DocKey, Project, ScriptBeat, Shot } from './model';
 
 type Save = <T extends DocKey>(key: T, value: Project['docs'][T], label?: string) => void;
-type Props = { project: Project; tab: string; detail: string[]; go: (path: string) => void; save: Save; openImage: (url: string) => void; media: (target: Character | ArtAsset | Shot, kind: 'image' | 'video', compact?: boolean) => ReactNode };
+type Props = { project: Project; tab: string; detail: string[]; go: (path: string) => void; save: Save; openImage: (url: string) => void; media: (target: Character | ArtAsset | Shot, kind: 'image' | 'video', compact?: boolean) => ReactNode; addToLibrary?: (asset: Asset) => void; renderImagePicker?: (value: string | undefined, onChange: (url: string) => void) => ReactNode };
 
 export function ProjectSubnav({ project, tab, detail, go }: Pick<Props, 'project' | 'tab' | 'detail' | 'go'>) {
   const root = `/p/${project.id}/${tab}`;
@@ -25,7 +25,7 @@ function Editable({ label, value, onSave, multiline = false }: { label: string; 
   return <div className="detail-field"><div className="detail-field-head"><span>{label}</span><button onClick={() => navigator.clipboard.writeText(value)} title={`复制${label}`}>复制</button></div>{editing ? multiline ? <textarea autoFocus value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Escape') { setDraft(value); setEditing(false); } if (e.ctrlKey && e.key === 'Enter') commit(); }}/> : <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}/> : <div className="detail-value" onDoubleClick={() => setEditing(true)} title="双击编辑">{value || <em>双击填写</em>}</div>}</div>;
 }
 
-export function ProjectDetail({ project, tab, detail, go, save, openImage, media }: Props) {
+export function ProjectDetail({ project, tab, detail, go, save, openImage, media, addToLibrary, renderImagePicker }: Props) {
   const root = `/p/${project.id}`;
   if (tab === 'outline' && detail[0] === 'beats') {
     const beats = project.docs.outline.beats || [];
@@ -62,7 +62,8 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
           <section className="character-detail-section"><h2>原文佐证</h2>{evidence.length ? <ul className="character-evidence">{evidence.map((quote, i) => <li key={i}>{quote}</li>)}</ul> : <p className="character-detail-empty">暂无原文佐证</p>}</section>
         </div>
         <aside className="character-detail-side">
-          <section className="panel character-image-panel"><div className="character-image-panel-head"><h2>形象</h2>{media(character, 'image', true)}</div>{character.image ? <img className="character-detail-image" src={character.image} onClick={() => openImage(character.image!)} alt={`${character.name}设定图`}/> : <div className="character-detail-image-empty">尚未生成角色设定图</div>}<div className="character-prompt-fields">{character.imageStyle !== undefined && <Editable label="画风" value={character.imageStyle} multiline onSave={value => edit('imageStyle', value)}/>}<Editable label="角色提示词" value={character.imagePrompt || ''} multiline onSave={value => edit('imagePrompt', value)}/></div></section>
+          <section className="panel character-image-panel"><div className="character-image-panel-head"><h2>形象</h2>{media(character, 'image', true)}</div>{character.image ? <img className="character-detail-image" src={character.image} onClick={() => openImage(character.image!)} alt={`${character.name}设定图`}/> : <div className="character-detail-image-empty">尚未生成角色设定图</div>}<div className="art-detail-image-actions">{addToLibrary && <button className="btn small" disabled={!character.image} onClick={() => addToLibrary({ id: character.id, type: 'character', name: character.name, description: character.description, prompt: character.imagePrompt || '', image: character.image })}>加入资产库</button>}{renderImagePicker?.(character.image, url => edit('image', url))}</div></section>
+          <section className="panel character-prompt-panel"><div className="character-prompt-fields">{character.imageStyle !== undefined && <Editable label="画风" value={character.imageStyle} multiline onSave={value => edit('imageStyle', value)}/>}<Editable label="角色提示词" value={character.imagePrompt || ''} multiline onSave={value => edit('imagePrompt', value)}/></div></section>
           <section className="panel character-voice-panel"><h2>音色</h2>{Object.entries(character.voice || {}).length ? Object.entries(character.voice || {}).map(([key, value]) => <Editable key={key} label={voiceLabels[key] || key} value={value} multiline onSave={nextValue => { const next = clone(project.docs.cast); next[index].voice = { ...next[index].voice, [key]: nextValue }; save('cast', next, `修改${character.name}音色`); }}/>) : <p className="character-detail-empty">暂无音色设定</p>}</section>
         </aside>
       </div>
@@ -86,7 +87,7 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
           <section className="art-detail-section"><h2>{kind === 'scenes' ? '光照状态' : '状态'}</h2>{(asset.states || []).length ? (asset.states || []).map((state, stateIndex) => <div className="art-state-row" key={`${state.state}-${stateIndex}`}><strong>{state.state}</strong><Editable label="提示词" value={state.prompt} multiline onSave={value => { const next = clone(project.docs.art); next[kind][index].states![stateIndex].prompt = value; save('art', next, `修改${asset.name}状态`); }}/></div>) : <p className="character-detail-empty">暂无状态设定</p>}</section>
         </div>
         <aside className="art-detail-side">
-          <section className="panel art-image-panel"><div className="character-image-panel-head"><h2>{kind === 'scenes' ? '场景图' : '道具图'}</h2>{media(asset, 'image', true)}</div>{asset.image ? <img className="art-detail-image" src={asset.image} onClick={() => openImage(asset.image!)} alt={asset.name}/> : <div className="character-detail-image-empty">尚未生成{kind === 'scenes' ? '场景图' : '道具图'}</div>}</section>
+          <section className="panel art-image-panel"><div className="character-image-panel-head"><h2>{kind === 'scenes' ? '场景图' : '道具图'}</h2>{media(asset, 'image', true)}</div>{asset.image ? <img className="art-detail-image" src={asset.image} onClick={() => openImage(asset.image!)} alt={asset.name}/> : <div className="character-detail-image-empty">尚未生成{kind === 'scenes' ? '场景图' : '道具图'}</div>}<div className="art-detail-image-actions">{addToLibrary && <button className="btn small" onClick={() => addToLibrary(asset)}>加入资产库</button>}{renderImagePicker?.(asset.image, url => edit('image', url))}</div></section>
           <section className="panel art-prompt-panel"><h2>出图提示词</h2><div className="art-detail-fields"><Editable label="正向提示词" value={asset.prompt || asset.description} multiline onSave={value => edit('prompt', value)}/><Editable label="负面提示词" value={asset.negativePrompt || ''} multiline onSave={value => edit('negativePrompt', value)}/></div></section>
         </aside>
       </div>
