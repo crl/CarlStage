@@ -311,27 +311,37 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
   const key = tab === 'characters' ? 'cast' : (tab as DocKey);
   const pageDetail = tab === 'script' && !detail.length ? ['1'] : detail;
   const hasDetail = pageDetail.length > 0 && ['outline', 'script', 'cast', 'art', 'storyboard'].includes(tab);
-  function renderDetailMedia(target: Character | Asset | Shot, kind: 'image' | 'video', compact = false, slot?: 'appearance' | 'turnaround' | 'main' | 'setting', referenceImage?: string) {
-    const historyId = slot === 'turnaround' ? `${target.id}:turnaround` : slot === 'setting' ? `${target.id}:setting` : target.id;
+  function renderDetailMedia(target: Character | Asset | Shot, kind: 'image' | 'video', compact = false, slot?: 'appearance' | 'turnaround' | 'main' | 'setting' | 'state', referenceImage?: string, stateIndex?: number) {
+    const historyId = slot === 'turnaround' ? `${target.id}:turnaround` : slot === 'setting' ? `${target.id}:setting` : slot === 'state' ? `${target.id}:state:${stateIndex ?? 0}` : target.id;
     const prior = project.assets.filter(asset => asset.sourceItemId === historyId && (kind === 'image' ? !!asset.image : !!asset.video));
     const isShot = 'framing' in target;
-    const prompt = isShot ? `${target.scene}，${target.framing}，${target.action}` : 'type' in target ? (target as ArtAsset).prompt || '' : target.imagePrompt || `${target.name}，${target.role}，${target.description}`;
+    const prompt = isShot ? `${target.scene}，${target.framing}，${target.action}` : 'type' in target ? slot === 'state' ? (target as ArtAsset).states?.[stateIndex ?? -1]?.prompt || '' : (target as ArtAsset).prompt || '' : target.imagePrompt || `${target.name}，${target.role}，${target.description}`;
     const negativePrompt = kind === 'image' && !isShot ? 'type' in target ? (target as ArtAsset).negativePrompt || '' : target.imageNegativePrompt || '' : undefined;
     const accept = (url: string) => {
       if (isShot) saveDoc(project, 'storyboard', { ...project.docs.storyboard, shots: project.docs.storyboard.shots.map(shot => shot.id === target.id ? { ...shot, [kind === 'image' ? 'image' : 'video']: url } : shot) }, `保存分镜${kind === 'image' ? '图' : '视频'}`);
       else if ('type' in target) {
         const next = clone(project.docs.art);
-        const imageField = slot === 'setting' ? 'settingImage' : 'image';
-        if (target.type === 'scene') next.scenes = next.scenes.map(asset => asset.id === target.id ? { ...asset, [imageField]: url } : asset);
-        else next.props = next.props.map(asset => asset.id === target.id ? { ...asset, [imageField]: url } : asset);
-        saveDoc(project, 'art', next, `保存${target.type === 'scene' && slot === 'setting' ? '场景设定图' : target.type === 'scene' ? '场景主视角图' : '道具图'}`);
+        const updateAsset = (asset: ArtAsset) => {
+          if (asset.id !== target.id) return asset;
+          if (slot === 'state' && stateIndex !== undefined) {
+            const states = [...(asset.states || [])];
+            states[stateIndex] = { ...states[stateIndex], image: url };
+            return { ...asset, states };
+          }
+          const imageField = slot === 'setting' ? 'settingImage' : 'image';
+          return { ...asset, [imageField]: url };
+        };
+        if (target.type === 'scene') next.scenes = next.scenes.map(updateAsset);
+        else next.props = next.props.map(updateAsset);
+        const label = slot === 'state' ? `保存${target.name}状态图片` : target.type === 'scene' && slot === 'setting' ? '保存场景设定图' : target.type === 'scene' ? '保存场景主视角图' : '保存道具图';
+        saveDoc(project, 'art', next, label);
       }
       else saveDoc(project, 'cast', project.docs.cast.map(c => c.id === target.id ? slot === 'turnaround' ? { ...c, turnaroundImage: url } : { ...c, image: url } : c), slot === 'turnaround' ? '保存角色三视图' : '保存角色形象图');
     };
-    const referenceImages = slot === 'setting' && 'type' in target
+    const referenceImages = (slot === 'setting' || slot === 'state') && 'type' in target
       ? [referenceImage].filter((image): image is string => !!image)
       : slot === 'turnaround' && !isShot && !('type' in target) && target.turnaroundImage ? [target.turnaroundImage] : undefined;
-    if (compact && kind === 'image' && !('framing' in target)) return <CompactDetailImageTools project={project} target={target} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={slot === 'setting' ? undefined : target.image} history={prior.filter(asset => asset.image)} historyId={historyId} viewName={slot === 'setting' ? '设定图' : slot === 'main' ? '主视角' : slot === 'turnaround' ? '三视图' : slot === 'appearance' ? '形象' : '道具图'} onAccept={accept} onDeleteHistory={asset => deleteAsset(asset)} openImage={openImage}/>;
+    if (compact && kind === 'image' && !('framing' in target)) return <CompactDetailImageTools project={project} target={target} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={slot === 'setting' || slot === 'state' ? undefined : target.image} history={prior.filter(asset => asset.image)} historyId={historyId} viewName={slot === 'state' ? '光照状态' : slot === 'setting' ? '设定图' : slot === 'main' ? '主视角' : slot === 'turnaround' ? '三视图' : slot === 'appearance' ? '形象' : '道具图'} onAccept={accept} onDeleteHistory={asset => deleteAsset(asset)} openImage={openImage}/>;
     return <div className="detail-media-tools"><MediaGenerator project={project} kind={kind} targetId={target.id} prompt={prompt} negativePrompt={negativePrompt} source={target.image} duration={isShot ? target.duration : undefined} onAccept={accept}/>{prior.length > 0 && <details><summary>{kind === 'image' ? '图片' : '视频'}历史记录 · {prior.length}</summary><div className="detail-media-history">{prior.map(asset => <button key={asset.id} onClick={() => (kind === 'image' ? openImage : openVideo)(kind === 'image' ? asset.image! : asset.video!)}>{asset.image ? <img src={asset.image} alt={asset.name}/> : <span>▶ {asset.name}</span>}</button>)}</div></details>}</div>;
   }
   return <div className={['outline', 'script', 'storyboard'].includes(tab) ? `project-content-with-subnav ${tab}-workspace` : ''}>
@@ -874,10 +884,11 @@ function CompactDetailImageTools({ project, target, prompt, negativePrompt, refe
   const statusTitle = visibleJobStatus === 'queued' ? `排队中${jobStatus?.queuePosition ? ` · 队列第 ${jobStatus.queuePosition} 位` : ''}` : visibleJobStatus === 'running' ? '正在生成' : visibleJobStatus === 'completed' ? '已生成，待确认保存' : '';
   const versions = [...history].sort((a, b) => (b.generatedAt || 0) - (a.generatedAt || 0));
   const assetType = 'type' in target ? target.type : 'character';
+  const generateLabel = target.image ? '重新生成' : '生图';
   if (target.image && !versions.some(asset => asset.image === target.image)) versions.unshift({ id: `current-${historyId}`, type: assetType, name: target.name, description: '当前使用中的图片', image: target.image, sourceItemId: historyId });
   return <>
-    <div className="character-image-actions"><button className="btn small character-history-button" title={`${viewName}图片历史`} onClick={() => setDialog('history')}>◷ <span>{versions.length}</span></button><SingleImageUploadButton project={project} target={target} title={`${target.name} · ${viewName}`} historyId={historyId} onAccept={onAccept}/><button className="btn small segment-shot-regenerate-button" title={statusTitle || '重新生成'} aria-label={`重新生成${visibleJobStatus ? `，${statusTitle}` : ''}`} onClick={() => setDialog('edit')}>重新生成{visibleJobStatus && <span className={`segment-shot-job-dot ${visibleJobStatus}`} aria-hidden="true"/>}</button></div>
-    {dialog === 'edit' && <Modal title={`重新生成图片 · ${target.name} · ${viewName}`} onClose={() => setDialog(null)}><MediaGenerator key={historyId} project={project} kind="image" targetId={target.id} historyId={historyId} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={source} preferQwen onJobStatusChange={setJobStatus} onAccept={url => { onAccept(url); setDialog(null); }}/></Modal>}
+    <div className="character-image-actions"><button className="btn small character-history-button" title={`${viewName}图片历史`} onClick={() => setDialog('history')}>◷ <span>{versions.length}</span></button><SingleImageUploadButton project={project} target={target} title={`${target.name} · ${viewName}`} historyId={historyId} onAccept={onAccept}/><button className="btn small segment-shot-regenerate-button" title={statusTitle || generateLabel} aria-label={`${generateLabel}${visibleJobStatus ? `，${statusTitle}` : ''}`} onClick={() => setDialog('edit')}>{generateLabel}{visibleJobStatus && <span className={`segment-shot-job-dot ${visibleJobStatus}`} aria-hidden="true"/>}</button></div>
+    {dialog === 'edit' && <Modal title={`${generateLabel}图片 · ${target.name} · ${viewName}`} onClose={() => setDialog(null)}><MediaGenerator key={historyId} project={project} kind="image" targetId={target.id} historyId={historyId} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={source} preferQwen onJobStatusChange={setJobStatus} onAccept={url => { onAccept(url); setDialog(null); }}/></Modal>}
     {dialog === 'history' && <Modal title={`${viewName}图片历史记录`} onClose={() => setDialog(null)}><div className="eyebrow">IMAGE HISTORY</div><p className="muted">图片历史记录按视图分别保存。</p><div className="segment-image-history-grid">{versions.map((asset, index) => { const current = asset.image === target.image; return <article className={`segment-image-history-card${current ? ' current' : ''}`} key={asset.id}>{!current && <button className="segment-image-history-delete" title="删除此版本" aria-label="删除此版本" onClick={() => onDeleteHistory(asset)}>×</button>}<button className="segment-image-history-preview" onClick={() => openImage(asset.image!)}><img src={asset.image} alt={asset.name}/><span>查看大图</span></button><div className="segment-image-history-meta"><strong>图片 #{versions.length - index}</strong>{current && <em>当前版本</em>}</div><p>{asset.provider || ('type' in target ? target.type : '角色')}{asset.generatedAt ? ` · ${new Date(asset.generatedAt).toLocaleString()}` : ''}</p><button className="btn primary small" disabled={current} onClick={() => { if (target.image && !project.assets.some(item => item.sourceItemId === historyId && item.image === target.image)) registerMedia(project.id, { id: uid(), type: assetType, name: `${target.name} · 恢复前版本`, description: '恢复历史版本时保留的前一版本', mediaKind: 'image', image: target.image, sourceProjectId: project.id, sourceItemId: historyId, generatedAt: Date.now() }); onAccept(asset.image!); setDialog(null); }}>{current ? '正在使用' : '恢复此版本'}</button></article>; })}{!versions.length && <div className="detail-empty">暂无历史图片。生成或编辑后，版本会保存在这里。</div>}</div></Modal>}
   </>;
 }
