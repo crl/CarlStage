@@ -28,7 +28,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   let data: { error?: string };
   try { data = await response.json(); }
-  catch { throw new Error('无法连接本机 Codex 服务。请运行 npm run dev。'); }
+  catch (error) {
+    if (init?.signal?.aborted) {
+      const reason = init.signal.reason;
+      if (reason instanceof Error && reason.name === 'TimeoutError') throw new Error('请求超时，请检查本机服务后重试。');
+      throw reason instanceof Error ? reason : new Error('请求已取消。');
+    }
+    throw new Error('无法连接本机 Codex 服务。请运行 npm run dev。');
+  }
   if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）。`);
   return data as T;
 }
@@ -57,7 +64,7 @@ export type Settings = {
 export type MediaWorkflow = { workflowJson: string; promptNodeId: string; promptInput: string; referenceNodeId: string; referenceInput: string; seedNodeId: string; seedInput: string; seed: number };
 export type ImageWorkflow = MediaWorkflow & { width: number; height: number; steps: number; cfg: number; widthNodeId: string; widthInput: string; heightNodeId: string; heightInput: string; stepsNodeId: string; stepsInput: string; cfgNodeId: string; cfgInput: string };
 export type MediaJob = { id: string; kind: 'image' | 'video'; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'; queuePosition?: number; message?: string; error?: string; result?: { url: string; mime: string; prompt: string; generatedAt: number } };
-export const createMediaJob = (input: { projectId: string; kind: 'image' | 'video'; provider?: 'qwen' | 'gpt'; imageMode?: 'edit' | 'compose'; prompt: string; negativePrompt?: string; source?: string; sources?: string[]; cutPoints?: number[]; duration?: number; ratio?: '1:1' | '9:16' | '16:9' | '3:4' | '4:3' | '3:2' | '2:3' | '4:5' | '5:4' | '21:9' }) => request<MediaJob>('/media/jobs', { method: 'POST', body: JSON.stringify(input) });
+export const createMediaJob = (input: { projectId: string; kind: 'image' | 'video'; provider?: 'qwen' | 'gpt'; imageMode?: 'edit' | 'compose'; prompt: string; negativePrompt?: string; source?: string; sources?: string[]; cutPoints?: number[]; duration?: number; ratio?: '1:1' | '9:16' | '16:9' | '3:4' | '4:3' | '3:2' | '2:3' | '4:5' | '5:4' | '21:9' }) => request<MediaJob>('/media/jobs', { method: 'POST', body: JSON.stringify(input), signal: AbortSignal.timeout(60_000) });
 export const getMediaJob = (id: string) => request<MediaJob>(`/media/jobs/${id}`);
 export const cancelMediaJob = (id: string) => request<MediaJob>(`/media/jobs/${id}/cancel`, { method: 'POST' });
 export const discardMediaJob = (id: string) => request<{ ok: boolean }>(`/media/jobs/${id}`, { method: 'POST' });
