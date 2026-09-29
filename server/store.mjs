@@ -4,9 +4,12 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const FILE = join(process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs'), 'projects.json');
+const DATA_DIR = process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs');
+const FILE = join(DATA_DIR, 'projects.json');
 const empty = () => ({ projects: [], library: [] });
+const DELETION_FIELDS = ['deletedProjectIds', 'deletedAssetIds', 'deletedImages', 'deletedReferenceKeys', 'deletedChangeIds', 'deletedConsultationIds'];
 let pending = Promise.resolve();
+
 function imageKey(source) {
   let a = 2166136261, b = 0x9e3779b9;
   for (let i = 0; i < source.length; i++) {
@@ -17,9 +20,13 @@ function imageKey(source) {
   return source.length + ':' + (a >>> 0).toString(36) + ':' + (b >>> 0).toString(36);
 }
 
+function projectDirectory(id) {
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{3,80}$/.test(id)) throw new Error('项目 ID 无效。');
+  return join(DATA_DIR, id);
+}
+
 export function merge(a, b) {
-  const fields = ['deletedProjectIds', 'deletedAssetIds', 'deletedImages', 'deletedReferenceKeys', 'deletedChangeIds', 'deletedConsultationIds'];
-  const deleted = Object.fromEntries(fields.map(field => [field, [...new Set([...(a[field] || []), ...(b[field] || [])])]]));
+  const deleted = Object.fromEntries(DELETION_FIELDS.map(field => [field, [...new Set([...(a[field] || []), ...(b[field] || [])])]]));
   const projects = new Map((a.projects || []).map(project => [project.id, project]));
   for (const project of b.projects || []) {
     const current = projects.get(project.id);
@@ -40,20 +47,44 @@ export function merge(a, b) {
   };
 }
 
-export async function readStore() {
-  try { return merge(empty(), JSON.parse(await readFile(FILE, 'utf8'))); }
+async function readIndex() {
+  try { return JSON.parse(await readFile(FILE, 'utf8')); }
   catch (error) { if (error?.code === 'ENOENT') return empty(); throw error; }
+}
+
+async function readProject(id) {
+  try { return JSON.parse(await readFile(join(projectDirectory(id), 'project.json'), 'utf8')); }
+  catch (error) { if (error?.code === 'ENOENT') return null; throw error; }
+}
+
+async function writeJsonAtomic(path, value) {
+  await mkdir(dirname(path), { recursive: true });
+  const temporary = path + '.' + randomUUID() + '.tmp';
+  await writeFile(temporary, JSON.stringify(value), { encoding: 'utf8', mode: 0o600 });
+  await rename(temporary, path);
+}
+
+export async function readStore() {
+  const index = await readIndex();
+  // Support existing installs whose projects still live inline in projects.json.
+  const inlineProjects = new Map((index.projects || []).map(project => [project.id, project]));
+  const ids = [...new Set([...(index.projectIds || []), ...inlineProjects.keys()])];
+  const projects = (await Promise.all(ids.map(async id => (await readProject(id)) || inlineProjects.get(id) || null))).filter(Boolean);
+  return merge({ ...empty(), ...index, projects: [] }, { ...empty(), projects });
 }
 
 export function saveStore(incoming) {
   if (!incoming || !Array.isArray(incoming.projects) || !Array.isArray(incoming.library)) throw new Error('项目数据格式无效。');
   const operation = pending.then(async () => {
-    const next = merge(await readStore(), incoming);
-    await mkdir(dirname(FILE), { recursive: true });
-    const temporary = FILE + '.' + randomUUID() + '.tmp';
-    await writeFile(temporary, JSON.stringify(next), { encoding: 'utf8', mode: 0o600 });
-    await rename(temporary, FILE);
-    return next;
+    const current = await readStore();
+    const next = merge(current, incoming);
+    const deletedProjectIds = [...new Set([...(current.deletedProjectIds || []), ...(incoming.deletedProjectIds || [])])];
+    const projects = next.projects.filter(project => !deletedProjectIds.includes(project.id));
+    for (const project of projects) await writeJsonAtomic(join(projectDirectory(project.id), 'project.json'), project);
+    // The root file is a lightweight index; each project's full configuration and data stay with that project.
+    const index = { projectIds: projects.map(project => project.id), library: next.library, ...Object.fromEntries(DELETION_FIELDS.map(field => [field, next[field] || []])) };
+    await writeJsonAtomic(FILE, index);
+    return { ...next, projects };
   });
   pending = operation.catch(() => {});
   return operation;

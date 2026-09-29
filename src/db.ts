@@ -2,10 +2,7 @@ import { beatSeconds } from './model';
 import type { Asset, Project, Store } from './model';
 import { imageKey } from './mediaRefs';
 
-const DB_NAME = 'reelbench-local-demo';
-const STORE_NAME = 'app';
 const CHANNEL_NAME = 'reelbench-local-demo-sync';
-const MIGRATION_KEY = 'reelbench-file-store-migrated';
 function withLegacyMedia(project: Project, deletedAssets: string[], deletedMedia: string[]): Project {
   if (project.docs.script) {
     const script = { ...project.docs.script, episodes: project.docs.script.episodes.map(episode => ({ ...episode, scenes: episode.scenes.map(scene => ({ ...scene, flow: scene.beats.map((beat, index) => { const existing = scene.flow?.[index] || { action: beat }; return { ...existing, seconds: beatSeconds(existing, beat) }; }) })) })) };
@@ -54,40 +51,18 @@ export function mergeStores(a: Store, b: Store): Store {
   };
 }
 
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function loadLegacyStore(): Promise<Store> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readonly');
-    const request = transaction.objectStore(STORE_NAME).get('state');
-    request.onsuccess = () => resolve(mergeStores({ projects: [], library: [] }, request.result || { projects: [], library: [] }));
-    request.onerror = () => reject(request.error);
-    transaction.oncomplete = () => db.close();
-  });
-}
-
 export async function loadStore(): Promise<Store> {
   const response = await fetch('/api/store');
   if (!response.ok) throw new Error('无法读取本机项目文件。');
-  const remote = await response.json() as Store;
-  if (localStorage.getItem(MIGRATION_KEY)) return mergeStores({ projects: [], library: [] }, remote);
-  const legacy = await loadLegacyStore().catch(() => ({ projects: [], library: [] } as Store));
-  if (!legacy.projects.length && !legacy.library.length) {
-    localStorage.setItem(MIGRATION_KEY, '1');
-    return mergeStores({ projects: [], library: [] }, remote);
-  }
-  const merged = mergeStores(remote, legacy);
-  await saveStore(merged);
-  localStorage.setItem(MIGRATION_KEY, '1');
-  return merged;
+  const store = await response.json() as Store;
+  clearLegacyBrowserStore();
+  return mergeStores({ projects: [], library: [] }, store);
+}
+
+function clearLegacyBrowserStore() {
+  try { localStorage.removeItem('reelbench-file-store-migrated'); } catch { /* Storage may be unavailable. */ }
+  if (typeof indexedDB === 'undefined') return;
+  try { indexedDB.deleteDatabase('reelbench-local-demo'); } catch { /* IndexedDB may be unavailable. */ }
 }
 
 export async function saveStore(state: Store): Promise<void> {

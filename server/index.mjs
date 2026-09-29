@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile, cp, rm, stat, copyFile, appendFile, rename } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, cp, rm, stat, copyFile, appendFile } from 'node:fs/promises';
 import { existsSync, createReadStream, createWriteStream } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -280,6 +280,7 @@ createServer(async (req, res) => {
       const id = projFinish[1];
       const root = join(projectPath(id), `.proj-import-${projFinish[2]}`);
       try {
+        if (activeProjects.has(id)) throw new Error('该项目有正在运行的生成任务，请任务结束或取消后再导入。');
         const index = join(root, 'index.html');
         if (!existsSync(index)) throw new Error('选择的目录中没有根目录 index.html。');
         const candidates = { outline: ['outline.json'], cast: ['cast.json', 'characters.json'], art: ['art.json'], script: ['script.json'], storyboard: ['storyboard.json'] };
@@ -303,15 +304,18 @@ createServer(async (req, res) => {
         if (existsSync(sourcePath)) sourceText = await readFile(sourcePath, 'utf8');
         const destination = join(projectPath(id), 'proj');
         const backup = join(projectPath(id), `.proj-backup-${Date.now()}`);
-        if (existsSync(destination)) await rename(destination, backup);
+        const hasBackup = existsSync(destination);
+        if (hasBackup) await cp(destination, backup, { recursive: true, force: true, errorOnExist: false });
         try {
+          await mkdir(destination, { recursive: true });
           await cp(root, destination, { recursive: true, force: true, errorOnExist: false });
-          await rm(root, { recursive: true, force: true });
         } catch (error) {
-          await rm(destination, { recursive: true, force: true });
-          if (existsSync(backup)) await rename(backup, destination);
+          if (hasBackup && existsSync(backup)) {
+            await cp(backup, destination, { recursive: true, force: true, errorOnExist: false });
+          }
           throw error;
         }
+        setImmediate(() => { void rm(root, { recursive: true, force: true }).catch(() => {}); });
         const latest = await readStore();
         await saveStore({ ...latest, projects: latest.projects.map(project => project.id === id ? { ...project, skillProjectImported: true, docs, skillArtifacts, updatedAt: Date.now() } : project) });
         return send(res, 200, { docs, skillArtifacts, sourceText, sourceName: sourceText ? 'source.txt' : undefined });

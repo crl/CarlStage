@@ -12,6 +12,10 @@ test('项目写入本机文件，跨窗口合并并保留删除标记', async ()
     await saveStore({ projects: [{ id: 'one', updatedAt: 1, assets: [], changes: [], referenceImages: [] }], library: [] });
     await saveStore({ projects: [{ id: 'two', updatedAt: 2, assets: [], changes: [], referenceImages: [] }], library: [] });
     assert.deepEqual((await readStore()).projects.map(project => project.id), ['two', 'one']);
+    const index = JSON.parse(await readFile(join(directory, 'projects.json'), 'utf8'));
+    assert.deepEqual(index.projectIds, ['two', 'one']);
+    assert.equal(index.projects, undefined);
+    assert.equal(JSON.parse(await readFile(join(directory, 'one', 'project.json'), 'utf8')).id, 'one');
     await saveStore({ projects: [], library: [], deletedProjectIds: ['one'] });
     assert.deepEqual((await readStore()).projects.map(project => project.id), ['two']);
     assert.equal(JSON.parse(await readFile(join(directory, 'projects.json'), 'utf8')).deletedProjectIds[0], 'one');

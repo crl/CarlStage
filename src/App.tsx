@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { clone, makeDocs, makeProject, sectionLabel, uid } from './model';
 import type { ArtAsset, Asset, AssetType, Character, Consultation, DocKey, Project, Shot, Store } from './model';
 import { listenForUpdates, loadStore, mergeStores, saveStore } from './db';
-import { cancelJob, consult, continueJob, createJob, createMediaJob, getMediaJob, cancelMediaJob, discardMediaJob, copyMediaToLibrary, uploadLibraryMedia, deleteMedia, getHealth, getJob, getSettings, removeProjectRuns, startProjectImport, uploadProjectImportFile, finishProjectImport } from './codex';
+import { consult, continueJob, createJob, createMediaJob, getMediaJob, cancelMediaJob, discardMediaJob, copyMediaToLibrary, uploadLibraryMedia, deleteMedia, getSettings, getJob, removeProjectRuns, startProjectImport, uploadProjectImportFile, finishProjectImport } from './codex';
 import type { Job, MediaJob } from './codex';
 import SettingsPage from './SettingsPage';
 import { decodeImportedText } from './textImport';
@@ -265,31 +265,11 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
   const openVideo = useContext(OpenVideo);
   const storageKey = `reelbench-job-${project.id}`;
   const [job, setJob] = useState<Job | null>(null);
-  const [connection, setConnection] = useState('正在连接本机模型服务…');
-  const [modelProvider, setModelProvider] = useState<'codex' | 'ollama'>('codex');
-  const [jobError, setJobError] = useState('');
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchProgress, setBatchProgress] = useState('');
-  useEffect(() => { Promise.all([getHealth(), getSettings()]).then(([, settings]) => { setModelProvider(settings.codex.provider); setConnection(`${settings.codex.provider === 'ollama' ? 'Ollama' : 'Codex'} 已连接`); }).catch(e => setConnection((e as Error).message)); }, []);
-  useEffect(() => {
-    setJob(null); setJobError('');
-    const id = sessionStorage.getItem(storageKey);
-    if (id) getJob(id).then(setJob).catch(() => sessionStorage.removeItem(storageKey));
-  }, [storageKey]);
-  useEffect(() => {
-    if (!job || batchBusy || !['queued', 'running'].includes(job.status)) return;
-    const timer = window.setInterval(() => getJob(job.id).then(setJob).catch(e => setJob(current => current ? { ...current, status: 'failed', error: (e as Error).message } : null)), 1600);
-    return () => clearInterval(timer);
-  }, [job?.id, job?.status, batchBusy]);
-  async function doRegenerate(key: DocKey) {
-    setJobError('');
-    try {
-      const started = await createJob(project, key);
-      setJob(started); sessionStorage.setItem(storageKey, started.id);
-    } catch (e) { setJobError((e as Error).message); }
-  }
-  async function advance() { if (!job) return; try { setJob(await continueJob(job.id)); } catch (e) { setJobError((e as Error).message); } }
-  async function cancel() { if (!job) return; try { setJob(await cancelJob(job.id)); } catch (e) { setJobError((e as Error).message); } }
+  const [jobError, setJobError] = useState('');
+  useEffect(() => { setJob(null); const id = sessionStorage.getItem(storageKey); if (id) getJob(id).then(setJob).catch(() => sessionStorage.removeItem(storageKey)); }, [storageKey]);
+  useEffect(() => { if (!job || batchBusy || !['queued', 'running'].includes(job.status)) return; const timer = window.setInterval(() => getJob(job.id).then(setJob), 1600); return () => clearInterval(timer); }, [job?.id, job?.status, batchBusy]);
   async function regenerateAll() {
     if (batchBusy || job) return;
     const sections: DocKey[] = ['outline', 'cast', 'script', 'art', 'storyboard'];
@@ -301,16 +281,11 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
         let current = await createJob(currentProject, section);
         setJob(current); sessionStorage.setItem(storageKey, current.id);
         while (true) {
-          if (current.status === 'awaiting_confirmation') {
-            current = await continueJob(current.id);
-            setJob(current);
-            continue;
-          }
+          if (current.status === 'awaiting_confirmation') { current = await continueJob(current.id); setJob(current); continue; }
           if (current.status === 'completed' && current.result) break;
-          if (current.status === 'failed' || current.status === 'cancelled') throw new Error(current.error || current.message || `${sectionLabel(section)}生成已取消。`);
+          if (current.status === 'failed' || current.status === 'cancelled') throw new Error(current.error || current.message || `${sectionLabel(section)}生成失败。`);
           await new Promise(resolve => window.setTimeout(resolve, 1400));
-          current = await getJob(current.id);
-          setJob(current);
+          current = await getJob(current.id); setJob(current);
         }
         currentProject = applyGeneratedJob(currentProject, current);
         updateProject(project.id, () => clone(currentProject));
@@ -318,18 +293,8 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
       }
       setBatchProgress('全部五个阶段已重新生成，旧版本可在「变更」中查看或撤销。');
       notify('大纲、角色、剧本、美术和分镜已全部重新生成。');
-    } catch (e) {
-      const message = (e as Error).message;
-      setBatchProgress(`流程已停止：${message}`);
-      setJobError(message);
-    } finally { setBatchBusy(false); }
-  }
-  function accept() {
-    if (!job?.result) return;
-
-    updateProject(project.id, p => applyGeneratedJob(p, job));
-    if (project.skillProjectImported) notify(job.reportWarning ? `已写入${sectionLabel(job.section)}，${job.reportWarning}` : `已写入${sectionLabel(job.section)}，proj 中的阶段 JSON 与报告已更新。`);
-    sessionStorage.removeItem(storageKey); setJob(null); notify('已写入生成结果，旧版保存在「变更」中。');
+    } catch (error) { const message = (error as Error).message; setBatchProgress(`流程已停止：${message}`); setJobError(message); }
+    finally { setBatchBusy(false); }
   }
   const key = tab === 'characters' ? 'cast' : (tab as DocKey);
   const pageDetail = tab === 'script' && !detail.length ? ['1'] : detail;
@@ -348,17 +313,8 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
   }
   return <div className={['outline', 'script', 'storyboard'].includes(tab) ? `project-content-with-subnav ${tab}-workspace` : ''}>
     <ProjectSubnav project={project} tab={tab} detail={pageDetail} go={go}/><div className="project-content">
-    <div className="codex-status">{connection} · Skill 版本 ca1c30b</div>
-    {['outline', 'script', 'cast', 'art', 'storyboard'].includes(key) && !project.skillArtifacts?.[key] && <div className="codex-draft-note">当前页面内容是创建项目时的占位草稿。点击“重新生成”调用对应创作模型执行 skill。</div>}
-    {jobError && <div className="codex-error">{jobError}</div>}
-    {batchProgress && <div className="panel overview-batch-progress" role="status">{batchProgress}</div>}
-    {job && <section className="panel codex-job"><div className="section-heading"><h2>{(job.provider || modelProvider) === 'ollama' ? 'Ollama' : 'Codex'} · {sectionLabel(job.section)}</h2><span className="eyebrow">{job.status}</span></div><p>{job.message || job.error}</p>{job.error && <p className="field-error">{job.error}</p>}
-      {job.status === 'awaiting_confirmation' && <><pre className="codex-preview">{job.skeleton}</pre><div className="inline-actions"><button className="btn" onClick={cancel}>取消任务</button><button className="btn primary" onClick={advance}>确认骨架，继续生成大纲</button></div></>}
-      {job.status === 'completed' && job.result && <>{job.validationWarning && <p className="field-error">{job.validationWarning}</p>}{job.result.sourceExpansion && <details><summary>查看创意扩写素材</summary><pre className="codex-preview">{job.result.sourceExpansion}</pre></details>}<div className="codex-preview"><strong>生成预览</strong><pre>{JSON.stringify(job.result.mapped, null, 2)}</pre></div><details><summary>质量门结果与完整原生 JSON</summary><pre className="codex-preview">{job.validation}</pre><pre className="codex-preview">{JSON.stringify(job.result.raw, null, 2)}</pre></details><div className="inline-actions"><button className="btn" onClick={() => { sessionStorage.removeItem(storageKey); setJob(null); }}>放弃结果</button><button className="btn primary" onClick={accept}>确认写入{sectionLabel(job.section)}</button></div></>}
-      {['queued', 'running'].includes(job.status) && <button className="btn" onClick={cancel}>取消任务</button>}
-      {job.status === 'failed' && job.validation && <details open><summary>实际质量门校验结果</summary><pre className="codex-preview">{job.validation}</pre></details>}
-      {['failed', 'cancelled'].includes(job.status) && <button className="btn" onClick={() => { sessionStorage.removeItem(storageKey); setJob(null); }}>关闭</button>}
-    </section>}
+    {jobError && tab === 'overview' && <div className="codex-error">{jobError}</div>}
+    {batchProgress && tab === 'overview' && <div className="panel overview-batch-progress" role="status">{batchProgress}</div>}
     {hasDetail && tab === 'storyboard' && pageDetail[1] ? <SegmentProduction project={project} episode={Number(pageDetail[0])} segment={pageDetail[1]} save={(value, label) => saveDoc(project, 'storyboard', value, label)} openImage={openImage} go={go}/> : hasDetail && <ProjectDetail project={project} tab={tab} detail={pageDetail} go={go} save={(section, value, label) => saveDoc(project, section, value, label)} openImage={openImage} media={renderDetailMedia} addToLibrary={asset => addToLibrary(asset, project.id)} renderImagePicker={(value, onChange) => <ImagePicker value={value} onChange={onChange} allowRemove={false}/>}/>}
     {tab === 'overview' && <><Overview project={project} go={go} onRegenerateAll={() => void regenerateAll()} regenerateDisabled={batchBusy || !!job} onImportPackage={async files => {
       setJobError('');
@@ -378,11 +334,11 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
         notify('项目目录已导入到当前项目的 proj 文件夹。');
       } catch (error) { setJobError(`导入失败：${(error as Error).message}`); }
     }}/>{project.kind === 'novel' && <ReimportNovel project={project} updateProject={updateProject} notify={notify}/>}</>}
-    {!hasDetail && key === 'outline' && <OutlinePage project={project} save={value => saveDoc(project, 'outline', value)} regenerate={() => doRegenerate('outline')}/>}
-    {!hasDetail && key === 'script' && <ScriptPage project={project} save={value => saveDoc(project, 'script', value)} regenerate={() => doRegenerate('script')} notify={notify}/>}
-    {!hasDetail && key === 'cast' && <CastGallery project={project} save={value => saveDoc(project, 'cast', value)} regenerate={() => doRegenerate('cast')} addToLibrary={addToLibrary} go={go}/>}
-    {!hasDetail && key === 'art' && <ArtGallery project={project} save={value => saveDoc(project, 'art', value)} regenerate={() => doRegenerate('art')} addToLibrary={addToLibrary} go={go}/>}
-    {!hasDetail && key === 'storyboard' && <><ProjectStoryboardSummary project={project} go={go}/><StoryboardPage project={project} save={value => saveDoc(project, 'storyboard', value)} regenerate={() => doRegenerate('storyboard')} go={go}/></>}
+    {!hasDetail && key === 'outline' && <OutlinePage project={project} save={value => saveDoc(project, 'outline', value)}/>}
+    {!hasDetail && key === 'script' && <ScriptPage project={project} save={value => saveDoc(project, 'script', value)} notify={notify}/>}
+    {!hasDetail && key === 'cast' && <CastGallery project={project} save={value => saveDoc(project, 'cast', value)} addToLibrary={addToLibrary} go={go}/>}
+    {!hasDetail && key === 'art' && <ArtGallery project={project} save={value => saveDoc(project, 'art', value)} addToLibrary={addToLibrary} go={go}/>}
+    {!hasDetail && key === 'storyboard' && <><ProjectStoryboardSummary project={project} go={go}/><StoryboardPage project={project} save={value => saveDoc(project, 'storyboard', value)} go={go}/></>}
     {tab === 'history' && <HistoryPage project={project} updateProject={updateProject} notify={notify}/>}
     {tab === 'library' && <ProjectMaterialTabs project={project}><ProjectLibrary project={project} globalAssets={globalAssets} importAsset={importAsset} deleteAsset={deleteAsset} deleteReference={deleteReference} updateProject={updateProject} addProjectAsset={asset => updateProject(project.id, p => { p.assets.push(asset); return p; })} notify={notify} go={go}/></ProjectMaterialTabs>}
   </div></div>;
@@ -452,7 +408,7 @@ function ReimportNovel({ project, updateProject, notify }: { project: Project; u
   return <section className="panel reimport-panel"><h2>重新导入小说原文</h2><p>如原文或占位草稿出现乱码，请选择原始文件重新导入。支持 UTF-8、GB18030 和带编码标记的 UTF-16；当前创作内容会保留在「变更」中。</p><label className="btn small">{busy ? '正在读取…' : '选择原始文件'}<input type="file" disabled={busy} accept=".txt,.md,.markdown,.html,.htm" onChange={e => { void reimport(e.target.files?.[0]); e.target.value = ''; }}/></label>{error && <p className="field-error">{error}</p>}</section>;
 }
 
-function OutlinePage({ project, save, regenerate }: { project: Project; save: (value: Project['docs']['outline']) => void; regenerate: () => void }) {
+function OutlinePage({ project, save }: { project: Project; save: (value: Project['docs']['outline']) => void }) {
   const [draft, setDraft] = useState(() => clone(project.docs.outline));
   useEffect(() => setDraft(clone(project.docs.outline)), [project.docs.outline]);
   function updateList(key: 'retain' | 'cut' | 'merge' | 'risks', index: number, value: string) { setDraft(d => ({ ...d, [key]: d[key].map((x, i) => i === index ? value : x) })); }
@@ -463,7 +419,7 @@ function OutlinePage({ project, save, regenerate }: { project: Project; save: (v
   const setEpisode = (index: number, key: 'title' | 'summary' | 'hook', value: string) => setDraft(d => ({ ...d, episodes: d.episodes.map((item, i) => i === index ? { ...item, [key]: value } : item) }));
   const duration = project.minDuration && project.maxDuration ? `${project.minDuration}–${project.maxDuration} 秒` : `${project.minDuration || project.maxDuration || '—'} 秒`;
   return <div className="outline-reference-page">
-    <PageHeading stage="STAGE 01 · 什么 · OUTLINE" title="改编大纲" subtitle="设定故事内核、角色与场景编码，以及分集节奏。" actions={<><button className="btn" onClick={regenerate}>重新生成</button><button className="btn primary" onClick={() => save(draft)}>保存大纲</button></>}/>
+    <PageHeading stage="STAGE 01 · 什么 · OUTLINE" title="改编大纲" subtitle="设定故事内核、角色与场景编码，以及分集节奏。" actions={<button className="btn primary" onClick={() => save(draft)}>保存大纲</button>}/>
     <div className="outline-project-params"><div><label>体裁</label><strong>{project.genre || '未指定'}</strong></div><div><label>规模</label><strong>{project.episodeCount} 集 <small>· 单集 {duration}</small></strong></div><div><label>改编模式</label><strong className="outline-mode-badge">{project.adaptation || '未指定'}</strong></div></div>
     {project.generatedSource && <details className="panel outline-source"><summary>查看创意扩写素材</summary><pre className="codex-preview">{project.generatedSource}</pre></details>}
     <section className="outline-section"><h2>内核</h2><div className="panel outline-core"><Field label="故事核心" value={draft.core} onChange={value => setDraft(d => ({ ...d, core: value }))} rows={3}/></div></section>
@@ -474,12 +430,12 @@ function OutlinePage({ project, save, regenerate }: { project: Project; save: (v
   </div>;
 }
 
-function ScriptPage({ project, save, regenerate, notify }: { project: Project; save: (value: Project['docs']['script']) => void; regenerate: () => void; notify: (message: string) => void }) {
+function ScriptPage({ project, save, notify }: { project: Project; save: (value: Project['docs']['script']) => void; notify: (message: string) => void }) {
   const [draft, setDraft] = useState(() => clone(project.docs.script)); const [episode, setEpisode] = useState(0);
   useEffect(() => { setDraft(clone(project.docs.script)); setEpisode(0); }, [project.docs.script]);
   const current = draft.episodes[episode];
   function editEpisode(change: (value: typeof current) => typeof current) { setDraft(d => ({ ...d, episodes: d.episodes.map((e, i) => i === episode ? change(e) : e) })); }
-  return <><PageHeading stage="STAGE 02 · 剧本 · SCRIPT" title={project.name} subtitle={excerpt(project.prompt, 160)} actions={<><button className="btn" onClick={regenerate}>重新生成剧本</button><button className="btn primary" onClick={() => save(draft)}>保存剧本</button></>}/><div className="editor-layout"><div className="editor-main"><div className="episode-tabs">{draft.episodes.map((_, i) => <button className={episode === i ? 'active' : ''} key={i} onClick={() => setEpisode(i)}>第 {i + 1} 集</button>)}<button onClick={() => { setDraft(d => ({ ...d, episodes: [...d.episodes, { title: `第 ${d.episodes.length + 1} 集`, duration: 60, hook: '', ending: '', scenes: [] }] })); setEpisode(draft.episodes.length); }}>＋</button></div>{current && <><section className="panel"><div className="episode-number">E{String(episode + 1).padStart(2, '0')} · {current.duration}s <button onClick={() => { setDraft(d => ({ ...d, episodes: d.episodes.filter((_, i) => i !== episode) })); setEpisode(Math.max(0, episode - 1)); }}>删除本集</button></div><input className="title-input" value={current.title} onChange={e => editEpisode(v => ({ ...v, title: e.target.value }))}/><div className="two-fields"><Field label="开场钩子" value={current.hook} onChange={v => editEpisode(e => ({ ...e, hook: v }))}/><Field label="结尾断点" value={current.ending} onChange={v => editEpisode(e => ({ ...e, ending: v }))}/></div><label className="compact-field">时长（秒）<input type="number" min="1" value={current.duration} onChange={e => editEpisode(v => ({ ...v, duration: Number(e.target.value) }))}/></label></section>{current.scenes.map((scene, i) => <section className="panel scene-panel" key={i}><div className="section-heading"><span className="eyebrow">S{i + 1} · SCENE</span><button className="text-button" onClick={() => editEpisode(e => ({ ...e, scenes: e.scenes.filter((_, j) => j !== i) }))}>删除场景</button></div><input className="title-input" value={scene.title} onChange={e => editEpisode(v => ({ ...v, scenes: v.scenes.map((s, j) => j === i ? { ...s, title: e.target.value } : s) }))}/><Field label="地点 / 时间" value={scene.location} onChange={v => editEpisode(e => ({ ...e, scenes: e.scenes.map((s, j) => j === i ? { ...s, location: v } : s) }))} rows={1}/><Field label="场景说明" value={scene.description} onChange={v => editEpisode(e => ({ ...e, scenes: e.scenes.map((s, j) => j === i ? { ...s, description: v } : s) }))}/><Field label="动作 / 台词 · 每行一条" value={scene.beats.join('\n')} onChange={v => editEpisode(e => ({ ...e, scenes: e.scenes.map((s, j) => j === i ? { ...s, beats: v.split('\n') } : s) }))} rows={5}/></section>)}<button className="add-block" onClick={() => editEpisode(e => ({ ...e, scenes: [...e.scenes, { title: '新场景', location: '', description: '', beats: [] }] }))}>＋ 新增场景</button></>}</div><Consultant project={project} onApply={scene => { const next = clone(draft); if (!next.episodes[episode]) return; next.episodes[episode].scenes.push(scene); save(next); notify('修改建议已加入剧本，并记录版本'); }}/></div></>;
+  return <><PageHeading stage="STAGE 02 · 剧本 · SCRIPT" title={project.name} subtitle={excerpt(project.prompt, 160)} actions={<button className="btn primary" onClick={() => save(draft)}>保存剧本</button>}/><div className="editor-layout"><div className="editor-main"><div className="episode-tabs">{draft.episodes.map((_, i) => <button className={episode === i ? 'active' : ''} key={i} onClick={() => setEpisode(i)}>第 {i + 1} 集</button>)}<button onClick={() => { setDraft(d => ({ ...d, episodes: [...d.episodes, { title: `第 ${d.episodes.length + 1} 集`, duration: 60, hook: '', ending: '', scenes: [] }] })); setEpisode(draft.episodes.length); }}>＋</button></div>{current && <><section className="panel"><div className="episode-number">E{String(episode + 1).padStart(2, '0')} · {current.duration}s <button onClick={() => { setDraft(d => ({ ...d, episodes: d.episodes.filter((_, i) => i !== episode) })); setEpisode(Math.max(0, episode - 1)); }}>删除本集</button></div><input className="title-input" value={current.title} onChange={e => editEpisode(v => ({ ...v, title: e.target.value }))}/><div className="two-fields"><Field label="开场钩子" value={current.hook} onChange={v => editEpisode(e => ({ ...e, hook: v }))}/><Field label="结尾断点" value={current.ending} onChange={v => editEpisode(e => ({ ...e, ending: v }))}/></div><label className="compact-field">时长（秒）<input type="number" min="1" value={current.duration} onChange={e => editEpisode(v => ({ ...v, duration: Number(e.target.value) }))}/></label></section>{current.scenes.map((scene, i) => <section className="panel scene-panel" key={i}><div className="section-heading"><span className="eyebrow">S{i + 1} · SCENE</span><button className="text-button" onClick={() => editEpisode(e => ({ ...e, scenes: e.scenes.filter((_, j) => j !== i) }))}>删除场景</button></div><input className="title-input" value={scene.title} onChange={e => editEpisode(v => ({ ...v, scenes: v.scenes.map((s, j) => j === i ? { ...s, title: e.target.value } : s) }))}/><Field label="地点 / 时间" value={scene.location} onChange={v => editEpisode(e => ({ ...e, scenes: e.scenes.map((s, j) => j === i ? { ...s, location: v } : s) }))} rows={1}/><Field label="场景说明" value={scene.description} onChange={v => editEpisode(e => ({ ...e, scenes: e.scenes.map((s, j) => j === i ? { ...s, description: v } : s) }))}/><Field label="动作 / 台词 · 每行一条" value={scene.beats.join('\n')} onChange={v => editEpisode(e => ({ ...e, scenes: e.scenes.map((s, j) => j === i ? { ...s, beats: v.split('\n') } : s) }))} rows={5}/></section>)}<button className="add-block" onClick={() => editEpisode(e => ({ ...e, scenes: [...e.scenes, { title: '新场景', location: '', description: '', beats: [] }] }))}>＋ 新增场景</button></>}</div><Consultant project={project} onApply={scene => { const next = clone(draft); if (!next.episodes[episode]) return; next.episodes[episode].scenes.push(scene); save(next); notify('修改建议已加入剧本，并记录版本'); }}/></div></>;
 }
 
 function Consultant({ project, onApply }: { project: Project; onApply: (scene: Project['docs']['script']['episodes'][number]['scenes'][number]) => void }) {
@@ -627,7 +583,7 @@ function SegmentProduction({ project, episode, segment, save, openImage, go }: {
   };
   return <div className="segment-production">
     <div className="segment-header">
-      <div><div className="eyebrow">分镜 / 第 {episode} 集 / {segment}</div><h1>第 {episode} 集 <span>/</span> {segment}</h1><p>{shots.length} 镜 · {duration.toFixed(1)}s / 15s</p></div>
+      <div><div className="eyebrow">分镜 / 第 {episode} 集</div><h1>{segment}</h1><p>{shots.length} 镜 · {duration.toFixed(1)}s / 15s</p></div>
       <button className="btn" onClick={() => setBatch(true)}>一键生成本段图片和视频</button>
     </div>
     <div className="segment-video-layout">
@@ -776,16 +732,16 @@ function GalleryImageCard({ project, target, title, subtitle, description, promp
   return <article className="panel gallery-image-card"><div className="gallery-card-top"><span>设定图</span><div className="gallery-image-actions"><button className="btn small gallery-history-button" title="图片历史" onClick={() => setShowHistory(true)}>◷ <span>{versions.length}</span></button><span className="gallery-upload-wrap"><label className={`btn small gallery-upload-image-button${uploadingImage ? ' disabled' : ''}`}>{uploadingImage ? '正在上传…' : '上传图片'}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingImage} onChange={event => { void uploadCardImage(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }}/></label>{uploadingImage && <button type="button" className="gallery-upload-cancel" title="取消上传" aria-label="取消上传" onClick={() => uploadController.current?.abort()}>×</button>}</span><button className="btn small" onClick={() => setEditingImage(true)}>重新生成</button></div></div><div className="gallery-card-image">{target.image ? <MediaPicture src={target.image}/> : <span>尚未生成设定图</span>}</div><div className="gallery-card-actions"><button className="btn small" onClick={onLibrary}>加入资产库</button><ImagePicker value={target.image} onChange={onAccept} allowRemove={false}/></div><div className="gallery-card-identity"><GalleryText value={title} onChange={onName} className="gallery-card-name"/><span>{subtitle}</span></div><GalleryText value={description} onChange={onDescription} className="gallery-card-description"/><div className="gallery-card-prompt-label">出图提示词 <button onClick={() => void copyPrompt()} title="复制提示词">▣</button></div><GalleryText value={prompt} onChange={onPrompt} className="gallery-card-prompt"/><div className="gallery-card-bottom"><button onClick={onDetails}>详情 · 画像 · 弧光 · 关系 · 原文佐证 →</button><button onClick={onDelete}>删除</button></div>{editingImage && <Modal title={`重新生成图片 · ${title}`} onClose={() => setEditingImage(false)}><p className="muted">当前图片已作为参考图；使用本地 Qwen-Image-2.1 生成新图，预览后确认保存。</p><MediaGenerator project={project} kind="image" targetId={target.id} prompt={prompt} source={target.image} preferQwen onAccept={url => { onAccept(url); setEditingImage(false); }}/></Modal>}{showHistory && <Modal title="图片历史记录" onClose={() => setShowHistory(false)}><div className="eyebrow">IMAGE HISTORY</div><p className="muted">重新生成、编辑和恢复都会保留一个版本。恢复只切换当前图片，不会删除其他版本。</p><div className="segment-image-history-grid">{versions.map((asset, index) => { const current = asset.image === target.image; return <article className={`segment-image-history-card${current ? ' current' : ''}`} key={asset.id}><button className="segment-image-history-preview" onClick={() => openImage(asset.image!)}><img src={asset.image} alt={asset.name}/><span>查看大图</span></button><div className="segment-image-history-meta"><strong>图片 #{versions.length - index}</strong>{current && <em>当前版本</em>}</div><p>{asset.provider || subtitle}{asset.generatedAt ? ` · ${new Date(asset.generatedAt).toLocaleString()}` : ''}</p><button className="btn primary small" disabled={current} onClick={() => { if (target.image && !project.assets.some(item => item.sourceItemId === target.id && item.image === target.image)) registerMedia(project.id, { id: uid(), type: 'other', name: `${title} · 恢复前版本`, description: '恢复历史版本时保留的前一版本', mediaKind: 'image', image: target.image, sourceProjectId: project.id, sourceItemId: target.id, generatedAt: Date.now() }); onAccept(asset.image!); setShowHistory(false); }}>{current ? '正在使用' : '恢复此版本'}</button></article>; })}{!versions.length && <div className="detail-empty">暂无历史图片。重新生成或编辑后，版本会保存在这里。</div>}</div></Modal>}{confirmRemoveImage && <Modal title="移除设定图" onClose={() => setConfirmRemoveImage(false)}><p>确定移除「{title}」当前使用的图片吗？历史版本会保留，可稍后恢复。</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmRemoveImage(false)}>取消</button><button className="btn danger" onClick={() => { onAccept(''); setConfirmRemoveImage(false); }}>移除图片</button></div></Modal>}</article>;
 }
 
-function CastGallery({ project, save, regenerate, addToLibrary, go }: { project: Project; save: (value: Character[]) => void; regenerate: () => void; addToLibrary: (asset: Asset, projectId: string) => void; go: (path: string) => void }) {
+function CastGallery({ project, save, addToLibrary, go }: { project: Project; save: (value: Character[]) => void; addToLibrary: (asset: Asset, projectId: string) => void; go: (path: string) => void }) {
   const [draft, setDraft] = useState(() => clone(project.docs.cast)); useEffect(() => setDraft(clone(project.docs.cast)), [project.docs.cast]);
   const update = (id: string, key: keyof Character, value: string) => setDraft(items => items.map(item => item.id === id ? { ...item, [key]: value } : item));
-  return <><PageHeading stage="角色 · CAST" title="角色卡" actions={<><button className="btn" onClick={regenerate}>重新生成</button><button className="btn primary" onClick={() => save(draft)}>保存角色</button></>}/><div className="gallery-grid">{draft.map(character => <GalleryImageCard key={character.id} project={project} target={character} title={character.name} subtitle={character.role} description={character.description} prompt={character.imagePrompt || `${character.name}，${character.role}，${character.description}。画风：${project.style}`} onName={value => update(character.id, 'name', value)} onDescription={value => update(character.id, 'description', value)} onPrompt={value => update(character.id, 'imagePrompt', value)} onAccept={url => save(draft.map(item => item.id === character.id ? { ...item, image: url } : item))} onDelete={() => setDraft(items => items.filter(item => item.id !== character.id))} onDetails={() => go(`/p/${project.id}/cast/${encodeURIComponent(character.id)}`)} onLibrary={() => addToLibrary({ id: character.id, type: 'character', name: character.name, description: character.description, prompt: character.imagePrompt || `${character.name}，${character.role}，${character.description}。画风：${project.style}`, image: character.image }, project.id)}/>)}</div><button className="btn" onClick={() => setDraft(items => [...items, { id: uid(), name: '新角色', role: '', description: '', arc: '' }])}>＋ 新增角色</button></>;
+  return <><PageHeading stage="角色 · CAST" title="角色卡" actions={<button className="btn primary" onClick={() => save(draft)}>保存角色</button>}/><div className="gallery-grid">{draft.map(character => <GalleryImageCard key={character.id} project={project} target={character} title={character.name} subtitle={character.role} description={character.description} prompt={character.imagePrompt || `${character.name}，${character.role}，${character.description}。画风：${project.style}`} onName={value => update(character.id, 'name', value)} onDescription={value => update(character.id, 'description', value)} onPrompt={value => update(character.id, 'imagePrompt', value)} onAccept={url => save(draft.map(item => item.id === character.id ? { ...item, image: url } : item))} onDelete={() => setDraft(items => items.filter(item => item.id !== character.id))} onDetails={() => go(`/p/${project.id}/cast/${encodeURIComponent(character.id)}`)} onLibrary={() => addToLibrary({ id: character.id, type: 'character', name: character.name, description: character.description, prompt: character.imagePrompt || `${character.name}，${character.role}，${character.description}。画风：${project.style}`, image: character.image }, project.id)}/>)}</div><button className="btn" onClick={() => setDraft(items => [...items, { id: uid(), name: '新角色', role: '', description: '', arc: '' }])}>＋ 新增角色</button></>;
 }
 
-function ArtGallery({ project, save, regenerate, addToLibrary, go }: { project: Project; save: (value: Project['docs']['art']) => void; regenerate: () => void; addToLibrary: (asset: Asset, projectId: string) => void; go: (path: string) => void }) {
+function ArtGallery({ project, save, addToLibrary, go }: { project: Project; save: (value: Project['docs']['art']) => void; addToLibrary: (asset: Asset, projectId: string) => void; go: (path: string) => void }) {
   const [draft, setDraft] = useState(() => clone(project.docs.art)); const [filter, setFilter] = useState<'all' | 'scenes' | 'props'>('all'); useEffect(() => setDraft(clone(project.docs.art)), [project.docs.art]);
   const update = (kind: 'scenes' | 'props', id: string, key: keyof ArtAsset, value: string) => setDraft(current => ({ ...current, [kind]: current[kind].map(item => item.id === id ? { ...item, [key]: value } : item) }));
-  return <><PageHeading stage="美术 · ART" title="美术卡" actions={<><button className="btn" onClick={regenerate}>重新生成</button><button className="btn primary" onClick={() => save(draft)}>保存美术</button></>}/><div className="material-tabs">{(['all', 'scenes', 'props'] as const).map(key => <button key={key} className={filter === key ? 'active' : ''} onClick={() => setFilter(key)}>{key === 'all' ? '全部' : key === 'scenes' ? '场景' : '道具'}</button>)}</div><div className="gallery-grid">{(['scenes', 'props'] as const).filter(key => filter === 'all' || filter === key).flatMap(kind => draft[kind].map(asset => <GalleryImageCard key={asset.id} project={project} target={asset} title={asset.name} subtitle={kind === 'scenes' ? '场景' : '道具'} description={asset.description} prompt={asset.prompt || `${asset.name}，${asset.description}。画风：${draft.style}`} onName={value => update(kind, asset.id, 'name', value)} onDescription={value => update(kind, asset.id, 'description', value)} onPrompt={value => update(kind, asset.id, 'prompt', value)} onAccept={url => save({ ...draft, [kind]: draft[kind].map(item => item.id === asset.id ? { ...item, image: url } : item) })} onDelete={() => setDraft(current => ({ ...current, [kind]: current[kind].filter(item => item.id !== asset.id) }))} onDetails={() => go(`/p/${project.id}/art/${kind}/${encodeURIComponent(asset.id)}`)} onLibrary={() => addToLibrary(asset, project.id)}/>))}</div><div className="inline-actions">{filter !== 'props' && <button className="btn" onClick={() => setDraft(current => ({ ...current, scenes: [...current.scenes, { id: uid(), type: 'scene', name: '新场景', description: '' }] }))}>＋ 新增场景</button>}{filter !== 'scenes' && <button className="btn" onClick={() => setDraft(current => ({ ...current, props: [...current.props, { id: uid(), type: 'prop', name: '新道具', description: '' }] }))}>＋ 新增道具</button>}</div></>;
+  return <><PageHeading stage="美术 · ART" title="美术卡" actions={<button className="btn primary" onClick={() => save(draft)}>保存美术</button>}/><div className="material-tabs">{(['all', 'scenes', 'props'] as const).map(key => <button key={key} className={filter === key ? 'active' : ''} onClick={() => setFilter(key)}>{key === 'all' ? '全部' : key === 'scenes' ? '场景' : '道具'}</button>)}</div><div className="gallery-grid">{(['scenes', 'props'] as const).filter(key => filter === 'all' || filter === key).flatMap(kind => draft[kind].map(asset => <GalleryImageCard key={asset.id} project={project} target={asset} title={asset.name} subtitle={kind === 'scenes' ? '场景' : '道具'} description={asset.description} prompt={asset.prompt || `${asset.name}，${asset.description}。画风：${draft.style}`} onName={value => update(kind, asset.id, 'name', value)} onDescription={value => update(kind, asset.id, 'description', value)} onPrompt={value => update(kind, asset.id, 'prompt', value)} onAccept={url => save({ ...draft, [kind]: draft[kind].map(item => item.id === asset.id ? { ...item, image: url } : item) })} onDelete={() => setDraft(current => ({ ...current, [kind]: current[kind].filter(item => item.id !== asset.id) }))} onDetails={() => go(`/p/${project.id}/art/${kind}/${encodeURIComponent(asset.id)}`)} onLibrary={() => addToLibrary(asset, project.id)}/>))}</div><div className="inline-actions">{filter !== 'props' && <button className="btn" onClick={() => setDraft(current => ({ ...current, scenes: [...current.scenes, { id: uid(), type: 'scene', name: '新场景', description: '' }] }))}>＋ 新增场景</button>}{filter !== 'scenes' && <button className="btn" onClick={() => setDraft(current => ({ ...current, props: [...current.props, { id: uid(), type: 'prop', name: '新道具', description: '' }] }))}>＋ 新增道具</button>}</div></>;
 }
 
 function MediaGenerator({ project, kind, targetId, prompt, source, duration, onAccept, preferQwen = false, videoSources, cutPoints, segmentMode = false, referenceImages }: { project: Project; kind: 'image' | 'video'; targetId: string; prompt: string; source?: string; duration?: number; onAccept: (url: string, usedPrompt?: string) => void; preferQwen?: boolean; videoSources?: string[]; cutPoints?: number[]; segmentMode?: boolean; referenceImages?: string[] }) {
@@ -892,7 +848,7 @@ function ImageChooser({ project, onSelect, selected, onSelectionChange, onClose 
 }
 function ImagePicker({ value, onChange, allowRemove = true }: { value?: string; onChange: (value: string) => void; allowRemove?: boolean }) { const [open, setOpen] = useState(false); const project = useContext(CurrentProject); return <div className="image-picker"><button className="btn small" onClick={() => setOpen(true)}>{value ? '从资产库更换图片' : '从资产库选择图片'}</button>{value && allowRemove && <button className="text-button" onClick={() => onChange('')}>移除图片</button>}{open && <ImageChooser project={project} onSelect={onChange} onClose={() => setOpen(false)}/>}</div>; }
 
-function StoryboardPage({ project, save, regenerate, go }: { project: Project; save: (value: Project['docs']['storyboard']) => void; regenerate: () => void; go: (path: string) => void }) {
+function StoryboardPage({ project, save, go }: { project: Project; save: (value: Project['docs']['storyboard']) => void; go: (path: string) => void }) {
   const episodes = Array.from({ length: Math.max(project.docs.script.episodes.length, project.docs.outline.episodes.length, ...project.docs.storyboard.shots.map(shot => shot.episode || 1), 0) }, (_, index) => index + 1);
   const shots = project.docs.storyboard.shots;
   function addShot(episode: number, segment: string) {
@@ -903,20 +859,20 @@ function StoryboardPage({ project, save, regenerate, go }: { project: Project; s
     go(`/p/${project.id}/storyboard/${episode}/${encodeURIComponent(segment)}`);
   }
   return <section className="storyboard-episode-list">
-    <div className="storyboard-list-heading"><div><h2>分集与分段</h2><p>选择分段进入提示词、镜头图片与视频制作。</p></div><button className="btn" onClick={regenerate}>重新生成分镜</button></div>
+    <div className="storyboard-list-heading"><div><h2>分集与分段</h2><p>选择分段进入提示词、镜头图片与视频制作。</p></div></div>
     {episodes.map(episode => {
       const episodeShots = shots.filter(shot => (shot.episode || 1) === episode);
       const segments = Array.from(new Set(episodeShots.map(shot => shot.segmentId || '未分段')));
       const seconds = episodeShots.reduce((sum, shot) => sum + shot.duration, 0);
       const target = project.docs.script.episodes[episode - 1]?.duration;
       return <section className="panel storyboard-episode-row" key={episode}>
-        <div className="storyboard-episode-row-head"><button className="storyboard-episode-title" onClick={() => go(`/p/${project.id}/storyboard/${episode}`)}>第 {episode} 集 <span>本集总表 →</span></button><div><b>{seconds.toFixed(1)}s</b><small> / {target || '—'}s · {segments.length} 段 · {episodeShots.length} 镜</small></div><button className="btn small" onClick={() => addShot(episode, segments[0] || 'S01')}>＋ 新增镜头</button></div>
+        <div className="storyboard-episode-row-head"><button className="storyboard-episode-title" onClick={() => go(`/p/${project.id}/storyboard/${episode}`)}>第 {episode} 集 <span>本集总表 →</span></button><div><b>{seconds.toFixed(1)}s</b><small> / {target || '—'}s · {segments.length} 段 · {episodeShots.length} 镜</small></div></div>
         {segments.length ? <div className="storyboard-segment-list">{segments.map((segment, segmentIndex) => {
           const group = episodeShots.filter(shot => (shot.segmentId || '未分段') === segment);
           const duration = group.reduce((sum, shot) => sum + shot.duration, 0);
           return <article className="storyboard-segment-row" key={segment}>
             <button className="storyboard-segment-link" onClick={() => go(`/p/${project.id}/storyboard/${episode}/${encodeURIComponent(segment)}`)}>
-              <div className="storyboard-segment-thumbs">{group.slice(0, 4).map((shot, index) => <span key={shot.id}>{shot.image ? <img src={shot.image} alt={`第 ${index + 1} 镜`}/> : String(index + 1).padStart(2, '0')}</span>)}</div>
+              <div className="storyboard-segment-thumbs">{group.slice(0, 3).map((shot, index) => <span key={shot.id}>{shot.image ? <img src={shot.image} alt={`第 ${index + 1} 镜`}/> : String(index + 1).padStart(2, '0')}</span>)}{group.length > 3 && <span className="storyboard-thumb-more">+{group.length - 3}</span>}</div>
               <span className="storyboard-segment-copy"><strong>{segment === '未分段' ? `未分段镜头 · ${segmentIndex + 1}` : segment}</strong><small>{group[0]?.scene || '尚未填写场景'} · {group[0]?.framing || '景别待定'}</small></span>
               <span className="storyboard-segment-metrics">{duration.toFixed(1)}s · {group.length} 镜</span><b>→</b>
             </button>
@@ -925,7 +881,7 @@ function StoryboardPage({ project, save, regenerate, go }: { project: Project; s
         })}</div> : <div className="storyboard-empty-episode"><span>这一集还没有镜头</span><button className="btn small" onClick={() => addShot(episode, 'S01')}>创建第一个镜头</button></div>}
       </section>;
     })}
-    {!episodes.length && <div className="empty-state"><h2>还没有分镜分集</h2><p>重新生成分镜，或先在剧本中新增分集。</p></div>}
+    {!episodes.length && <div className="empty-state"><h2>还没有分镜分集</h2><p>先在剧本中新增分集。</p></div>}
   </section>;
 }
 type DiffRow = { path: string[]; kind: 'added' | 'removed' | 'changed'; before: string; after: string };
