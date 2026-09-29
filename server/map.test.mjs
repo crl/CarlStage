@@ -24,6 +24,8 @@ test('五个 skill 的 2.0 原生示例可映射到工作台编辑结构', async
   const art = mapSkillResult('art', await fixture('novel-art'), project);
   assert.ok(art.scenes[0]?.name && art.props[0]?.name);
   assert.ok(art.scenes[0]?.anchors.length && art.scenes[0]?.prompt);
+  assert.ok(art.scenes[0]?.settingPrompt);
+  assert.ok(art.props[0]?.settingPrompt);
   const script = mapSkillResult('script', await fixture('novel-script'), project);
   assert.ok(script.episodes[0]?.scenes[0]?.beats.length);
   assert.ok(script.episodes[0]?.scenes[0]?.flow.length);

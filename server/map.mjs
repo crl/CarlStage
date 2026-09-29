@@ -32,8 +32,8 @@ export function mapSkillResult(section, raw, project) {
   }));
   if (section === 'art') return {
     style: project.style || '',
-    scenes: list(raw.scenes).map((s, i) => ({ id: str(s.id) || `S${i + 1}`, type: 'scene', name: str(s.name), description: str(s.summary || s.image?.prompt), primary: !!s.primary, anchors: list(s.anchors), states: list(s.lighting), prompt: str(s.image?.prompt), negativePrompt: str(s.image?.negativePrompt) })),
-    props: list(raw.props).map((p, i) => ({ id: str(p.id) || `P${i + 1}`, type: 'prop', name: str(p.name), description: str(p.summary || p.image?.prompt), anchors: list(p.anchors), states: list(p.states), scale: str(p.scale), prompt: str(p.image?.prompt), negativePrompt: str(p.image?.negativePrompt) }))
+    scenes: list(raw.scenes).map((s, i) => ({ id: str(s.id) || `S${i + 1}`, type: 'scene', name: str(s.name), description: str(s.summary || s.image?.prompt), primary: !!s.primary, anchors: list(s.anchors), states: list(s.lighting), prompt: str(s.image?.prompt), negativePrompt: str(s.image?.negativePrompt), settingPrompt: str(s.image?.sheet) })),
+    props: list(raw.props).map((p, i) => ({ id: str(p.id) || `P${i + 1}`, type: 'prop', name: str(p.name), description: str(p.summary || p.image?.prompt), anchors: list(p.anchors), states: list(p.states), scale: str(p.scale), prompt: str(p.image?.prompt), negativePrompt: str(p.image?.negativePrompt), settingPrompt: str(p.image?.sheet) }))
   };
   if (section === 'script') return { episodes: list(raw.episodes).map((ep, i) => ({
     title: `第 ${ep.ep || i + 1} 集`, duration: Number(ep.targetSeconds) || 120,
