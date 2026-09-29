@@ -21,6 +21,7 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
   const [nodePositions, setNodePositions] = useState<Record<string, Point>>({});
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
+  const [focusPoint, setFocusPoint] = useState<Point | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeDrag = useRef<{ type: 'node' | 'pan'; id?: string; x: number; y: number } | null>(null);
   const endPanRef = useRef<(() => void) | null>(null);
@@ -54,14 +55,21 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
   useEffect(() => {
     if (!layout) return;
     setNodePositions(Object.fromEntries([...layout.positions].map(([id, point]) => [id, { ...point }])));
-    setPan({ x: 0, y: 0 }); setZoom(1); setSelected('');
+    setPan({ x: 0, y: 0 }); setZoom(1); setSelected(''); setFocusPoint(null);
   }, [layout]);
   if (!parsed || !layout) return <div className="workflow-graph-empty">{workflowJson ? 'JSON 格式无效，无法绘制节点。' : '导入或恢复工作流后，这里会显示节点连线图。'}</div>;
   const graphLayout = layout;
   const selectedNode = layout.nodes.find(node => node.id === selected);
   const position = (id: string) => nodePositions[id] || layout.positions.get(id)!;
+  function setFocusFromPointer(clientX: number, clientY: number) {
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+    const bounds = viewport.getBoundingClientRect();
+    setFocusPoint({ x: (clientX - bounds.left - pan.x) / zoom, y: (clientY - bounds.top - pan.y) / zoom });
+  }
   function startCanvasDrag(event: ReactPointerEvent<HTMLDivElement>) {
     const onNode = (event.target as Element).closest('.workflow-node');
+    setFocusFromPointer(event.clientX, event.clientY);
     if (event.button !== 1 && (event.button !== 0 || onNode)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -109,22 +117,20 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
     setPan({ x: 0, y: 0 }); setZoom(1);
     scrollRef.current?.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
   }
-  function zoomAt(nextZoom: number, clientX?: number, clientY?: number) {
-    const viewport = scrollRef.current;
+  function zoomAt(nextZoom: number) {
+    if (!focusPoint) return;
     const clamped = Math.max(.4, Math.min(2, Math.round(nextZoom * 100) / 100));
-    if (viewport && clientX !== undefined && clientY !== undefined) {
-      const bounds = viewport.getBoundingClientRect();
-      const x = clientX - bounds.left; const y = clientY - bounds.top;
-      const anchorX = (x - pan.x) / zoom;
-      const anchorY = (y - pan.y) / zoom;
-      setPan({ x: x - anchorX * clamped, y: y - anchorY * clamped });
-      setZoom(clamped);
-    } else setZoom(clamped);
+    const screenX = pan.x + focusPoint.x * zoom;
+    const screenY = pan.y + focusPoint.y * zoom;
+    setPan({ x: screenX - focusPoint.x * clamped, y: screenY - focusPoint.y * clamped });
+    setZoom(clamped);
   }
+  const hasFocusPoint = focusPoint !== null;
   return <div className="workflow-graph-shell">
-    <div className="workflow-graph-toolbar"><span><i/> 节点与连线</span><span>{layout.nodes.length} 个节点 · 左键拖动空白处或中键拖动任意位置 · 滚轮缩放</span><div className="workflow-graph-tools"><button type="button" aria-label="缩小" onClick={() => zoomAt(zoom - .1)}>−</button><output>{Math.round(zoom * 100)}%</output><button type="button" aria-label="放大" onClick={() => zoomAt(zoom + .1)}>＋</button><button type="button" onClick={restoreLayout}>一键恢复</button></div></div>
-    <div ref={scrollRef} className="workflow-graph-scroll" onPointerDownCapture={startCanvasDrag} onAuxClick={event => event.preventDefault()} onWheel={event => { event.preventDefault(); zoomAt(zoom * (event.deltaY < 0 ? 1.1 : .9), event.clientX, event.clientY); }}><svg className="workflow-graph-canvas" width="100%" height="100%" role="img" aria-label="ComfyUI 工作流节点图">
+    <div className="workflow-graph-toolbar"><span><i/> 节点与连线</span><span>{layout.nodes.length} 个节点 · {hasFocusPoint ? '左键拖动画布空白处或中键拖动任意位置' : '点击画布设置焦点点后可缩放与控制'}</span><div className="workflow-graph-tools"><button type="button" aria-label="缩小" disabled={!hasFocusPoint} onClick={() => zoomAt(zoom - .1)}>−</button><output>{Math.round(zoom * 100)}%</output><button type="button" aria-label="放大" disabled={!hasFocusPoint} onClick={() => zoomAt(zoom + .1)}>＋</button><button type="button" disabled={!hasFocusPoint} onClick={restoreLayout}>一键恢复</button></div></div>
+    <div ref={scrollRef} className="workflow-graph-scroll" onPointerDownCapture={startCanvasDrag} onAuxClick={event => event.preventDefault()} onWheel={event => { if (!focusPoint) return; event.preventDefault(); zoomAt(zoom * (event.deltaY < 0 ? 1.1 : .9)); }}><svg className="workflow-graph-canvas" width="100%" height="100%" role="img" aria-label="ComfyUI 工作流节点图">
       <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
+      {focusPoint && <circle className="workflow-focus-point" cx={focusPoint.x} cy={focusPoint.y} r={11 / zoom}/>}
       {layout.nodes.flatMap(target => Object.entries(target.node.inputs || {}).flatMap(([key, value], inputIndex) => {
         if (!isLink(value, parsed)) return [];
         const source = layout.nodes.find(node => node.id === value[0]); if (!source) return [];
