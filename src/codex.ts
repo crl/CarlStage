@@ -41,6 +41,7 @@ export const removeProjectRuns = (id: string) => request<{ ok: boolean }>(`/proj
 export const consult = (project: Project, mode: 'talk' | 'edit', message: string) => request<{ reply: string; scene?: Project['docs']['script']['episodes'][number]['scenes'][number] }>('/consult', { method: 'POST', body: JSON.stringify({ project, mode, message }) });
 
 export type Settings = {
+  showCreativeTemplates: boolean;
   codex: { provider: 'codex' | 'ollama'; executablePath: string; model: string; ollamaModel: string; reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh'; timeoutMinutes: number };
   imageProvider: 'qwen' | 'gpt';
   gptImage: { model: 'gpt-image-2.5-sunburst' | 'gpt-image-2.5-flare'; quality: 'low' | 'medium' | 'high' | 'xhigh' | 'max'; hasApiKey: boolean; apiKey?: string };

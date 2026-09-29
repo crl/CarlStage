@@ -209,16 +209,18 @@ function Header({ go, project, page, onMenu, rename }: { go: (path: string) => v
 }
 
 function Dashboard({ projects, go, create, openNovel, onDelete }: { projects: Project[]; go: (path: string) => void; create: (input: Partial<Project> & Pick<Project, 'kind' | 'name' | 'prompt'>) => void; openNovel: () => void; onDelete: (id: string) => void }) {
+  const [showCreativeTemplates, setShowCreativeTemplates] = useState<boolean | null>(null);
   const [prompt, setPrompt] = useState('');
   const [ratio, setRatio] = useState<'16:9' | '9:16'>('16:9');
   const [needCast, setNeedCast] = useState(true);
   const [needArt, setNeedArt] = useState(true);
   const [images, setImages] = useState<string[]>([]);
   const [chooseImage, setChooseImage] = useState(false);
+  useEffect(() => { let mounted = true; getSettings().then(settings => { if (mounted) setShowCreativeTemplates(typeof settings.showCreativeTemplates === 'boolean' ? settings.showCreativeTemplates : true); }).catch(() => { if (mounted) setShowCreativeTemplates(true); }); return () => { mounted = false; }; }, []);
   function submit() { if (!prompt.trim()) return; const name = prompt.trim().split(/[。！？\n]/)[0].slice(0, 28) || '未命名创意'; create({ kind: 'idea', name, prompt: prompt.trim(), ratio, needCast, needArt, referenceImages: images }); }
   return <div className="dashboard">
     <aside className="dash-sidebar"><div className="brand"><span className="logo">CS</span><div><strong>CarlStage</strong><small>AI 影视创作工作台</small></div></div>
-      <nav className="dash-nav"><button className="active" onClick={() => go('/dashboard')}>⌂ <span>首页</span></button><button onClick={() => go('/asset-library')}>◇ <span>资产库</span></button><button onClick={() => go('/creative-templates')}>▦ <span>创意模板</span><em>待更新</em></button></nav>
+      <nav className="dash-nav"><button className="active" onClick={() => go('/dashboard')}>⌂ <span>首页</span></button><button onClick={() => go('/asset-library')}>◇ <span>资产库</span></button>{showCreativeTemplates && <button onClick={() => go('/creative-templates')}>▦ <span>创意模板</span><em>待更新</em></button>}</nav>
       <div className="recent-title">最近项目</div><div className="recent-list">{projects.length ? projects.map(p => <div className="recent-item" key={p.id}><button className="recent-link" onClick={() => go(`/p/${p.id}`)}><span className="recent-icon">{p.kind === 'novel' ? '文' : '创'}</span><span className="recent-copy"><strong>{p.name}</strong><small>{p.kind === 'novel' ? p.genre || '小说项目' : `${p.docs.script.episodes.length} 条剧本`} · {new Date(p.updatedAt).toLocaleDateString('zh-CN')}</small></span></button><button className="recent-delete" title="删除项目" onClick={() => onDelete(p.id)}>×</button></div>) : <p className="sidebar-empty">还没有项目，从一个创意开始吧。</p>}</div>
       <button className="sidebar-create" onClick={openNovel}>＋ 小说项目</button>
     </aside>
@@ -228,7 +230,7 @@ function Dashboard({ projects, go, create, openNovel, onDelete }: { projects: Pr
       <div className="composer"><textarea placeholder="输入你的镜头、画面或故事；可从资产库选择参考图" value={prompt} onChange={e => setPrompt(e.target.value)} onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit(); }}/><div className="composer-bottom"><button className="reference-button" onClick={() => setChooseImage(true)}>＋ <span>参考内容<small>从全局资产库选择</small></span></button><span className="composer-note">创意项目<small>支持单条或多条</small></span><div className="segmented"><button className={ratio === '16:9' ? 'selected' : ''} onClick={() => setRatio('16:9')}>16:9</button><button className={ratio === '9:16' ? 'selected' : ''} onClick={() => setRatio('9:16')}>9:16</button></div><label className="check-pill"><input type="checkbox" checked={needCast} onChange={e => setNeedCast(e.target.checked)}/> 需要角色</label><label className="check-pill"><input type="checkbox" checked={needArt} onChange={e => setNeedArt(e.target.checked)}/> 需要美术</label><button className="send-button" disabled={!prompt.trim()} onClick={submit}>↑</button></div>{images.length > 0 && <div className="image-previews">{images.map((src, i) => <div key={i}><MediaPicture src={src}/><button onClick={() => setImages(v => v.filter((_, j) => j !== i))}>×</button></div>)}</div>}</div>
       {chooseImage && <ImageChooser onSelect={url => setImages(v => v.includes(url) ? v : [...v, url])} onClose={() => setChooseImage(false)}/>}
       <p className="key-hint">⌘ / Ctrl + Enter 创建项目 · 内容生成使用本机 Codex，出图与视频使用本机 ComfyUI</p>
-      <div className="creation-choices"><button onClick={openNovel}><span className="choice-icon">文</span><span><strong>创建小说短剧</strong><small>上传小说，基于原文创建短剧项目</small></span><b>选择小说 →</b></button><button className="disabled-choice" disabled><span className="choice-icon">模</span><span><strong>选择创意模板 <i>待更新</i></strong><small>模板内容正在整理，暂未开放</small></span><b>敬请期待</b></button></div>
+      <div className={`creation-choices${showCreativeTemplates ? '' : ' single-choice'}`}><button onClick={openNovel}><span className="choice-icon">文</span><span><strong>创建小说短剧</strong><small>上传小说，基于原文创建短剧项目</small></span><b>选择小说 →</b></button>{showCreativeTemplates && <button className="disabled-choice" disabled><span className="choice-icon">模</span><span><strong>选择创意模板 <i>待更新</i></strong><small>模板内容正在整理，暂未开放</small></span><b>敬请期待</b></button>}</div>
     </div></main>
   </div>;
 }
