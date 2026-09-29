@@ -277,6 +277,7 @@
 .outline-report-inventory .detail-table th,.outline-report-inventory .detail-table td,.outline-report-characters .detail-table th,.outline-report-characters .detail-table td{padding:6px 9px;vertical-align:middle;border-bottom:1px solid #343630}
 .outline-report-inventory .detail-table thead th,.outline-report-characters .detail-table thead th{padding-top:5px;padding-bottom:7px;color:#bdb5a5;font-size:11px}
 .outline-report-inventory .detail-table tbody tr:last-child td,.outline-report-characters .detail-table tbody tr:last-child td{border-bottom:0}
+.outline-report-inventory .detail-table th:nth-child(2),.outline-report-inventory .detail-table td:first-child{white-space:nowrap}
 .outline-report-characters .outline-inline-edit:not(.gallery-text-edit){min-height:0;padding:2px 4px;line-height:1.4}
 .outline-report-characters .outline-inline-edit.multiline:not(.gallery-text-edit){min-height:0}
 #outline-beats-table .detail-table{border-collapse:collapse}
