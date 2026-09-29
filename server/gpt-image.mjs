@@ -43,7 +43,8 @@ export async function generateGptImage(settings, prompt, sources = [], fetcher =
   if (!key) throw new Error('请先在设置中配置 OpenAI API Key。');
   const model = settings.gptImage.model;
   const quality = settings.gptImage.quality;
-  const size = ratio === '9:16' ? '1024x1536' : '1536x1024';
+  const [ratioWidth, ratioHeight] = String(ratio || '16:9').split(':').map(Number);
+  const size = ratioWidth / ratioHeight < 1 ? '1024x1536' : '1536x1024';
   const dispatcher = proxyDispatcher();
   const headers = { Authorization: `Bearer ${key}` };
   let body, url;

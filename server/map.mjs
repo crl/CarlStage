@@ -10,10 +10,16 @@ export function mapSkillResult(section, raw, project) {
     cut: list(raw.adaptation?.cut).map(itemText),
     merge: list(raw.adaptation?.merge).map(itemText),
     risks: list(raw.adaptation?.risks).map(v => str(v?.plan || v?.what || v)),
-    episodes: list(raw.episodes).map((ep, i) => ({ title: `第 ${ep.ep || i + 1} 集`, summary: str(ep.synopsis), hook: str(ep.hook || ep.suspense), crowdPlan: str(ep.crowdPlan), warnings: list(ep.warnings).map(str) })),
-    beats: list(raw.beats).map((beat, i) => ({ id: str(beat.id) || `B${i + 1}`, type: str(beat.type), episode: Number(beat.episode) || 1, setup: str(beat.setup), payoff: str(beat.payoff) })),
-    characters: list(raw.characters).map((character, i) => ({ id: str(character.id) || `C${i + 1}`, name: str(character.name), role: str(character.role), arc: str(character.arc), source: str(character.from) })),
-    scenes: list(raw.scenes).map((scene, i) => ({ id: str(scene.id) || `S${i + 1}`, name: str(scene.name), primary: !!scene.primary }))
+    retainDetails: list(raw.adaptation?.keep).map(item => ({ what: str(item?.what || item), why: str(item?.why), evidence: str(item?.evidence) })),
+    cutDetails: list(raw.adaptation?.cut).map(item => ({ what: str(item?.what || item), why: str(item?.why), evidence: str(item?.evidence) })),
+    mergeDetails: list(raw.adaptation?.merge).map(item => ({ what: str(item?.what || item), why: str(item?.why) })),
+    riskDetails: list(raw.adaptation?.risks).map(item => ({ what: str(item?.what || item), plan: str(item?.plan) })),
+    cutNote: str(raw.adaptation?.cutNote),
+    episodes: list(raw.episodes).map((ep, i) => ({ title: `第 ${ep.ep || i + 1} 集`, summary: str(ep.synopsis), hook: str(ep.hook), suspense: str(ep.suspense), crowdPlan: str(ep.crowdPlan), warnings: list(ep.warnings).map(str), sceneIds: list(ep.sceneIds).map(str), characterIds: list(ep.characterIds).map(str), propIds: list(ep.propIds).map(str) })),
+    beats: list(raw.beats).map((beat, i) => ({ id: str(beat.id) || `B${i + 1}`, type: str(beat.type), weight: str(beat.weight), episode: Number(beat.episode) || 1, setup: str(beat.setup), payoff: str(beat.payoff) })),
+    characters: list(raw.characters).map((character, i) => ({ id: str(character.id) || `C${i + 1}`, name: str(character.name), role: str(character.role), tier: str(character.tier), arc: str(character.arc), source: list(character.from).join('、') || str(character.from) })),
+    scenes: list(raw.scenes).map((scene, i) => ({ id: str(scene.id) || `S${i + 1}`, name: str(scene.name), primary: !!scene.primary, reusePlan: str(scene.reusePlan) })),
+    props: list(raw.props).map((prop, i) => ({ id: str(prop.id) || `P${i + 1}`, name: str(prop.name), function: str(prop.function), beatIds: list(prop.beatIds).map(str) }))
   };
   if (section === 'cast') return list(raw.characters).map((c, i) => ({
     id: str(c.id) || `C${String(i + 1).padStart(2, '0')}`,
@@ -43,4 +49,20 @@ export function mapSkillResult(section, raw, project) {
     episode: Number(ep.ep) || 1, segmentId: str(segment.id), camera: str(cut.camera), characters: list(cut.characters).map(str), props: list(cut.props).map(str), beats: list(cut.beats).map(Number), videoPrompt: str(segment.h3Prompt)
   })))) };
   throw new Error('未知的生成阶段。');
+}
+
+export function mapOutlineProjectSettings(raw, project) {
+  const params = raw?.params || {};
+  const episodes = Number(params.episodes);
+  const minutes = Number(params.minutesPerEpisode);
+  const ratios = new Set(['1:1', '9:16', '16:9', '3:4', '4:3', '3:2', '2:3', '4:5', '5:4', '21:9']);
+  const ratio = params.ratio || params.aspectRatio;
+  return {
+    ...project,
+    ...(Number.isInteger(episodes) && episodes > 0 ? { episodeCount: episodes } : {}),
+    ...(Number.isFinite(minutes) && minutes > 0 ? { minDuration: minutes, maxDuration: minutes } : {}),
+    ...(typeof params.genre === 'string' ? { genre: params.genre } : {}),
+    ...(typeof params.adaptMode === 'string' ? { adaptation: params.adaptMode } : {}),
+    ...(ratios.has(ratio) ? { ratio } : {})
+  };
 }

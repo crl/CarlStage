@@ -2,7 +2,23 @@ export type ProjectKind = 'idea' | 'novel';
 export type AssetType = 'character' | 'scene' | 'prop' | 'other';
 export type DocKey = 'outline' | 'script' | 'cast' | 'art' | 'storyboard';
 export type Asset = { id: string; type: AssetType; name: string; description: string; prompt?: string; mediaKind?: 'image' | 'video'; image?: string; video?: string; sourceProjectId?: string; sourceItemId?: string; generatedAt?: number; provider?: string };
-export type Outline = { core: string; retain: string[]; cut: string[]; merge: string[]; risks: string[]; episodes: { title: string; summary: string; hook: string; crowdPlan?: string; warnings?: string[] }[]; beats?: { id: string; type: string; episode: number; setup: string; payoff: string }[]; characters?: { id: string; name: string; role: string; arc: string; source: string }[]; scenes?: { id: string; name: string; primary: boolean }[] };
+export type ImageRatio = '1:1' | '9:16' | '16:9' | '3:4' | '4:3' | '3:2' | '2:3' | '4:5' | '5:4' | '21:9';
+export const IMAGE_RATIOS: ImageRatio[] = ['1:1', '9:16', '16:9', '3:4', '4:3', '3:2', '2:3', '4:5', '5:4', '21:9'];
+export type Outline = {
+  core: string; retain: string[]; cut: string[]; merge: string[]; risks: string[];
+  retainDetails?: { what: string; why: string; evidence: string }[];
+  cutDetails?: { what: string; why: string; evidence?: string }[];
+  mergeDetails?: { what: string; why: string }[];
+  riskDetails?: { what: string; plan: string }[];
+  cutNote?: string;
+  episodes: { title: string; summary: string; hook: string; suspense?: string; crowdPlan?: string; warnings?: string[]; sceneIds?: string[]; characterIds?: string[]; propIds?: string[] }[];
+  beats?: { id: string; type: string; weight?: string; episode: number; setup: string; payoff: string }[];
+  characters?: { id: string; name: string; role: string; tier?: string; arc: string; source: string }[];
+  scenes?: { id: string; name: string; primary: boolean; reusePlan?: string }[];
+  sceneRefsHydrated?: boolean;
+  characterInfoHydrated?: boolean;
+  props?: { id: string; name: string; function: string; beatIds: string[] }[];
+};
 export type ScriptBeat = { action?: string; speaker?: string; line?: string; delivery?: string; seconds?: number };
 export type Script = { episodes: { title: string; duration: number; hook: string; ending: string; beatsClaimed?: string[]; scenes: { title: string; location: string; description: string; beats: string[]; sceneId?: string; lighting?: string; characters?: string[]; props?: string[]; flow?: ScriptBeat[] }[] }[] };
 export type Character = { id: string; name: string; role: string; description: string; arc: string; image?: string; turnaroundImage?: string; aliases?: string[]; persona?: { gender?: string; ageRange?: string; identity?: string; appearance?: string; temperament?: string; motivation?: string; personality?: string[]; relations?: unknown; relationships?: { name?: string; relation?: string }[]; evidence?: string[] }; imagePrompt?: string; imagePromptLocal?: string; imageSheetPrompt?: string; imageSheetPromptLocal?: string; imageNegativePrompt?: string; imageTags?: string[]; imageStyle?: string; voice?: Record<string, string> };
@@ -14,7 +30,7 @@ export type Storyboard = { shots: Shot[]; segments?: { episode: number; id: stri
 export type Docs = { outline: Outline; script: Script; cast: Character[]; art: Art; storyboard: Storyboard };
 export type Change = { id: string; at: number; section: DocKey; label: string; before: Docs[DocKey]; after?: Docs[DocKey]; beforeArtifact?: { raw: unknown; skillVersion: string; generatedAt: number }; beforeGeneratedSource?: string };
 export type Consultation = { id: string; at: number; mode: 'talk' | 'edit'; question: string; reply: string; scene?: Script['episodes'][number]['scenes'][number] };
-export type Project = { id: string; kind: ProjectKind; name: string; prompt: string; sourceName?: string; sourceText?: string; generatedSource?: string; genre?: string; episodeCount: number; minDuration: number; maxDuration: number; adaptation: string; ratio: '16:9' | '9:16'; style: string; needCast: boolean; needArt: boolean; referenceImages: string[]; keep: string; createdAt: number; updatedAt: number; docs: Docs; assets: Asset[]; changes: Change[]; consultations?: Consultation[]; skillProjectImported?: boolean; skillArtifacts?: Partial<Record<DocKey, { raw: unknown; skillVersion: string; generatedAt: number }>> };
+export type Project = { id: string; kind: ProjectKind; name: string; prompt: string; sourceName?: string; sourceText?: string; generatedSource?: string; genre?: string; episodeCount: number; minDuration: number; maxDuration: number; adaptation: string; ratio: ImageRatio; style: string; needCast: boolean; needArt: boolean; referenceImages: string[]; keep: string; createdAt: number; updatedAt: number; docs: Docs; assets: Asset[]; changes: Change[]; consultations?: Consultation[]; skillProjectImported?: boolean; skillArtifacts?: Partial<Record<DocKey, { raw: unknown; skillVersion: string; generatedAt: number }>> };
 export type Store = { projects: Project[]; library: Asset[]; deletedProjectIds?: string[]; deletedAssetIds?: string[]; deletedImages?: string[]; deletedReferenceKeys?: string[]; deletedChangeIds?: string[]; deletedConsultationIds?: string[] };
 
 export const uid = () => Math.random().toString(36).slice(2, 10);

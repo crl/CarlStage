@@ -12,6 +12,21 @@ const MEDIA = join(process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs'), 
 const jobs = new Map();
 const pending = [];
 let activeJob = null;
+const imageRatios = new Set(['1:1', '9:16', '16:9', '3:4', '4:3', '3:2', '2:3', '4:5', '5:4', '21:9']);
+const aspectOf = ratio => { const [width, height] = String(ratio || '16:9').split(':').map(Number); return width > 0 && height > 0 ? width / height : 16 / 9; };
+function imageDimensions(ratio, area = 1_327_104) {
+  const [ratioWidth, ratioHeight] = String(ratio || '16:9').split(':').map(Number);
+  const widthFactor = ratioWidth > 0 ? ratioWidth : 16; const heightFactor = ratioHeight > 0 ? ratioHeight : 9; const unit = 16;
+  const scale = Math.max(1, Math.round(Math.sqrt(area / (widthFactor * heightFactor)) / unit)) * unit;
+  let width = widthFactor * scale;
+  let height = heightFactor * scale;
+  if (!Number.isFinite(width) || !Number.isFinite(height)) { width = 1536; height = 864; }
+  return { width, height };
+}
+// ResolutionSelector's enum depends on the installed ComfyUI node version.
+// Set explicit latent dimensions for every ratio and only change the selector
+// when its commonly supported labels are known.
+const qwenRatioLabels = { '1:1': '1:1 (Square)', '9:16': '9:16 (Portrait Widescreen)', '16:9': '16:9 (Widescreen)', '3:4': '3:4 (Portrait)', '4:3': '4:3 (Landscape)', '3:2': '3:2 (Landscape)', '2:3': '2:3 (Portrait)' };
 const safeId = value => { if (!/^[a-zA-Z0-9_-]{3,80}$/.test(value)) throw new Error('项目 ID 无效。'); return value; };
 const filePath = (projectId, name) => { safeId(projectId); if (!/^[a-f0-9-]{36}\.(png|jpg|jpeg|webp|mp4|webm|mov)$/.test(name)) throw new Error('媒体文件名无效。'); return join(MEDIA, projectId, name); };
 const publicJob = job => {
@@ -38,15 +53,11 @@ const validImageSource = source => {
 };
 
 async function normalizeImageRatio(bytes, ratio) {
-  const width = ratio === '9:16' ? 864 : 1536;
-  const height = ratio === '9:16' ? 1536 : 864;
+  const { width, height } = imageDimensions(ratio);
   const image = sharp(bytes, { limitInputPixels: 100_000_000 });
   const metadata = await image.metadata();
   if (!metadata.width || !metadata.height) throw new Error('无法读取生成图片尺寸。');
-  const actualRatio = metadata.width / metadata.height;
-  const expectedRatio = width / height;
-  if (Math.abs(actualRatio / expectedRatio - 1) > 0.012) throw new Error(`生成图片比例不符合 ${ratio || '16:9'}：实际 ${metadata.width}×${metadata.height}（${actualRatio.toFixed(4)}）。未裁切或补边，请检查工作流输出尺寸。`);
-  return sharp(bytes).png().toBuffer();
+  return image.resize(width, height, { fit: 'cover', position: 'centre' }).png().toBuffer();
 }
 
 async function responseJson(response, label) {
@@ -126,7 +137,7 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
         const resolutionNode = Object.entries(graph).find(([, node]) => node.class_type === 'ResolutionSelector');
         const selectorId = resolutionNode?.[0] || String(nextNodeId++);
         if (!resolutionNode) graph[selectorId] = { class_type: 'ResolutionSelector', inputs: { aspect_ratio: '16:9 (Widescreen)', megapixels: 1, multiple: 32 } };
-        graph[selectorId].inputs.aspect_ratio = input.ratio === '9:16' ? '9:16 (Portrait Widescreen)' : '16:9 (Widescreen)';
+        if (qwenRatioLabels[input.ratio]) graph[selectorId].inputs.aspect_ratio = qwenRatioLabels[input.ratio];
         const samplerIds = Object.entries(graph).filter(([, node]) => node.class_type === 'KSampler' && String(node.inputs?.positive?.[0]) === String(config.promptNodeId));
         let sizeNodeId = Object.entries(graph).find(([, node]) => node.class_type === 'EmptyLatentImage' && Array.isArray(node.inputs?.width) && Array.isArray(node.inputs?.height))?.[0];
         if (!sizeNodeId) {
@@ -158,32 +169,30 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
     uploadedExtraNames.forEach((name, index) => { const slot = config.referenceSlots?.[index]; if (!slot) throw new Error('视频工作流缺少多图节点映射。'); validateMapping(graph, slot.imageNodeId, slot.imageInput, '多图图片'); validateMapping(graph, slot.timeNodeId, slot.timeInput, '多图切点'); graph[slot.imageNodeId].inputs[slot.imageInput] = name; graph[slot.timeNodeId].inputs[slot.timeInput] = input.cutPoints[index + 1]; });
     for (const node of Object.values(graph)) {
       if (node.class_type !== 'MiniMaxH3ImageToVideo' || !Number.isFinite(node.inputs?.width) || !Number.isFinite(node.inputs?.height)) continue;
-      const longSide = Math.max(node.inputs.width, node.inputs.height);
-      const shortSide = Math.min(node.inputs.width, node.inputs.height);
-      [node.inputs.width, node.inputs.height] = input.ratio === '9:16' ? [shortSide, longSide] : [longSide, shortSide];
+      [node.inputs.width, node.inputs.height] = Object.values(imageDimensions(input.ratio, node.inputs.width * node.inputs.height));
     }
   }
   if (config.seedNodeId) setInput(graph, config, 'seed', config.seed === -1 ? Math.floor(Math.random() * 2 ** 32) : config.seed);
   if (kind !== 'video') {
-    const portrait = input.ratio === '9:16';
     const configuredWidth = config.width || 768;
     const configuredHeight = config.height || 432;
-    const units = Math.max(1, Math.round(Math.max(configuredWidth, configuredHeight) / 256));
-    const width = portrait ? 144 * units : 256 * units;
-    const height = portrait ? 256 * units : 144 * units;
+    const selectedRatio = input.ratio || '16:9';
+    const selector = Object.values(graph).find(node => node.class_type === 'ResolutionSelector');
+    const baseArea = input.imageMode === 'compose' ? Number(selector?.inputs?.megapixels || 1) * 1_000_000 : configuredWidth * configuredHeight;
+    const { width, height } = imageDimensions(selectedRatio, baseArea);
     for (const key of ['width', 'height', 'steps', 'cfg']) {
       if (!config[`${key}NodeId`]) continue;
       const value = key === 'width' ? width : key === 'height' ? height : config[key];
       setInput(graph, config, key, value);
     }
     for (const node of Object.values(graph)) {
-      if (input.imageMode !== 'compose' && (node.class_type === 'EmptySD3LatentImage' || node.class_type === 'EmptyLatentImage') && Number.isFinite(node.inputs?.width) && Number.isFinite(node.inputs?.height)) {
+      if ((node.class_type === 'EmptySD3LatentImage' || node.class_type === 'EmptyLatentImage') && (Number.isFinite(node.inputs?.width) || Array.isArray(node.inputs?.width)) && (Number.isFinite(node.inputs?.height) || Array.isArray(node.inputs?.height))) {
         [node.inputs.width, node.inputs.height] = [width, height];
         node.inputs.batch_size = 1;
       }
-      if (input.imageMode !== 'compose' && node.class_type === 'TextEncodeQwenImage21' && Number.isFinite(node.inputs?.resolution)) {
-        node.inputs.resolution = Math.max(64, Math.min(2048, Math.round(portrait ? Math.min(configuredWidth, configuredHeight) : Math.max(configuredWidth, configuredHeight))));
-        node.inputs.prompt = `${node.inputs.prompt || ''}\n画面采用 ${input.ratio === '9:16' ? '9:16 竖屏' : '16:9 横屏'}构图。`;
+      if (node.class_type === 'TextEncodeQwenImage21' && Number.isFinite(node.inputs?.resolution)) {
+        node.inputs.resolution = Math.max(64, Math.min(2048, Math.max(width, height)));
+        node.inputs.prompt = `${node.inputs.prompt || ''}\n画面采用 ${selectedRatio} 画幅构图。`;
       }
     }
   }
@@ -284,7 +293,7 @@ export function createMediaJob(settings, input) {
   if (input.kind === 'image' && provider === 'qwen' && sources.length > 1 && input.source !== sources[0]) throw new Error('多张参考图必须按提示词引用顺序提交。');
   if (input.kind === 'video' && (!input.source || !Number.isFinite(input.duration) || input.duration < 1 || input.duration > 15)) throw new Error('MiniMax H3 需要首帧图片，时长须在 1–15 秒之间。');
   if (input.kind === 'video' && (sources[0] !== input.source || (sources.length > 1 && (!Array.isArray(input.cutPoints) || input.cutPoints.length !== sources.length || input.cutPoints[0] !== 0 || input.cutPoints.some((time, index) => !Number.isFinite(time) || time < 0 || time >= input.duration || (index > 0 && time <= input.cutPoints[index - 1])) || (settings.comfy.video.referenceSlots?.length || 0) < sources.length - 1)))) throw new Error('多图视频需要完整的图片节点映射和严格递增的切点。');
-  if (input.ratio !== undefined && !['16:9', '9:16'].includes(input.ratio)) throw new Error('项目画面比例无效。');
+  if (input.ratio !== undefined && !imageRatios.has(input.ratio)) throw new Error('项目画面比例无效。');
   if (provider === 'qwen' || input.kind === 'video') {
     const reference = input.kind === 'image' ? sources[0] : input.source;
     const workflowKind = input.kind === 'image' && reference && (imageMode === 'compose' || !settings.comfy.image.referenceNodeId) ? 'imageEdit' : input.kind;

@@ -22,17 +22,18 @@ test('分镜多参考生成保持编号并通过尺寸开关选择项目比例 l
     assert.equal(output[images.image_3[0]].inputs.image, 'door.png');
     assert.equal(images.image_4, undefined);
     assert.match(output[config.promptNodeId].inputs.prompt, /第1张参考图中的人物与第2张参考图中的鞋、第3张参考图中的门/);
-    assert.equal(output[config.promptNodeId].inputs.resolution, 0);
     const samplerId = Object.keys(output).find(id => output[id].class_type === 'KSampler');
     const switchNode = output[output[samplerId].inputs.latent_image[0]];
     assert.equal(switchNode.class_type, 'ComfySwitchNode');
     assert.equal(switchNode.inputs.switch, true);
     const latent = output[switchNode.inputs.on_true[0]];
     assert.equal(latent.class_type, 'EmptyLatentImage');
-    const selectorId = latent.inputs.width[0];
-    assert.deepEqual(latent.inputs.height, [selectorId, 1]);
-    assert.equal(output[selectorId].class_type, 'ResolutionSelector');
-    assert.equal(output[selectorId].inputs.aspect_ratio, ratio === '16:9' ? '16:9 (Widescreen)' : '9:16 (Portrait Widescreen)');
+    assert.equal(output[config.promptNodeId].inputs.resolution, Math.max(latent.inputs.width, latent.inputs.height));
+    assert.equal(typeof latent.inputs.width, 'number');
+    assert.equal(typeof latent.inputs.height, 'number');
+    assert.ok(Math.abs(latent.inputs.width / latent.inputs.height - (ratio === '16:9' ? 16 / 9 : 9 / 16)) < 0.01);
+    const selector = Object.values(output).find(node => node.class_type === 'ResolutionSelector');
+    assert.equal(selector.inputs.aspect_ratio, ratio === '16:9' ? '16:9 (Widescreen)' : '9:16 (Portrait Widescreen)');
   }
 });
 
@@ -55,8 +56,8 @@ test('图片工作流按项目画幅写入宽高与 Qwen 构图提示', () => {
   const landscape = buildMediaWorkflow(config, 'image', { prompt: '河岸全景', ratio: '16:9' });
   assert.deepEqual([portrait['2'].inputs.width, portrait['2'].inputs.height], [432, 768]);
   assert.deepEqual([landscape['2'].inputs.width, landscape['2'].inputs.height], [768, 432]);
-  assert.match(portrait['1'].inputs.prompt, /9:16 竖屏/);
-  assert.match(landscape['1'].inputs.prompt, /16:9 横屏/);
+  assert.match(portrait['1'].inputs.prompt, /9:16 画幅构图/);
+  assert.match(landscape['1'].inputs.prompt, /16:9 画幅构图/);
 });
 
 test('Qwen 文生图和参考图编辑将反向提示词写入独立 negative_prompt 输入', () => {
@@ -95,10 +96,11 @@ test('默认 Qwen 文生图和参考图编辑工作流将项目画幅写入真�
       assert.equal(switchNode.class_type, 'ComfySwitchNode');
       assert.equal(switchNode.inputs.switch, true);
       assert.deepEqual(switchNode.inputs.on_false, [promptId, 2]);
-      assert.equal(graph[promptId].inputs.resolution, 0);
-      const selectorId = graph[switchNode.inputs.on_true[0]].inputs.width[0];
-      assert.equal(graph[selectorId].class_type, 'ResolutionSelector');
-      assert.equal(graph[selectorId].inputs.aspect_ratio, '16:9 (Widescreen)');
+      const latent = graph[switchNode.inputs.on_true[0]];
+      assert.deepEqual([latent.inputs.width, latent.inputs.height], [1280, 720]);
+      assert.equal(graph[promptId].inputs.resolution, 1280);
+      const selector = Object.values(graph).find(node => node.class_type === 'ResolutionSelector');
+      assert.equal(selector.inputs.aspect_ratio, '16:9 (Widescreen)');
     }
     if (kind === 'imageEdit') {
       assert.equal(graph[config.referenceNodeId].inputs.image, 'ref.png');
@@ -110,8 +112,10 @@ test('默认 Qwen 文生图和参考图编辑工作流将项目画幅写入真�
     else {
       const samplerId = config.stepsNodeId;
       const switchId = portrait[samplerId].inputs.latent_image[0];
-      const selectorId = portrait[portrait[switchId].inputs.on_true[0]].inputs.width[0];
-      assert.equal(portrait[selectorId].inputs.aspect_ratio, '9:16 (Portrait Widescreen)');
+      const latent = portrait[portrait[switchId].inputs.on_true[0]];
+      assert.deepEqual([latent.inputs.width, latent.inputs.height], [720, 1280]);
+      const selector = Object.values(portrait).find(node => node.class_type === 'ResolutionSelector');
+      assert.equal(selector.inputs.aspect_ratio, '9:16 (Portrait Widescreen)');
     }
   }
 });
@@ -189,8 +193,8 @@ test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t 
   const result = await finished(started.id);
   assert.equal(result.status, 'completed', result.error);
   const landscapeSize = await sharp(await readMedia(projectId, result.result.url.split('/').pop())).metadata();
-  assert.equal(landscapeSize.width, 16);
-  assert.equal(landscapeSize.height, 9);
+  assert.equal(landscapeSize.width, 1536);
+  assert.equal(landscapeSize.height, 864);
   assert.match(result.result.url, /^\/api\/media\/testmedia123\//);
   const name = result.result.url.split('/').pop(); assert.ok((await readMedia(projectId, name)).length > 0);
   const copied = await copyMediaToLibrary(result.result.url);
@@ -202,9 +206,9 @@ test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t 
   assert.equal(multiple.sources, undefined);
   const portrait = createMediaJob(settings, { projectId, kind: 'image', prompt: '竖版角色', ratio: '9:16' });
   const portraitResult = await finished(portrait.id);
-  assert.equal(portraitResult.status, 'failed');
-  assert.match(portraitResult.error, /实际 16×9/);
-  assert.equal(portraitResult.result, undefined);
+  assert.equal(portraitResult.status, 'completed', portraitResult.error);
+  const portraitSize = await sharp(await readMedia(projectId, portraitResult.result.url.split('/').pop())).metadata();
+  assert.ok(Math.abs(portraitSize.width / portraitSize.height - 9 / 16) < 0.01);
   const video = settings.comfy.video; video.workflowJson = JSON.stringify(graph); video.promptNodeId = '1'; video.promptInput = 'text'; video.referenceNodeId = '2'; video.durationNodeId = '3'; video.durationInput = 'duration'; video.seedNodeId = '';
   const startedVideo = createMediaJob(settings, { projectId, kind: 'video', prompt: '镜头缓缓推进', source: result.result.url, duration: 7 });
   const videoResult = await finished(startedVideo.id);
