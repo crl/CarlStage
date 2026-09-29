@@ -17,6 +17,7 @@ export type Outline = {
   scenes?: { id: string; name: string; primary: boolean; reusePlan?: string }[];
   sceneRefsHydrated?: boolean;
   characterInfoHydrated?: boolean;
+  inventoryDataHydrated?: boolean;
   props?: { id: string; name: string; function: string; beatIds: string[] }[];
 };
 export type ScriptBeat = { action?: string; speaker?: string; line?: string; delivery?: string; seconds?: number };
