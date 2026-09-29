@@ -4,7 +4,7 @@ import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { validateComfyUrl, validateWorkflow, validateMapping } from './settings.mjs';
-import { generateGptImage } from './gpt-image.mjs';
+import { formatGptImagePrompt, generateGptImage } from './gpt-image.mjs';
 import sharp from 'sharp';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -90,6 +90,12 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
   if (!config.workflowJson) throw new Error(`请先在设置中导入${kind === 'video' ? 'MiniMax H3 生视频' : 'Qwen-Image-2.1 生图'}工作流。`);
   const graph = JSON.parse(config.workflowJson);
   setInput(graph, config, 'prompt', input.prompt, true);
+  const negativePrompt = typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '';
+  if (negativePrompt) {
+    const promptNode = graph[config.promptNodeId];
+    if (!promptNode?.inputs || !Object.hasOwn(promptNode.inputs, 'negative_prompt')) throw new Error('当前 Qwen 工作流提示词节点不支持 negative_prompt 输入，无法提交反向提示词。');
+    promptNode.inputs.negative_prompt = negativePrompt;
+  }
   if (uploadedName) setInput(graph, config, 'reference', uploadedName, true);
   if (kind === 'imageEdit' && uploadedName) {
     const promptNode = graph[config.promptNodeId];
@@ -190,14 +196,15 @@ async function execute(job) {
     job.status = 'running'; job.message = '正在准备工作流…';
     if (job.kind === 'image' && job.provider === 'gpt') {
       job.message = 'GPT Image 2.5 正在生成…';
-      const generated = await generateGptImage(job.config, job.prompt, job.sources, undefined, job.controller.signal, job.ratio);
+      const submittedPrompt = formatGptImagePrompt(job.prompt, job.negativePrompt);
+      const generated = await generateGptImage(job.config, submittedPrompt, job.sources, undefined, job.controller.signal, job.ratio);
       if (job.cancelled) return;
       const bytes = await normalizeImageRatio(generated, job.ratio);
       if (job.cancelled) return;
       const name = `${randomUUID()}.png`; const path = filePath(job.projectId, name);
       await mkdir(dirname(path), { recursive: true }); await writeFile(path, bytes);
       if (job.cancelled) { await rm(path, { force: true }); return; }
-      job.result = { url: `/api/media/${job.projectId}/${name}`, mime: 'image/png', prompt: job.prompt, generatedAt: Date.now() };
+      job.result = { url: `/api/media/${job.projectId}/${name}`, mime: 'image/png', prompt: submittedPrompt, generatedAt: Date.now() };
       job.status = 'completed'; job.message = '生成完成，请预览并确认。'; return;
     }
     const origin = validateComfyUrl(job.config.comfy.baseUrl);
@@ -266,6 +273,7 @@ async function execute(job) {
 }
 export function createMediaJob(settings, input) {
   if (!['image', 'video'].includes(input.kind) || typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 8000) throw new Error('媒体生成请求无效。');
+  if (input.negativePrompt !== undefined && (input.kind !== 'image' || typeof input.negativePrompt !== 'string' || input.negativePrompt.length > 8000)) throw new Error('图片反向提示词无效。');
   safeId(input.projectId);
   const provider = input.kind === 'image' ? (input.provider || settings.imageProvider || 'qwen') : 'minimax';
   if (input.kind === 'image' && !['qwen', 'gpt'].includes(provider)) throw new Error('生图方式无效。');
@@ -283,7 +291,7 @@ export function createMediaJob(settings, input) {
     const extraSources = (input.kind === 'image' || input.kind === 'video') ? sources.slice(1) : [];
     buildMediaWorkflow(settings.comfy[workflowKind], workflowKind, { ...input, imageMode }, reference ? '__reference__' : undefined, extraSources.map((_, index) => `__reference_${index + 2}__`));
   }
-  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, imageMode, prompt: input.prompt.trim(), duration: input.duration, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
+  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, imageMode, prompt: input.prompt.trim(), negativePrompt: typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '', duration: input.duration, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
   jobs.set(job.id, job); pending.push(job.id); queueMicrotask(startNext);
   return publicJob(job);
 }

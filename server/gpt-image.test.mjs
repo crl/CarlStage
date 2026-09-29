@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { defaultSettings, publicSettings } from './settings.mjs';
-import { generateGptImage } from './gpt-image.mjs';
+import { formatGptImagePrompt, generateGptImage } from './gpt-image.mjs';
 
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/R9sAAAAASUVORK5CYII=', 'base64');
 const fakeResponse = (status, value) => ({ ok: status < 400, status, json: async () => value });
+
+test('GPT Image 将非空反向提示词作为文字附加到正向提示词', () => {
+  assert.equal(formatGptImagePrompt('  一位少女  ', '  不要文字，不要水印  '), '一位少女\n\n反向提示词:不要文字，不要水印');
+  assert.equal(formatGptImagePrompt(' 一位少女 ', ''), '一位少女');
+});
 
 test('GPT Image 2.5 Key 不回传到页面，缺少 Key 时明确失败', async () => {
   const settings = defaultSettings();

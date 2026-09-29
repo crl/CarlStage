@@ -59,6 +59,25 @@ test('图片工作流按项目画幅写入宽高与 Qwen 构图提示', () => {
   assert.match(landscape['1'].inputs.prompt, /16:9 横屏/);
 });
 
+test('Qwen 文生图和参考图编辑将反向提示词写入独立 negative_prompt 输入', () => {
+  const settings = defaultSettings();
+  for (const kind of ['image', 'imageEdit']) {
+    const config = settings.comfy[kind];
+    const graph = buildMediaWorkflow(config, kind, { prompt: '正向画面', negativePrompt: '不要文字，不要水印', ratio: '16:9', imageMode: kind === 'imageEdit' ? 'edit' : undefined }, kind === 'imageEdit' ? 'reference.png' : undefined);
+    const node = graph[config.promptNodeId];
+    assert.match(node.inputs.prompt, /正向画面/);
+    assert.doesNotMatch(node.inputs.prompt, /不要文字|不要水印/);
+    assert.equal(node.inputs.negative_prompt, '不要文字，不要水印');
+  }
+});
+
+test('Qwen 工作流缺少 negative_prompt 输入时拒绝提交非空反向提示词', () => {
+  const image = defaultSettings().comfy.image;
+  image.workflowJson = JSON.stringify({ '1': { class_type: 'Text', inputs: { text: '' } } });
+  image.promptNodeId = '1'; image.promptInput = 'text'; image.referenceNodeId = ''; image.seedNodeId = ''; image.stepsNodeId = ''; image.cfgNodeId = ''; image.widthNodeId = ''; image.heightNodeId = '';
+  assert.throws(() => buildMediaWorkflow(image, 'image', { prompt: '正向画面', negativePrompt: '不要水印' }), /不支持 negative_prompt 输入/);
+});
+
 test('默认 Qwen 文生图和参考图编辑工作流将项目画幅写入真实 latent', () => {
   const settings = defaultSettings();
   for (const kind of ['image', 'imageEdit']) {

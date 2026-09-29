@@ -23,6 +23,11 @@ function proxyDispatcher() {
 
 export function apiKey(settings) { return settings.gptImage.apiKey || process.env.OPENAI_API_KEY || ''; }
 
+export function formatGptImagePrompt(prompt, negativePrompt = '') {
+  const negative = typeof negativePrompt === 'string' ? negativePrompt.trim() : '';
+  return negative ? `${prompt.trim()}\n\n反向提示词:${negative}` : prompt.trim();
+}
+
 export async function sourceBytes(source) {
   if (/^data:image\/(png|jpeg|webp);base64,/i.test(source)) {
     const match = source.match(/^data:(image\/(?:png|jpeg|webp));base64,(.+)$/i);
