@@ -10,6 +10,7 @@ export type Job = {
   error?: string;
   validation?: string;
   validationWarning?: string;
+  reportWarning?: string;
   skeleton?: string;
   result?: { mapped: Project['docs'][DocKey]; raw: unknown; skillVersion: string; generatedAt: number; sourceExpansion?: string };
 };
@@ -38,6 +39,12 @@ export const getJob = (id: string) => request<Job>(`/jobs/${id}`);
 export const continueJob = (id: string) => request<Job>(`/jobs/${id}/continue`, { method: 'POST' });
 export const cancelJob = (id: string) => request<Job>(`/jobs/${id}/cancel`, { method: 'POST' });
 export const removeProjectRuns = (id: string) => request<{ ok: boolean }>(`/projects/${id}`, { method: 'DELETE' });
+export const startProjectImport = (projectId: string) => request<{ importId: string }>(`/projects/${projectId}/proj/import/start`, { method: 'POST' });
+export const uploadProjectImportFile = async (projectId: string, importId: string, path: string, file: File) => {
+  const response = await fetch(`/api/projects/${projectId}/proj/import/${importId}?path=${encodeURIComponent(path)}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: file });
+  if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || `导入文件失败（${response.status}）。`); }
+};
+export const finishProjectImport = (projectId: string, importId: string) => request<{ docs: Project['docs']; skillArtifacts: Project['skillArtifacts']; sourceText?: string; sourceName?: string }>(`/projects/${projectId}/proj/import/${importId}/finish`, { method: 'POST' });
 export const consult = (project: Project, mode: 'talk' | 'edit', message: string) => request<{ reply: string; scene?: Project['docs']['script']['episodes'][number]['scenes'][number] }>('/consult', { method: 'POST', body: JSON.stringify({ project, mode, message }) });
 
 export type Settings = {

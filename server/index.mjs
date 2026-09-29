@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile, readFile, cp, rm, stat, copyFile, appendFile } from 'node:fs/promises';
-import { existsSync, createReadStream } from 'node:fs';
+import { mkdir, writeFile, readFile, cp, rm, stat, copyFile, appendFile, rename } from 'node:fs/promises';
+import { existsSync, createReadStream, createWriteStream } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -37,6 +37,16 @@ async function body(req, limit = 25 * 1024 * 1024) {
 }
 function publicJob(job) { const { controller, project, workspace, thread, config, ...visible } = job; return { ...visible, provider: config.provider }; }
 function projectPath(id) { if (!/^[a-zA-Z0-9_-]{3,80}$/.test(id)) throw new Error('项目 ID 无效。'); return join(RUNS, id); }
+function outputDir(job) { return job.project.skillProjectImported ? job.workspace : join(job.workspace, 'output'); }
+function outputRel(job, name) { return job.project.skillProjectImported ? name : `output/${name}`; }
+function safePackagePath(root, relativePath) {
+  const clean = String(relativePath || '').replace(/\\/g, '/');
+  if (!clean || clean.startsWith('/') || /^[a-zA-Z]:/.test(clean) || clean.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('文件路径无效。');
+  const path = resolve(root, ...clean.split('/'));
+  if (!path.startsWith(resolve(root) + '\\') && !path.startsWith(resolve(root) + '/')) throw new Error('文件路径无效。');
+  return path;
+}
+const packageMime = { html: 'text/html; charset=utf-8', htm: 'text/html; charset=utf-8', css: 'text/css; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', json: 'application/json; charset=utf-8', md: 'text/markdown; charset=utf-8', txt: 'text/plain; charset=utf-8', svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', woff: 'font/woff', woff2: 'font/woff2' };
 function skillRecordsPath(job) { return join(job.workspace, 'skill-records', SKILLS[job.section]); }
 function timestampFilePart(at = Date.now()) { return new Date(at).toISOString().replace(/[:.]/g, '-'); }
 async function archiveFile(job, source, label) {
@@ -62,13 +72,13 @@ async function recordJob(job) {
   }
 }
 async function prepare(job) {
-  const workspace = projectPath(job.project.id);
+  const workspace = job.project.skillProjectImported ? join(projectPath(job.project.id), 'proj') : projectPath(job.project.id);
   job.workspace = workspace;
   const skills = join(workspace, '.agents', 'skills');
   await mkdir(skills, { recursive: true });
   const skillName = SKILLS[job.section];
   await cp(join(VENDOR, skillName), join(skills, skillName), { recursive: true, force: true });
-  const output = join(workspace, 'output');
+  const output = outputDir(job);
   await mkdir(output, { recursive: true });
   const outputFile = join(output, `${NAMES[job.section]}.json`);
   await archiveFile(job, outputFile, `previous-${NAMES[job.section]}.json`);
@@ -103,15 +113,15 @@ function upstream(section) {
 function promptFor(job, phase) {
   const skill = SKILLS[job.section];
   const p = job.project;
-  const base = `请执行 $${skill}。完整遵守 .agents/skills/${skill}/SKILL.md；必要时运行其中的 seed、validate、render。只在当前工作目录操作，不修改网站源码。项目设置在 project.json，输入在 source.txt；current-docs.json 是用户目前确认并可能手工编辑过的页面内容，生成时应参考，若与较旧的原生上游 JSON 冲突，以用户最新编辑为准并修正原生上游内容。题材：${p.genre || '剧情'}；目标 ${p.episodeCount} 集，每集 ${p.minDuration}–${p.maxDuration} 分钟；改编幅度：${p.adaptation}；必须保留：${p.keep || '无'}。${upstream(job.section) ? `上游产物：${upstream(job.section)}。` : ''}${['script', 'storyboard'].includes(job.section) ? '如有多集，按 skill 要求每批最多处理 3 集，最终合并成一个完整 JSON。' : ''}输出完整原生 JSON 到 output/${NAMES[job.section]}.json，并自行运行质量门直到通过。完成后用中文简述结果和校验。`;
+  const base = `请执行 $${skill}。完整遵守 .agents/skills/${skill}/SKILL.md；必要时运行其中的 seed、validate、render。只在当前工作目录操作，不修改网站源码。项目设置在 project.json，输入在 source.txt；current-docs.json 是用户目前确认并可能手工编辑过的页面内容，生成时应参考，若与较旧的原生上游 JSON 冲突，以用户最新编辑为准并修正原生上游内容。题材：${p.genre || '剧情'}；目标 ${p.episodeCount} 集，每集 ${p.minDuration}–${p.maxDuration} 分钟；改编幅度：${p.adaptation}；必须保留：${p.keep || '无'}。${upstream(job.section) ? `上游产物：${upstream(job.section)}。` : ''}${['script', 'storyboard'].includes(job.section) ? '如有多集，按 skill 要求每批最多处理 3 集，最终合并成一个完整 JSON。' : ''}输出完整原生 JSON 到 ${outputRel(job, `${NAMES[job.section]}.json`)}，并自行运行质量门直到通过。完成后用中文简述结果和校验。`;
   if (job.section !== 'outline') return base;
-  if (phase === 'skeleton') return `项目正在执行大纲前的人审。请按 $novel-outline 的要求，先读取 source.txt 和 project.json，产生可供用户审阅的改编骨架：故事内核、保留/删减/合并、主角与冲突、集数节奏。写入 output/outline-skeleton.md。此轮只做骨架，不继续完成分集大纲。${p.kind === 'idea' ? 'original-prompt.txt 是用户原创创意；source.txt 可能是上次扩写的素材。请在此基础上整理成可改编的故事素材，写入 story-source.txt，并清楚标注扩写部分。' : ''}`;
-  return `${base} 用户已审阅并确认 output/outline-skeleton.md。请按已确认骨架完成原生大纲。${p.kind === 'idea' ? '使用已生成的 story-source.txt 作为扩写素材，同时保留 source.txt 原始创意。' : ''}`;
+  if (phase === 'skeleton') return `项目正在执行大纲前的人审。请按 $novel-outline 的要求，先读取 source.txt 和 project.json，产生可供用户审阅的改编骨架：故事内核、保留/删减/合并、主角与冲突、集数节奏。写入 ${outputRel(job, 'outline-skeleton.md')}。此轮只做骨架，不继续完成分集大纲。${p.kind === 'idea' ? 'original-prompt.txt 是用户原创创意；source.txt 可能是上次扩写的素材。请在此基础上整理成可改编的故事素材，写入 story-source.txt，并清楚标注扩写部分。' : ''}`;
+  return `${base} 用户已审阅并确认 ${outputRel(job, 'outline-skeleton.md')}。请按已确认骨架完成原生大纲。${p.kind === 'idea' ? '使用已生成的 story-source.txt 作为扩写素材，同时保留 source.txt 原始创意。' : ''}`;
 }
 async function runTurn(job, prompt) {
   if (job.config.provider === 'ollama') {
     const skill = SKILLS[job.section];
-    const outputPath = job.phase === 'skeleton' ? 'output/outline-skeleton.md' : `output/${NAMES[job.section]}.json`;
+    const outputPath = job.phase === 'skeleton' ? outputRel(job, 'outline-skeleton.md') : outputRel(job, `${NAMES[job.section]}.json`);
     await ollamaChat({ ...job.config, model: job.config.ollamaModel }, [
       { role: 'system', content: `你是影视创作代理。先调用 read_file 阅读 .agents/skills/${skill}/SKILL.md 和所需文件，再用工具完成任务。推理强度：${job.config.reasoningEffort}。必须按 skill 要求运行脚本。最终交付内容必须调用 write_output 工具保存；该工具会自动写入正确文件，无需自行指定路径。只有收到“最终产物已写入”的工具结果后，才能说明任务完成。` },
       { role: 'user', content: prompt },
@@ -136,7 +146,7 @@ function validate(job, file) {
     const script = join(job.workspace, '.agents', 'skills', skill, 'scripts', `${skill}.mjs`);
     const args = [script, 'validate', file];
     const has = key => existsSync(join(job.workspace, `${key}.json`));
-    if (job.section === 'cast') args.push(join(job.workspace, 'source.txt'));
+    if (job.section === 'cast' && existsSync(join(job.workspace, 'source.txt'))) args.push(join(job.workspace, 'source.txt'));
     if (job.section === 'art' && has('cast')) args.push('--cast', join(job.workspace, 'cast.json'));
     if (job.section === 'script') { if (has('outline')) args.push('--outline', join(job.workspace, 'outline.json')); if (has('art')) args.push('--art', join(job.workspace, 'art.json')); }
     if (job.section === 'storyboard') for (const key of ['script', 'outline', 'cast']) if (has(key)) args.push(`--${key}`, join(job.workspace, `${key}.json`));
@@ -145,6 +155,32 @@ function validate(job, file) {
     child.on('error', e => resolvePromise({ ok: false, output: e.message }));
     child.on('close', code => resolvePromise({ ok: code === 0, output }));
   });
+}
+async function renderStageReports(job, jsonPath) {
+  if (!job.project.skillProjectImported) return;
+  const skill = SKILLS[job.section];
+  const script = join(job.workspace, '.agents', 'skills', skill, 'scripts', `${skill}.mjs`);
+  const args = [script, 'render', jsonPath, '--html'];
+  const mdArgs = [script, 'render', jsonPath, '--md'];
+  const addExisting = (target, keys) => { for (const key of keys) if (existsSync(join(job.workspace, `${key}.json`))) target.push(`--${key}`, join(job.workspace, `${key}.json`)); };
+  if (job.section === 'script') { addExisting(args, ['outline', 'art', 'cast']); addExisting(mdArgs, ['outline', 'art']); }
+  if (job.section === 'storyboard') { addExisting(args, ['script', 'outline', 'art']); addExisting(mdArgs, ['script', 'outline', 'art']); }
+  const run = (commandArgs, filename) => new Promise(resolvePromise => {
+    const child = spawn(process.execPath, commandArgs, { cwd: job.workspace, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    child.stdout.on('data', chunk => { output += chunk; });
+    child.stderr.on('data', chunk => { output = (output + chunk).slice(-6000); });
+    child.on('error', error => resolvePromise({ ok: false, error: error.message }));
+    child.on('close', async code => {
+      if (code !== 0) return resolvePromise({ ok: false, error: output });
+      try { await writeFile(join(job.workspace, filename), output, 'utf8'); resolvePromise({ ok: true }); }
+      catch (error) { resolvePromise({ ok: false, error: error instanceof Error ? error.message : String(error) }); }
+    });
+  });
+  const reportName = job.section === 'cast' ? 'cast-report.html' : `${NAMES[job.section]}-report.html`;
+  const [html, markdown] = await Promise.all([run(args, reportName), run(mdArgs, `${NAMES[job.section]}.md`)]);
+  const failures = [html, markdown].filter(result => !result.ok);
+  if (failures.length) job.reportWarning = `JSON 已生成，但阶段报告渲染失败：${failures.map(item => item.error).join('\n').slice(-1200)}`;
 }
 async function execute(job, phase = 'final') {
   const timeout = setTimeout(() => { job.timedOut = true; job.controller.abort(); }, job.config.timeoutMinutes * 60_000);
@@ -155,12 +191,12 @@ async function execute(job, phase = 'final') {
     await runTurn(job, promptFor(job, phase));
     if (job.controller.signal.aborted) throw new Error('任务已取消。');
     if (phase === 'skeleton') {
-      const skeletonPath = join(workspace, 'output', 'outline-skeleton.md');
+      const skeletonPath = join(outputDir(job), 'outline-skeleton.md');
       if (!existsSync(skeletonPath)) throw new Error(job.config.provider === 'ollama' ? 'Ollama 没有写入大纲骨架。请重试；任务完成回复不会代替实际文件。' : '大纲骨架文件未生成，请重试。');
       job.skeleton = await readFile(skeletonPath, 'utf8');
       job.status = 'awaiting_confirmation'; job.message = '请审阅并确认大纲骨架。'; return;
     }
-    const file = join(workspace, 'output', `${NAMES[job.section]}.json`);
+    const file = join(outputDir(job), `${NAMES[job.section]}.json`);
     if (!existsSync(file)) throw new Error(job.config.provider === 'ollama' ? `Ollama 没有写入 ${NAMES[job.section]}.json。请重试；任务完成回复不会代替实际文件。` : `${NAMES[job.section]}.json 文件未生成，请重试。`);
     let raw;
     let checked = { ok: false, output: '' };
@@ -183,6 +219,7 @@ async function execute(job, phase = 'final') {
       if (checked.ok || singleEpisodeException) break;
     }
     if (!checked.ok && !singleEpisodeException) throw new Error(job.config.provider === 'ollama' ? 'Ollama 自动修正后仍未通过 Skill 质量门，请查看实际校验明细。' : 'Skill 质量门未通过，请查看校验结果。');
+    await renderStageReports(job, file);
     const expansion = job.section === 'outline' && job.project.kind === 'idea' && existsSync(join(workspace, 'story-source.txt'))
       ? await readFile(join(workspace, 'story-source.txt'), 'utf8') : undefined;
     job.result = { mapped: mapSkillResult(job.section, raw, job.project), raw, skillVersion: VERSION, generatedAt: Date.now(), sourceExpansion: expansion };
@@ -216,6 +253,81 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { ok: true, skillVersion: VERSION });
     if (req.method === 'GET' && url.pathname === '/api/store') return send(res, 200, await readStore());
     if (req.method === 'PUT' && url.pathname === '/api/store') return send(res, 200, await saveStore(await body(req, 200 * 1024 * 1024)));
+    const projStart = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/proj\/import\/start$/);
+    if (req.method === 'POST' && projStart) {
+      const importId = randomUUID();
+      await mkdir(join(projectPath(projStart[1]), `.proj-import-${importId}`), { recursive: true });
+      return send(res, 201, { importId });
+    }
+    const projUpload = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/proj\/import\/([a-f0-9-]{36})$/);
+    if (req.method === 'PUT' && projUpload) {
+      try {
+        const root = join(projectPath(projUpload[1]), `.proj-import-${projUpload[2]}`);
+        if (!existsSync(root)) return send(res, 404, { error: '导入任务不存在。' });
+        const target = safePackagePath(root, url.searchParams.get('path'));
+        await mkdir(dirname(target), { recursive: true });
+        let size = 0;
+        const output = createWriteStream(target, { flags: 'w' });
+        for await (const chunk of req) { size += chunk.length; if (size > 250 * 1024 * 1024) throw new Error('单个文件不能超过 250 MB。'); output.write(chunk); }
+        const done = new Promise((resolvePromise, reject) => { output.once('finish', resolvePromise); output.once('error', reject); });
+        output.end();
+        await done;
+        return send(res, 200, { ok: true });
+      } catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    const projFinish = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/proj\/import\/([a-f0-9-]{36})\/finish$/);
+    if (req.method === 'POST' && projFinish) {
+      const id = projFinish[1];
+      const root = join(projectPath(id), `.proj-import-${projFinish[2]}`);
+      try {
+        const index = join(root, 'index.html');
+        if (!existsSync(index)) throw new Error('选择的目录中没有根目录 index.html。');
+        const candidates = { outline: ['outline.json'], cast: ['cast.json', 'characters.json'], art: ['art.json'], script: ['script.json'], storyboard: ['storyboard.json'] };
+        const current = (await readStore()).projects.find(project => project.id === id);
+        if (!current) throw new Error('当前项目不存在。');
+        const docs = { ...current.docs };
+        const skillArtifacts = { ...(current.skillArtifacts || {}) };
+        let found = 0;
+        for (const [section, names] of Object.entries(candidates)) {
+          let file;
+          for (const name of names) { const candidate = join(root, name); if (existsSync(candidate)) { file = candidate; break; } }
+          if (!file) continue;
+          const raw = JSON.parse(await readFile(file, 'utf8'));
+          docs[section] = mapSkillResult(section, raw, current);
+          skillArtifacts[section] = { raw, skillVersion: VERSION, generatedAt: Date.now() };
+          found++;
+        }
+        if (!found) throw new Error('目录中没有可识别的 outline.json、cast.json、art.json、script.json 或 storyboard.json。');
+        let sourceText;
+        const sourcePath = join(root, 'source.txt');
+        if (existsSync(sourcePath)) sourceText = await readFile(sourcePath, 'utf8');
+        const destination = join(projectPath(id), 'proj');
+        const backup = join(projectPath(id), `.proj-backup-${Date.now()}`);
+        if (existsSync(destination)) await rename(destination, backup);
+        try {
+          await cp(root, destination, { recursive: true, force: true, errorOnExist: false });
+          await rm(root, { recursive: true, force: true });
+        } catch (error) {
+          await rm(destination, { recursive: true, force: true });
+          if (existsSync(backup)) await rename(backup, destination);
+          throw error;
+        }
+        const latest = await readStore();
+        await saveStore({ ...latest, projects: latest.projects.map(project => project.id === id ? { ...project, skillProjectImported: true, docs, skillArtifacts, updatedAt: Date.now() } : project) });
+        return send(res, 200, { docs, skillArtifacts, sourceText, sourceName: sourceText ? 'source.txt' : undefined });
+      } catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+    }
+    const packageMatch = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/proj\/(.*)$/);
+    if (req.method === 'GET' && packageMatch) {
+      try {
+        const root = join(projectPath(packageMatch[1]), 'proj');
+        const path = safePackagePath(root, decodeURIComponent(packageMatch[2] || 'index.html'));
+        const info = await stat(path);
+        const ext = path.split('.').pop()?.toLowerCase();
+        res.writeHead(200, { 'content-type': packageMime[ext] || 'application/octet-stream', 'content-length': info.size, 'cache-control': 'no-store' });
+        createReadStream(path).pipe(res); return;
+      } catch { return send(res, 404, { error: '项目文件不存在。' }); }
+    }
     if (req.method === 'GET' && url.pathname === '/api/settings') return send(res, 200, publicSettings(settings));
     if (req.method === 'PUT' && url.pathname === '/api/settings') {
       try { const update = await body(req); settings = await saveSettings({ ...update, gptImage: { ...update.gptImage, apiKey: update.gptImage?.apiKey ?? settings.gptImage.apiKey } }); return send(res, 200, publicSettings(settings)); }
