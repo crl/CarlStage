@@ -28,6 +28,17 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
   const endPanRef = useRef<(() => void) | null>(null);
   useEffect(() => () => endPanRef.current?.(), []);
   useEffect(() => {
+    const viewport = scrollRef.current;
+    if (!viewport || !canvasActive) return;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.deltaY !== 0) zoomAt(zoom * (event.deltaY < 0 ? 1.1 : .9), event.clientX, event.clientY);
+    };
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', handleWheel);
+  }, [canvasActive, zoom, pan]);
+  useEffect(() => {
     const deactivateOutside = (event: PointerEvent) => {
       if (!shellRef.current?.contains(event.target as Node)) setCanvasActive(false);
     };
@@ -145,7 +156,7 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
   }
   return <div ref={shellRef} className={`workflow-graph-shell${canvasActive ? ' is-active' : ''}`}>
     <div className="workflow-graph-toolbar"><span><i/> 节点与连线</span><span>{layout.nodes.length} 个节点 · {canvasActive ? '画布已启用：滚轮缩放；点击暂停或按 Esc' : '画布已暂停：鼠标经过不响应；点击画布启用控制，滚轮滚动页面'}</span><div className="workflow-graph-tools">{canvasActive && <button type="button" className="workflow-graph-toggle" aria-pressed="true" onClick={() => setCanvasActive(false)}>暂停画布</button>}<button type="button" aria-label="缩小" disabled={!canvasActive} onClick={() => zoomAt(zoom - .1)}>−</button><output>{Math.round(zoom * 100)}%</output><button type="button" aria-label="放大" disabled={!canvasActive} onClick={() => zoomAt(zoom + .1)}>＋</button><button type="button" disabled={!canvasActive} onClick={restoreLayout}>一键恢复</button></div></div>
-    <div ref={scrollRef} className="workflow-graph-scroll" onPointerDownCapture={startCanvasDrag} onClickCapture={event => { if (!canvasActive) { event.stopPropagation(); setCanvasActive(true); } }} onContextMenu={event => { if (!canvasActive) event.preventDefault(); }} onAuxClick={event => { if (!canvasActive) event.preventDefault(); }} onWheel={event => { if (!canvasActive) return; event.preventDefault(); zoomAt(zoom * (event.deltaY < 0 ? 1.1 : .9), event.clientX, event.clientY); }}><svg className="workflow-graph-canvas" width="100%" height="100%" role="img" aria-label="ComfyUI 工作流节点图">
+    <div ref={scrollRef} className="workflow-graph-scroll" onPointerDownCapture={startCanvasDrag} onClickCapture={event => { if (!canvasActive) { event.stopPropagation(); setCanvasActive(true); } }} onContextMenu={event => { if (!canvasActive) event.preventDefault(); }} onAuxClick={event => { if (!canvasActive) event.preventDefault(); }}><svg className="workflow-graph-canvas" width="100%" height="100%" role="img" aria-label="ComfyUI 工作流节点图">
       <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
       {layout.nodes.flatMap(target => Object.entries(target.node.inputs || {}).flatMap(([key, value], inputIndex) => {
         if (!isLink(value, parsed)) return [];
