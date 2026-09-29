@@ -27,3 +27,6 @@ node_modules/
 
 # 门失败累积日志（用户在自己的输出目录里生成的）
 .gates.jsonl
+
+# 各 skill 的本机配置（character-refs 的出图模型选择等），每台机器不同
+skills/*/config.local.json
