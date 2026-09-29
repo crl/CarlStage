@@ -21,7 +21,7 @@ export function mapSkillResult(section, raw, project) {
     description: str(c.oneLiner || c.persona?.identity || c.persona?.appearance),
     arc: str(c.persona?.arc || c.arc), aliases: list(c.aliases).map(str),
     persona: c.persona && typeof c.persona === 'object' ? c.persona : undefined,
-    imagePrompt: str(c.image?.prompt), imageStyle: str(c.image?.style),
+    imagePrompt: str(c.image?.prompt), imagePromptLocal: str(c.image?.promptLocal), imageSheetPrompt: str(c.image?.sheet), imageNegativePrompt: str(c.image?.negativePrompt), imageTags: list(c.image?.tags).map(str), imageStyle: str(c.image?.style),
     voice: c.voice && typeof c.voice === 'object' ? c.voice : undefined
   }));
   if (section === 'art') return {

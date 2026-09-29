@@ -328,6 +328,14 @@ createServer(async (req, res) => {
         const path = safePackagePath(root, decodeURIComponent(packageMatch[2] || 'index.html'));
         const info = await stat(path);
         const ext = path.split('.').pop()?.toLowerCase();
+        if (ext === 'html' || ext === 'htm') {
+          const source = await readFile(path, 'utf8');
+          const copyToastScript = `<script>(() => { const toast = () => { try { window.parent.dispatchEvent(new CustomEvent('carlstage:toast', { detail: '已复制' })); } catch {} let node = document.getElementById('carlstage-copy-toast'); if (!node) { node = document.createElement('div'); node.id = 'carlstage-copy-toast'; node.textContent = '已复制'; Object.assign(node.style, { position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: '2147483647', padding: '10px 18px', color: '#fff', background: '#242424', border: '1px solid #555', borderRadius: '8px', font: '14px sans-serif', boxShadow: '0 4px 16px #0008', opacity: '0', transition: 'opacity .15s' }); document.body.appendChild(node); } node.textContent = '已复制'; node.style.opacity = '1'; clearTimeout(node._hideTimer); node._hideTimer = setTimeout(() => { node.style.opacity = '0'; }, 2200); }; const clipboard = navigator.clipboard; if (!clipboard) return; for (const method of ['writeText', 'write']) { const original = clipboard[method]?.bind(clipboard); if (!original) continue; try { clipboard[method] = async (...args) => { const result = await original(...args); toast(); return result; }; } catch {} } })();</script>`;
+          const html = /<\/body\s*>/i.test(source) ? source.replace(/<\/body\s*>/i, `${copyToastScript}</body>`) : `${source}${copyToastScript}`;
+          const data = Buffer.from(html);
+          res.writeHead(200, { 'content-type': packageMime[ext] || 'text/html; charset=utf-8', 'content-length': data.length, 'cache-control': 'no-store' });
+          res.end(data); return;
+        }
         res.writeHead(200, { 'content-type': packageMime[ext] || 'application/octet-stream', 'content-length': info.size, 'cache-control': 'no-store' });
         createReadStream(path).pipe(res); return;
       } catch { return send(res, 404, { error: '项目文件不存在。' }); }
