@@ -23,10 +23,13 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeDrag = useRef<{ type: 'node' | 'pan'; id?: string; x: number; y: number } | null>(null);
+  const endPanRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => endPanRef.current?.(), []);
   const parsed = useMemo(() => {
     try { const value = JSON.parse(workflowJson); return value && !Array.isArray(value) && typeof value === 'object' ? value as Record<string, ApiNode> : null; }
     catch { return null; }
   }, [workflowJson]);
+  const mappingsKey = JSON.stringify(mappings);
   const layout = useMemo(() => {
     if (!parsed) return null;
     const ids = Object.keys(parsed); const layers: Record<string, number> = Object.fromEntries(ids.map(id => [id, 0]));
@@ -44,7 +47,10 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
     const widths = 310; const gapX = 88; const gapY = 32; const positions = new Map(nodes.map(node => [node.id, { x: 32 + node.layer * (widths + gapX), y: 28 + nodes.filter(other => other.layer === node.layer).slice(0, node.row).reduce((sum, other) => sum + other.height + gapY, 0) }]));
     const width = 64 + (Math.max(0, ...nodes.map(node => node.layer)) + 1) * (widths + gapX); const height = Math.max(350, ...nodes.map(node => positions.get(node.id)!.y + node.height + 32));
     return { nodes, positions, width, height };
-  }, [parsed, mappings]);
+  // SettingsPage creates a new mappings array on every render. Keep the layout
+  // stable while only the viewport or node positions are changing.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsed, mappingsKey]);
   useEffect(() => {
     if (!layout) return;
     setNodePositions(Object.fromEntries([...layout.positions].map(([id, point]) => [id, { ...point }])));
@@ -54,15 +60,43 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
   const graphLayout = layout;
   const selectedNode = layout.nodes.find(node => node.id === selected);
   const position = (id: string) => nodePositions[id] || layout.positions.get(id)!;
-  function startCanvasDrag(event: ReactPointerEvent<SVGSVGElement>) {
-    if ((event.target as Element).closest?.('.workflow-node')) return;
+  function startCanvasDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    const onNode = (event.target as Element).closest('.workflow-node');
+    if (event.button !== 1 && (event.button !== 0 || onNode)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    endPanRef.current?.();
+    const viewport = event.currentTarget;
+    const pointerId = event.pointerId;
     activeDrag.current = { type: 'pan', x: event.clientX, y: event.clientY };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-  function moveCanvasDrag(event: ReactPointerEvent<SVGSVGElement>) {
-    const drag = activeDrag.current; if (!drag || drag.type !== 'pan') return;
-    setPan(current => ({ x: current.x + event.clientX - drag.x, y: current.y + event.clientY - drag.y }));
-    drag.x = event.clientX; drag.y = event.clientY;
+    viewport.setPointerCapture(pointerId);
+    viewport.classList.add('is-panning');
+    const move = (moveEvent: PointerEvent) => {
+      const drag = activeDrag.current;
+      if (!drag || drag.type !== 'pan' || moveEvent.pointerId !== pointerId) return;
+      moveEvent.preventDefault();
+      const dx = moveEvent.clientX - drag.x;
+      const dy = moveEvent.clientY - drag.y;
+      drag.x = moveEvent.clientX;
+      drag.y = moveEvent.clientY;
+      setPan(current => ({ x: current.x + dx, y: current.y + dy }));
+    };
+    const end = () => {
+      if (activeDrag.current?.type === 'pan') activeDrag.current = null;
+      viewport.classList.remove('is-panning');
+      if (viewport.hasPointerCapture(pointerId)) viewport.releasePointerCapture(pointerId);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+      window.removeEventListener('blur', end);
+      endPanRef.current = null;
+    };
+    const onEnd = (endEvent: PointerEvent) => { if (endEvent.pointerId === pointerId) end(); };
+    endPanRef.current = end;
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', onEnd);
+    window.addEventListener('pointercancel', onEnd);
+    window.addEventListener('blur', end);
   }
   function moveNodeDrag(event: ReactPointerEvent<SVGGElement>) {
     const drag = activeDrag.current; if (!drag || drag.type !== 'node' || !drag.id) return;
@@ -75,9 +109,21 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
     setPan({ x: 0, y: 0 }); setZoom(1);
     scrollRef.current?.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
   }
+  function zoomAt(nextZoom: number, clientX?: number, clientY?: number) {
+    const viewport = scrollRef.current;
+    const clamped = Math.max(.4, Math.min(2, Math.round(nextZoom * 100) / 100));
+    if (viewport && clientX !== undefined && clientY !== undefined) {
+      const bounds = viewport.getBoundingClientRect();
+      const x = clientX - bounds.left; const y = clientY - bounds.top;
+      const anchorX = (x - pan.x) / zoom;
+      const anchorY = (y - pan.y) / zoom;
+      setPan({ x: x - anchorX * clamped, y: y - anchorY * clamped });
+      setZoom(clamped);
+    } else setZoom(clamped);
+  }
   return <div className="workflow-graph-shell">
-    <div className="workflow-graph-toolbar"><span><i/> 节点与连线</span><span>{layout.nodes.length} 个节点 · 拖动画布或节点 · 滚轮缩放</span><div className="workflow-graph-tools"><button type="button" aria-label="缩小" onClick={() => setZoom(value => Math.max(.4, Math.round((value - .1) * 10) / 10))}>−</button><output>{Math.round(zoom * 100)}%</output><button type="button" aria-label="放大" onClick={() => setZoom(value => Math.min(2, Math.round((value + .1) * 10) / 10))}>＋</button><button type="button" onClick={restoreLayout}>一键恢复</button></div></div>
-    <div ref={scrollRef} className="workflow-graph-scroll" onWheel={event => { event.preventDefault(); setZoom(value => Math.max(.4, Math.min(2, Math.round((value * (event.deltaY < 0 ? 1.1 : .9)) * 100) / 100))); }}><svg className="workflow-graph-canvas" width={layout.width * zoom + Math.abs(pan.x)} height={layout.height * zoom + Math.abs(pan.y)} viewBox={`0 0 ${layout.width * zoom + Math.abs(pan.x)} ${layout.height * zoom + Math.abs(pan.y)}`} role="img" aria-label="ComfyUI 工作流节点图" onPointerDown={startCanvasDrag} onPointerMove={moveCanvasDrag} onPointerUp={() => { if (activeDrag.current?.type === 'pan') activeDrag.current = null; }} onPointerCancel={() => { activeDrag.current = null; }}>
+    <div className="workflow-graph-toolbar"><span><i/> 节点与连线</span><span>{layout.nodes.length} 个节点 · 左键拖动空白处或中键拖动任意位置 · 滚轮缩放</span><div className="workflow-graph-tools"><button type="button" aria-label="缩小" onClick={() => zoomAt(zoom - .1)}>−</button><output>{Math.round(zoom * 100)}%</output><button type="button" aria-label="放大" onClick={() => zoomAt(zoom + .1)}>＋</button><button type="button" onClick={restoreLayout}>一键恢复</button></div></div>
+    <div ref={scrollRef} className="workflow-graph-scroll" onPointerDownCapture={startCanvasDrag} onAuxClick={event => event.preventDefault()} onWheel={event => { event.preventDefault(); zoomAt(zoom * (event.deltaY < 0 ? 1.1 : .9), event.clientX, event.clientY); }}><svg className="workflow-graph-canvas" width="100%" height="100%" role="img" aria-label="ComfyUI 工作流节点图">
       <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
       {layout.nodes.flatMap(target => Object.entries(target.node.inputs || {}).flatMap(([key, value], inputIndex) => {
         if (!isLink(value, parsed)) return [];
@@ -87,7 +133,7 @@ export default function WorkflowGraph({ workflowJson, mappings = [] }: { workflo
         const selectedPath = selected === source.id || selected === target.id;
         return [<g key={`${source.id}-${target.id}-${key}`} className={`workflow-edge${selectedPath ? ' is-highlighted' : ''}`}><path d={`M ${x1} ${y1} C ${x1 + 44} ${y1}, ${x2 - 44} ${y2}, ${x2} ${y2}`}/><text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 7}>{key}</text></g>];
       }))}
-      {layout.nodes.map(node => { const pos = position(node.id); return <g key={node.id} transform={`translate(${pos.x} ${pos.y})`} onPointerDown={event => { event.stopPropagation(); activeDrag.current = { type: 'node', id: node.id, x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); setSelected(node.id); }} onPointerMove={moveNodeDrag} onPointerUp={event => { activeDrag.current = null; event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { activeDrag.current = null; }} onClick={() => setSelected(node.id)} className={`workflow-node${selected === node.id ? ' is-selected' : ''}`} role="button" tabIndex={0} aria-label={`${node.title}，节点 ${node.id}`} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelected(node.id); }}>
+      {layout.nodes.map(node => { const pos = position(node.id); return <g key={node.id} transform={`translate(${pos.x} ${pos.y})`} onPointerDown={event => { if (event.button !== 0) return; event.stopPropagation(); activeDrag.current = { type: 'node', id: node.id, x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); setSelected(node.id); }} onPointerMove={moveNodeDrag} onPointerUp={event => { if (activeDrag.current?.type === 'node') activeDrag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { if (activeDrag.current?.type === 'node') activeDrag.current = null; }} onClick={() => setSelected(node.id)} className={`workflow-node${selected === node.id ? ' is-selected' : ''}`} role="button" tabIndex={0} aria-label={`${node.title}，节点 ${node.id}`} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelected(node.id); }}>
         <rect className="workflow-node-card" width="310" height={node.height} rx="12"/><path className="workflow-node-header" d="M 12 0 H 298 Q 310 0 310 12 V 43 H 0 V 12 Q 0 0 12 0"/>
         <text className="workflow-node-title" x="15" y="27">{node.title.slice(0, 28)}</text><text className="workflow-node-id" x="294" y="27" textAnchor="end">#{node.id}</text>
         {node.roles.length > 0 && <text className="workflow-node-role" x="15" y="62">{node.roles.join(' · ')}</text>}
