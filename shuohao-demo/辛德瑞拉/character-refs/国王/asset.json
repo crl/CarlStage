@@ -1,0 +1,77 @@
+{
+  "name": "国王",
+  "source": "灰姑娘·殉葬（暗黑反转）",
+  "lang": "zh",
+  "layers": {
+    "identity": {
+      "age": 60,
+      "gender": "male",
+      "en": "a weary but regal sixty-year-old European king",
+      "text": "约六十岁的欧洲年迈君王，仪态威重",
+      "source": "stated"
+    },
+    "face": {
+      "en": "a weathered face with weary but commanding eyes and a long silver beard",
+      "text": "面容疲惫而威严，银白长须",
+      "source": "stated"
+    },
+    "hair": {
+      "en": "a long silver beard and short silver hair",
+      "text": "银白长须，短银发",
+      "source": "stated"
+    },
+    "build": {
+      "en": "a heavy, authoritative frame",
+      "text": "体态厚重，威严",
+      "source": "stated"
+    }
+  },
+  "outfits": {
+    "default": {
+      "label": "常态",
+      "top": {
+        "en": "heavy royal robes with ermine trim",
+        "text": "厚重貂皮镶边王袍",
+        "source": "stated"
+      },
+      "bottom": {
+        "en": "the long train of the ermine-trimmed royal robe",
+        "text": "貂皮镶边王袍的长摆",
+        "source": "stated"
+      },
+      "details": [
+        {
+          "slot": "custom",
+          "id": "crown",
+          "part": "hair",
+          "en": "a jeweled crown resting on the head",
+          "text": "头戴宝石王冠",
+          "source": "stated"
+        },
+        {
+          "slot": "custom",
+          "id": "ermine",
+          "part": "body",
+          "en": "thick ermine fur trim along the robe",
+          "text": "王袍厚重貂皮镶边",
+          "source": "stated"
+        }
+      ],
+      "overrides": {},
+      "look": {
+        "id": "anime",
+        "label": {
+          "zh": "动漫",
+          "en": "Anime",
+          "ja": "アニメ"
+        },
+        "medium": "drawn",
+        "style": "A clean 2D Japanese anime illustration, like official character art for a TV anime: crisp confident line art of even weight, cel shading with one soft shadow tone and a few sharp highlights, flat clean colors, anime-style eyes with clear highlights, a small simplified nose and mouth, hair drawn in smooth clumps with glossy highlight bands. Fabric folds drawn as simple lines.",
+        "clean": "Plain pure white background, evenly lit, with at most a faint soft shadow under the feet. Exactly one character, empty hands, no props, no text, no watermark.",
+        "neg": "photograph, photorealistic, realistic skin texture, pores, film grain, 3D render, CGI, semi-realistic, painterly, watercolor, sketch, rough lines, messy lines, heavy shading, gradient background, character sheet, multiple views, chibi, super deformed"
+      },
+      "views": {},
+      "upgrades": []
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "name": "王子",
+  "source": "灰姑娘·殉葬（暗黑反转）",
+  "lang": "zh",
+  "layers": {
+    "identity": {
+      "age": 22,
+      "gender": "male",
+      "en": "a tall and noble twenty-two-year-old European prince, the kingdom’s heir",
+      "text": "约二十二岁的欧洲年轻王子，王国继承人，身形挺拔高贵",
+      "source": "stated"
+    },
+    "face": {
+      "en": "a handsome face with earnest warm dark eyes and soft short dark hair",
+      "text": "俊朗面容，眼神诚挚温热，柔黑短发",
+      "source": "stated"
+    },
+    "hair": {
+      "en": "short soft dark hair, neatly kept",
+      "text": "柔黑短发，打理整齐",
+      "source": "stated"
+    },
+    "build": {
+      "en": "a tall, upright and well-built frame",
+      "text": "身形挺拔、匀称",
+      "source": "stated"
+    }
+  },
+  "outfits": {
+    "default": {
+      "label": "常态",
+      "top": {
+        "en": "a royal military dress uniform jacket with epaulettes",
+        "text": "带肩饰的王室军礼服上衣",
+        "source": "stated"
+      },
+      "bottom": {
+        "en": "matching uniform trousers worn with a ceremonial sash and a slender sword at the side",
+        "text": "配套军礼裤，佩绶带与腰侧细剑",
+        "source": "stated"
+      },
+      "details": [
+        {
+          "slot": "custom",
+          "id": "sash",
+          "part": "body",
+          "en": "a ceremonial sash draped across the chest",
+          "text": "横过胸前的仪式绶带",
+          "source": "stated"
+        },
+        {
+          "slot": "custom",
+          "id": "sword",
+          "part": "body",
+          "en": "a slender dress sword at the side",
+          "text": "腰侧佩细剑",
+          "source": "stated"
+        }
+      ],
+      "overrides": {},
+      "look": {
+        "id": "anime",
+        "label": {
+          "zh": "动漫",
+          "en": "Anime",
+          "ja": "アニメ"
+        },
+        "medium": "drawn",
+        "style": "A clean 2D Japanese anime illustration, like official character art for a TV anime: crisp confident line art of even weight, cel shading with one soft shadow tone and a few sharp highlights, flat clean colors, anime-style eyes with clear highlights, a small simplified nose and mouth, hair drawn in smooth clumps with glossy highlight bands. Fabric folds drawn as simple lines.",
+        "clean": "Plain pure white background, evenly lit, with at most a faint soft shadow under the feet. Exactly one character, empty hands, no props, no text, no watermark.",
+        "neg": "photograph, photorealistic, realistic skin texture, pores, film grain, 3D render, CGI, semi-realistic, painterly, watercolor, sketch, rough lines, messy lines, heavy shading, gradient background, character sheet, multiple views, chibi, super deformed"
+      },
+      "views": {},
+      "upgrades": []
+    }
+  }
+}

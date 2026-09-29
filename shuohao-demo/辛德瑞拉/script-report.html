@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="zh"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>灰姑娘·殉葬 · 剧本（第 1–6 集）</title>
+<style>
+:root{
+  --paper:#eceded; --panel:#f5f6f5; --side:#e4e6e3; --ink:#191d21; --ink-2:#5b636a; --ink-3:#8c9298;
+  --rule:#d2d5d0; --rule-2:#c2c6bf; --seal:#8a3324; --seal-2:#c56a4e; --seal-soft:#8a332412; --ok:#3d6b4f;
+  --band:#3d6b4f22;
+  --serif:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC",Georgia,serif;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
+.page{max-width:1600px;margin:0 auto;padding:24px 32px 90px}
+h1,h2,h3{margin:0;font-weight:400}
+
+.hd{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:12px}
+.hd h1{font:400 28px/1.1 var(--serif);letter-spacing:.06em}
+.hd .sub{font-size:13px;color:var(--ink-2)}
+.hd .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.gatepill{display:inline-flex;align-items:center;gap:6px;font:500 12px/1 var(--sans);border-radius:99px;padding:6px 12px}
+.gatepill.pass{color:var(--ok);border:1px solid var(--ok)}
+.gatepill.fail{color:var(--seal);border:1px solid var(--seal);background:var(--seal-soft)}
+.expo{font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--panel);
+  border:1px solid var(--rule-2);border-radius:2px;padding:7px 11px;cursor:pointer;transition:.15s}
+.expo:hover{border-color:var(--seal);color:var(--seal)}
+.expo:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0 6px}
+@media(max-width:980px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:11px 14px 9px}
+.kpi .l{font:500 10px/1 var(--sans);letter-spacing:.18em;color:var(--ink-3)}
+.kpi .v{font:400 28px/1.15 var(--serif);margin-top:5px}
+.kpi .v small{font:400 14px var(--serif);color:var(--ink-2)}
+.kpi .d{font-size:11px;color:var(--ink-2);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi.accent{border-top:2px solid var(--seal)}
+.galert{margin:14px 0 0;border:1px solid var(--seal);background:var(--seal-soft);border-radius:2px;
+  padding:10px 14px;font-size:13px}
+.galert b{color:var(--seal)}
+.galert span{display:block;font-size:12px;color:var(--ink-2)}
+
+section.top-sec{margin-top:34px}
+.sec-h{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--rule-2);padding-bottom:8px;margin-bottom:16px}
+.sec-h .no{font:500 12px/1 var(--mono);color:var(--seal)}
+.sec-h h2{font:400 20px/1.2 var(--serif);letter-spacing:.05em}
+.sec-h .note{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+/* duration gauge */
+.timing{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:16px 20px 10px}
+.trow{display:grid;grid-template-columns:44px minmax(0,1fr) 220px;gap:12px;align-items:center;padding:5px 0}
+.tep{font:500 12px/1 var(--mono);color:var(--ink-2)}
+.track{position:relative;height:18px;background:var(--paper);border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.band{position:absolute;top:0;bottom:0;background:var(--band)}
+.fill{position:absolute;top:2px;bottom:2px;border-radius:1px}
+.fill.dlg{left:0;background:var(--seal)}
+.fill.act{background:var(--seal-2)}
+.tval{font:500 12px/1.5 var(--sans);color:var(--ink-2)}
+.tval.okc{color:var(--ok)}
+.tval .over{color:var(--seal);font-weight:600}
+.legend{display:flex;gap:18px;font-size:12px;color:var(--ink-2);margin:8px 0 2px}
+.legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px}
+
+/* episode scripts: two per row; scene area clips at 300px with a fade, expandable */
+.eps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.eps.solo{grid-template-columns:minmax(0,1fr)}
+@media(max-width:1100px){.eps{grid-template-columns:minmax(0,1fr)}}
+.ep{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px 22px}
+.scenes{position:relative}
+.scenes.clip{max-height:300px;overflow:hidden}
+.scenes.clip::after{content:'';position:absolute;left:0;right:0;bottom:0;height:70px;
+  background:linear-gradient(180deg,transparent,var(--panel));pointer-events:none}
+.scmore{display:block;width:100%;margin-top:8px;font:500 11.5px/1 var(--sans);letter-spacing:.06em;
+  color:var(--ink-2);background:var(--paper);border:1px solid var(--rule-2);border-radius:2px;
+  padding:7px 0;cursor:pointer;transition:.15s}
+.scmore:hover{border-color:var(--seal);color:var(--seal)}
+.scmore:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.ep-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--rule-2);padding-bottom:10px}
+.ep-n{font:400 22px/1 var(--serif);letter-spacing:.04em;color:var(--seal)}
+.ep-est{font-size:12.5px;color:var(--ink-2)}
+.bt{font-style:normal;font-size:11px;padding:2px 8px;border:1px solid var(--seal);border-radius:99px;color:var(--seal)}
+.hk{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:10px;font-size:13px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.hk.cliff{border-bottom:0;border-top:1px solid var(--rule)}
+.hk b{font:500 11px/1.9 var(--sans);letter-spacing:.14em;color:var(--seal);white-space:nowrap}
+.scene-blk{margin-top:14px}
+.scene-h{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-bottom:8px}
+.scene-h b{font:500 13px var(--serif);letter-spacing:.06em}
+.chip{font:400 10.5px/1.6 var(--mono);border:1px solid var(--rule-2);border-radius:2px;
+  padding:0 6px;background:var(--paper);color:var(--ink-2)}
+.chip.lite{border-color:var(--seal-2);color:var(--seal-2)}
+.chip.prop{border-color:var(--seal);color:var(--seal)}
+.act-line{margin:8px 0;font:400 13.5px/1.9 var(--sans);color:var(--ink-2)}
+.act-line.hooked,.dlg-line.hooked{border-left:2px solid var(--seal);padding-left:10px;background:var(--seal-soft)}
+.hookat{font-style:normal;font-size:11px;padding:1px 8px;border:1px solid var(--seal);border-radius:99px;color:var(--seal);margin-left:8px;white-space:nowrap}
+.dlg-line{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:12px;align-items:baseline;
+  padding:5px 0 5px 10px;border-left:2px solid var(--rule-2)}
+.dlg-line:hover{border-left-color:var(--seal)}
+.who{font:500 13px/1.6 var(--serif)}
+.who i{display:block;font:400 11px var(--sans);color:var(--ink-3);font-style:normal}
+.said{font:400 14.5px/1.8 var(--serif)}
+.dlg-line .copy{opacity:0;transition:.15s}
+.dlg-line:hover .copy{opacity:1}
+
+/* tables */
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--rule);font-size:13px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th{font:500 11px/1 var(--sans);letter-spacing:.1em;color:var(--ink-3);background:var(--side)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--mono);font-size:12px;color:var(--ink-2);white-space:nowrap}
+
+/* line book: two per row; lists capped at 6 rows, scroll vertically */
+.casts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+@media(max-width:1100px){.casts{grid-template-columns:minmax(0,1fr)}}
+.cast-blk{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px 18px}
+.cast-h{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--rule-2);padding-bottom:8px}
+.cast-h b{font:400 17px/1.2 var(--serif);letter-spacing:.04em}
+.cast-meta{font-size:12px;color:var(--ink-2)}
+.cast-h .copy{margin-left:auto}
+.cast-lines{margin:8px 0 0;padding:0 6px 0 0;list-style:none;max-height:186px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--rule-2) transparent}
+.cast-lines::-webkit-scrollbar{width:6px}
+.cast-lines::-webkit-scrollbar-thumb{background:var(--rule-2);border-radius:3px}
+.cast-lines li{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:12px;align-items:baseline;
+  padding:4.5px 0;border-top:1px solid var(--rule);font-size:13px}
+.cast-lines li:first-child{border-top:0}
+.cast-lines i{font:400 11px/1.8 var(--mono);color:var(--ink-3);font-style:normal}
+.cast-lines span{font-family:var(--serif)}
+.cast-lines em{font-style:normal;font-size:11.5px;color:var(--ink-3)}
+
+.copy{flex:none;font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--paper);
+  border:1px solid var(--rule-2);border-radius:2px;padding:4px 10px;cursor:pointer;transition:.15s}
+.copy:hover{border-color:var(--seal);color:var(--seal)}
+.copy:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.copy[data-done]{border-color:var(--seal);color:var(--seal)}
+.copy.mini{padding:2px 7px;font-size:10.5px}
+
+.gate{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 28px}
+@media(max-width:900px){.gate{grid-template-columns:1fr}}
+.gate li{display:flex;gap:8px;padding:5px 0;font-size:12.5px;line-height:1.55}
+.gate .m{flex:none;font-weight:700}
+.gate li.ok .m{color:var(--ok)}
+.gate li.bad .m{color:var(--seal)}
+.gate li.bad{background:var(--seal-soft);border-radius:2px;padding-left:6px}
+.gate small{display:block;color:var(--ink-3)}
+.gsum{margin:10px 0 0;font-size:12px;color:var(--ink-2)}
+.gsum b{color:var(--seal)}
+
+.foot{margin-top:40px;font-size:11px;color:var(--ink-3);border-top:1px solid var(--rule);padding-top:14px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{
+  .expo,.copy,.scmore{display:none!important}
+  .scenes.clip{max-height:none}
+  .scenes.clip::after{display:none}
+  .cast-lines{max-height:none;overflow:visible}
+  .eps,.casts{grid-template-columns:minmax(0,1fr)}
+  .page{max-width:none;padding:0}
+  section.top-sec,.ep,.cast-blk{page-break-inside:avoid}
+  body{background:#fff}
+}
+</style></head><body>
+<div class="page">
+
+<header class="hd">
+  <h1>灰姑娘·殉葬</h1>
+  <span class="sub">剧本 · 第 1–6 集</span>
+  <span class="right">
+    <span class="gatepill pass">✓ 质量门 10 / 10</span>
+    <button class="expo" data-name="灰姑娘-殉葬-script.json">导出 JSON</button>
+  </span>
+</header>
+
+<div class="kpis">
+  <div class="kpi accent"><div class="l">集数</div><div class="v">6</div><div class="d">12 场戏</div></div>
+  <div class="kpi"><div class="l">预估总时长</div><div class="v">10 分 59 秒</div><div class="d">目标 12 分 0 秒</div></div>
+  <div class="kpi"><div class="l">台词</div><div class="v">109 <small>句</small></div><div class="d">约 236.4 秒对白</div></div>
+  <div class="kpi"><div class="l">台词占比</div><div class="v">36<small>%</small></div><div class="d">其余是画面与动作</div></div>
+  <div class="kpi"><div class="l">平均每场</div><div class="v">54.9 <small>秒</small></div><div class="d">换景是统计不是门——AI 换景不要钱</div></div>
+</div>
+
+
+<section class="top-sec" id="sec-timing">
+  <div class="sec-h"><span class="no">01</span><h2>时长仪表</h2><span class="note">绿带 = 目标 ±15%；台词按语速折算，动作按节拍估时</span></div>
+  <div class="timing">
+    <div class="legend">
+      <i><span class="sw" style="background:var(--seal)"></span>台词</i>
+      <i><span class="sw" style="background:var(--seal-2)"></span>动作</i>
+      <i><span class="sw" style="background:var(--band)"></span>目标区间</i>
+    </div>
+<div class="trow">
+  <span class="tep">E01</span>
+  <div class="track">
+    <span class="band" style="left:68.4%;width:24.2%"></span>
+    <span class="fill dlg" style="width:21.9%"></span>
+    <span class="fill act" style="left:21.9%;width:47%"></span>
+  </div>
+  <span class="tval okc">102.7s / 120s</span>
+</div>
+<div class="trow">
+  <span class="tep">E02</span>
+  <div class="track">
+    <span class="band" style="left:68.4%;width:24.2%"></span>
+    <span class="fill dlg" style="width:32%"></span>
+    <span class="fill act" style="left:32%;width:50.3%"></span>
+  </div>
+  <span class="tval okc">122.7s / 120s</span>
+</div>
+<div class="trow">
+  <span class="tep">E03</span>
+  <div class="track">
+    <span class="band" style="left:68.4%;width:24.2%"></span>
+    <span class="fill dlg" style="width:28.8%"></span>
+    <span class="fill act" style="left:28.8%;width:47%"></span>
+  </div>
+  <span class="tval okc">112.9s / 120s</span>
+</div>
+<div class="trow">
+  <span class="tep">E04</span>
+  <div class="track">
+    <span class="band" style="left:68.4%;width:24.2%"></span>
+    <span class="fill dlg" style="width:28.4%"></span>
+    <span class="fill act" style="left:28.4%;width:45.3%"></span>
+  </div>
+  <span class="tval okc">109.8s / 120s</span>
+</div>
+<div class="trow">
+  <span class="tep">E05</span>
+  <div class="track">
+    <span class="band" style="left:68.4%;width:24.2%"></span>
+    <span class="fill dlg" style="width:23.1%"></span>
+    <span class="fill act" style="left:23.1%;width:47%"></span>
+  </div>
+  <span class="tval okc">104.4s / 120s</span>
+</div>
+<div class="trow">
+  <span class="tep">E06</span>
+  <div class="track">
+    <span class="band" style="left:68.4%;width:24.2%"></span>
+    <span class="fill dlg" style="width:24.4%"></span>
+    <span class="fill act" style="left:24.4%;width:47%"></span>
+  </div>
+  <span class="tval okc">106.4s / 120s</span>
+</div>
+  </div>
+</section>
+
+<section class="top-sec" id="sec-script">
+  <div class="sec-h"><span class="no">02</span><h2>分集剧本</h2><span class="note">一排两集 · 场次信息超高自动截断，点开看全部</span></div>
+  <div class="eps">
+<article class="ep" id="ep-1">
+  <header class="ep-h">
+    <span class="ep-n">E01</span>
+    <span class="ep-est">预估 102.7 秒 / 目标 120 秒</span>
+    <i class="bt">惊艳登场</i>
+  </header>
+  <div class="hk"><b>开场钩子</b><span>一个平日被使唤的灰姑娘，竟成了舞会中央被所有人仰望的身影。 <i class="hookat">第 1 场第 2 拍兑现</i></span></div>
+  <div class="scenes clip">
+  <section class="scene-blk">
+  <header class="scene-h">
+    <b>第 1 场</b>
+    <span class="chip">S02 辛德瑞拉家</span>
+    <span class="chip lite">光照 · 日间阴光</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">后母</span><span class="chip">大姐</span><span class="chip">二姐</span><span class="chip">仙女</span>
+    
+  </header>
+  <p class="act-line">后母拎裙跨出门，两姐姐尾随而去。</p>
+<p class="act-line hooked" title="开场钩子">木门吱呀合上，辛德瑞拉独站冷灶边。</p>
+<p class="act-line">星尘自窗缝落定，仙女自影里走出。</p>
+<p class="act-line">魔杖轻点她肩，旧裙在光里褪去。</p>
+<div class="dlg-line"><span class="who">仙女<i>慈和</i></span><span class="said">孩子，今夜舞会该你了。</span><button class="copy mini" data-copy="孩子，今夜舞会该你了。">复制</button></div>
+<p class="act-line">浅蓝礼裙裹上身，银线随呼吸流光。</p>
+<p class="act-line">一只水晶鞋落上脚尖，严丝合缝。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>不敢置信</i></span><span class="said">我真能去吗？</span><button class="copy mini" data-copy="我真能去吗？">复制</button></div>
+<p class="act-line">她提裙转了个圈，像换了个人。</p>
+<div class="dlg-line"><span class="who">仙女<i>意味深长</i></span><span class="said">去吧，别过十二点。</span><button class="copy mini" data-copy="去吧，别过十二点。">复制</button></div>
+<p class="act-line">门外传来马蹄声，南瓜马车已候着。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>鼻酸</i></span><span class="said">原来，也有人等我。</span><button class="copy mini" data-copy="原来，也有人等我。">复制</button></div>
+</section>
+<section class="scene-blk">
+  <header class="scene-h">
+    <b>第 2 场</b>
+    <span class="chip">S03 南瓜马车与长路</span>
+    <span class="chip lite">光照 · 月夜启程</span>
+    <span class="chip">辛德瑞拉</span>
+    <span class="chip prop">南瓜马车</span><span class="chip prop">仙女礼裙</span>
+  </header>
+  <p class="act-line">南瓜马车停在月下，白马喷着白气。</p>
+<p class="act-line">她提裙登车，裙摆扫过车阶。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻却笃定</i></span><span class="said">今夜，去见命运。</span><button class="copy mini" data-copy="今夜，去见命运。">复制</button></div>
+<p class="act-line">车轮碾过石板，长路在月光里铺白。</p>
+<p class="act-line">枯柳掠过窗边，她望着宫墙灯火。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>微怔</i></span><span class="said">原来幸福这么近。</span><button class="copy mini" data-copy="原来幸福这么近。">复制</button></div>
+<p class="act-line">城门前灯火通明，她深吸一口气。</p>
+<p class="act-line">侍卫打开宫门，金光自内涌出。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻声</i></span><span class="said">这一步，我等了好久。</span><button class="copy mini" data-copy="这一步，我等了好久。">复制</button></div>
+</section>
+<section class="scene-blk">
+  <header class="scene-h">
+    <b>第 3 场</b>
+    <span class="chip">S01 王宫舞会大厅</span>
+    <span class="chip lite">光照 · 烛光晚宴</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">王子</span>
+    <span class="chip prop">水晶鞋</span><span class="chip prop">仙女礼裙</span>
+  </header>
+  <p class="act-line">大厅金光骤亮，满场视线转向门口。</p>
+<p class="act-line">她缓步踏入，水晶鞋敲出清响。</p>
+<div class="dlg-line"><span class="who">王子<i>温柔倾慕</i></span><span class="said">美丽的女孩，我能邀你共舞吗？</span><button class="copy mini" data-copy="美丽的女孩，我能邀你共舞吗？">复制</button></div>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>优雅从容</i></span><span class="said">殿下，请。</span><button class="copy mini" data-copy="殿下，请。">复制</button></div>
+<p class="act-line">乐声起，两人旋入光影，满场屏息。</p>
+<p class="act-line">她裙摆翻飞，像被风托起的白鸟。</p>
+<div class="dlg-line"><span class="who">画外音<i>她的心声</i></span><span class="said">这一刻，全世界都为她停住。</span><button class="copy mini" data-copy="这一刻，全世界都为她停住。">复制</button></div>
+<p class="act-line">王子揽她转圈，烛火在发间跳跃。</p>
+<div class="dlg-line"><span class="who">王子<i>低声</i></span><span class="said">你叫什么名字？</span><button class="copy mini" data-copy="你叫什么名字？">复制</button></div>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>含笑</i></span><span class="said">叫我辛德瑞拉。</span><button class="copy mini" data-copy="叫我辛德瑞拉。">复制</button></div>
+<p class="act-line">宾客们交头接耳，目送这对璧人。</p>
+<div class="dlg-line"><span class="who">画外音<i>她的心声</i></span><span class="said">他眼里的光，让她忘了所有苦。</span><button class="copy mini" data-copy="他眼里的光，让她忘了所有苦。">复制</button></div>
+<p class="act-line">镜墙映出两人，像一幅会动的画。</p>
+<div class="dlg-line"><span class="who">王子<i>痴看</i></span><span class="said">你比所有灯都亮。</span><button class="copy mini" data-copy="你比所有灯都亮。">复制</button></div>
+<p class="act-line">钟楼指针爬向十二，她猛地低头。</p>
+<p class="act-line">脚踝空了一处——水晶鞋不见了踪影。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>慌</i></span><span class="said">仙女的话……十二点！</span><button class="copy mini" data-copy="仙女的话……十二点！">复制</button></div>
+<p class="act-line">她抽手提起裙摆，朝门外疾奔。</p>
+<p class="act-line">满场错愕，王子伸手只抓住风。</p>
+<p class="act-line">红毯阶上，一只水晶鞋静静遗落。</p>
+<p class="act-line">她赤着一只脚，没入宫外的夜色。</p>
+<div class="dlg-line"><span class="who">王子<i>追出门外</i></span><span class="said">等等——你的鞋！</span><button class="copy mini" data-copy="等等——你的鞋！">复制</button></div>
+<p class="act-line">殿外一片空，只剩月光落在石阶。</p>
+</section>
+  </div>
+  <button class="scmore">▾ 展开全部场次</button>
+  <div class="hk cliff"><b>结尾悬念</b><span>钟声将敲十二下，她为何骤然脸色一变匆匆离去？</span></div>
+</article>
+<article class="ep" id="ep-2">
+  <header class="ep-h">
+    <span class="ep-n">E02</span>
+    <span class="ep-est">预估 122.7 秒 / 目标 120 秒</span>
+    <i class="bt">试鞋打脸</i>
+  </header>
+  <div class="hk"><b>开场钩子</b><span>那只谁都穿不上的鞋，偏偏在她脚上严丝合缝。 <i class="hookat">第 1 场第 2 拍兑现</i></span></div>
+  <div class="scenes clip">
+  <section class="scene-blk">
+  <header class="scene-h">
+    <b>第 1 场</b>
+    <span class="chip">S02 辛德瑞拉家</span>
+    <span class="chip lite">光照 · 日间阴光</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">大姐</span><span class="chip">二姐</span><span class="chip">大臣</span>
+    <span class="chip prop">水晶鞋</span><span class="chip prop">天鹅绒垫</span>
+  </header>
+  <p class="act-line">大门被拍响，大臣率侍卫跨进门。</p>
+<p class="act-line hooked" title="开场钩子">两侍卫托天鹅绒垫，垫上躺着水晶鞋。</p>
+<div class="dlg-line"><span class="who">大臣<i>恭敬</i></span><span class="said">奉国王之命，寻鞋主完婚。</span><button class="copy mini" data-copy="奉国王之命，寻鞋主完婚。">复制</button></div>
+<p class="act-line">大姐抢先一步，把脚塞向那只鞋。</p>
+<div class="dlg-line"><span class="who">大姐<i>争先</i></span><span class="said">这分明是我的鞋。</span><button class="copy mini" data-copy="这分明是我的鞋。">复制</button></div>
+<p class="act-line">鞋跟卡在趾尖，她涨红脸也穿不进。</p>
+<p class="act-line">二姐推开姐姐，自己也去试鞋。</p>
+<div class="dlg-line"><span class="who">二姐<i>不服</i></span><span class="said">轮到我了，量我的尺寸。</span><button class="copy mini" data-copy="轮到我了，量我的尺寸。">复制</button></div>
+<p class="act-line">鞋口勒住脚背，二姐疼得缩回脚。</p>
+<div class="dlg-line"><span class="who">大臣<i>公事公办</i></span><span class="said">二位都非鞋主，请让一让。</span><button class="copy mini" data-copy="二位都非鞋主，请让一让。">复制</button></div>
+<p class="act-line">两姐妹对视，又看向里屋的门。</p>
+<div class="dlg-line"><span class="who">大姐<i>妒火</i></span><span class="said">该不会是那丫头吧？</span><button class="copy mini" data-copy="该不会是那丫头吧？">复制</button></div>
+<p class="act-line">里屋门响，辛德瑞拉缓步走出。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>从容</i></span><span class="said">不如，让我试试。</span><button class="copy mini" data-copy="不如，让我试试。">复制</button></div>
+<p class="act-line">她坐下，足尖轻探，鞋口温柔含住脚。</p>
+<p class="act-line">轻轻一套，分毫不差，不大不小。</p>
+<div class="dlg-line"><span class="who">大臣<i>又惊又喜</i></span><span class="said">果真是王子寻的姑娘！</span><button class="copy mini" data-copy="果真是王子寻的姑娘！">复制</button></div>
+<p class="act-line">两个姐姐瞪圆眼，嫉妒涨满脸。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>笃定</i></span><span class="said">这一回，换我赴约。</span><button class="copy mini" data-copy="这一回，换我赴约。">复制</button></div>
+<p class="act-line">大臣伸手相扶，请她登门外马车。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻笑</i></span><span class="said">她们笑不出的样子，真好看。</span><button class="copy mini" data-copy="她们笑不出的样子，真好看。">复制</button></div>
+<p class="act-line">她提裙上车，水晶鞋在光里一闪。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">她们的脸色，比鞋还合脚。</span><button class="copy mini" data-copy="她们的脸色，比鞋还合脚。">复制</button></div>
+<p class="act-line">车轮转动，宅门在身后缓缓合上。</p>
+</section>
+<section class="scene-blk">
+  <header class="scene-h">
+    <b>第 2 场</b>
+    <span class="chip">S03 南瓜马车与长路</span>
+    <span class="chip lite">光照 · 黎明归途</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">大臣</span>
+    <span class="chip prop">水晶鞋</span><span class="chip prop">天鹅绒垫</span>
+  </header>
+  <p class="act-line">车轮碾过石板，长路在晨光里铺白。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>微怔</i></span><span class="said">原来幸福这么近。</span><button class="copy mini" data-copy="原来幸福这么近。">复制</button></div>
+<p class="act-line">枯柳掠过窗边，她攥紧膝上水晶鞋。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻声</i></span><span class="said">这一次，不会再跑了。</span><button class="copy mini" data-copy="这一次，不会再跑了。">复制</button></div>
+<p class="act-line">城门前灯火渐隐，宫墙在望。</p>
+<div class="dlg-line"><span class="who">大臣<i>恭敬</i></span><span class="said">姑娘，王宫到了。</span><button class="copy mini" data-copy="姑娘，王宫到了。">复制</button></div>
+<p class="act-line">马车停稳，大臣先下车开门。</p>
+<p class="act-line">她提裙下车，裙摆扫过御道石。</p>
+<div class="dlg-line"><span class="who">大臣<i>意味深长</i></span><span class="said">请随臣入殿，殿下候着。</span><button class="copy mini" data-copy="请随臣入殿，殿下候着。">复制</button></div>
+<p class="act-line">宫道两侧侍卫垂目，无人看她一眼。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>隐隐不安</i></span><span class="said">他们都……在等谁？</span><button class="copy mini" data-copy="他们都……在等谁？">复制</button></div>
+<p class="act-line">她随大臣踏过漫长宫道。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻声</i></span><span class="said">王子会喜欢我现在的样子吗？</span><button class="copy mini" data-copy="王子会喜欢我现在的样子吗？">复制</button></div>
+<p class="act-line">风掀起她的裙角，像展翅的白鸟。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">她以为奔赴的是婚礼。</span><button class="copy mini" data-copy="她以为奔赴的是婚礼。">复制</button></div>
+<p class="act-line">宫门在晨光里缓缓开，金光涌出。</p>
+</section>
+<section class="scene-blk">
+  <header class="scene-h">
+    <b>第 3 场</b>
+    <span class="chip">S01 王宫舞会大厅</span>
+    <span class="chip lite">光照 · 晓光空厅</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">大臣</span>
+    <span class="chip prop">水晶鞋</span>
+  </header>
+  <p class="act-line">马车驶入王宫，宫门在晨光里开。</p>
+<p class="act-line">大臣引她入殿，自己停在门外。</p>
+<div class="dlg-line"><span class="who">大臣<i>意味深长</i></span><span class="said">请在此等候，殿下随后便来。</span><button class="copy mini" data-copy="请在此等候，殿下随后便来。">复制</button></div>
+<p class="act-line">殿门合上，她独自立空旷大殿。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻声</i></span><span class="said">王子……你在哪？</span><button class="copy mini" data-copy="王子……你在哪？">复制</button></div>
+<p class="act-line">她抚过水晶鞋，望向幽深殿外。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">幸福只差最后一步了。</span><button class="copy mini" data-copy="幸福只差最后一步了。">复制</button></div>
+<p class="act-line">她走向王座石台，指尖掠过黑绒。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻叹</i></span><span class="said">这座位，本该是我们的。</span><button class="copy mini" data-copy="这座位，本该是我们的。">复制</button></div>
+<p class="act-line">殿外脚步声近了，又停在门后。</p>
+<p class="act-line">她攥紧水晶鞋，屏息望向殿门。</p>
+</section>
+  </div>
+  <button class="scmore">▾ 展开全部场次</button>
+  <div class="hk cliff"><b>结尾悬念</b><span>王宫近在眼前，可为何迟迟不见王子的身影？</span></div>
+</article>
+<article class="ep" id="ep-3">
+  <header class="ep-h">
+    <span class="ep-n">E03</span>
+    <span class="ep-est">预估 112.9 秒 / 目标 120 秒</span>
+    <i class="bt">入宫期待</i>
+  </header>
+  <div class="hk"><b>开场钩子</b><span>幸福近在咫尺，她却只等来一片空殿与静默。 <i class="hookat">第 1 场第 2 拍兑现</i></span></div>
+  <div class="scenes clip">
+  <section class="scene-blk">
+  <header class="scene-h">
+    <b>第 1 场</b>
+    <span class="chip">S03 南瓜马车与长路</span>
+    <span class="chip lite">光照 · 黎明归途</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">大臣</span>
+    <span class="chip prop">水晶鞋</span>
+  </header>
+  <p class="act-line">马车驶过晨雾长路，她贴窗望宫墙。</p>
+<p class="act-line hooked" title="开场钩子">水晶鞋拢在膝上，指尖微微发颤。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>忐忑又甜</i></span><span class="said">待会儿，该说什么好？</span><button class="copy mini" data-copy="待会儿，该说什么好？">复制</button></div>
+<p class="act-line">车轮停稳，大臣先一步下车开门。</p>
+<div class="dlg-line"><span class="who">大臣<i>恭敬</i></span><span class="said">到了，姑娘请。</span><button class="copy mini" data-copy="到了，姑娘请。">复制</button></div>
+<p class="act-line">她提裙下车，裙摆扫过御道石。</p>
+<p class="act-line">宫道两侧侍卫垂目，没人看她一眼。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>隐隐不安</i></span><span class="said">他们都……在等谁？</span><button class="copy mini" data-copy="他们都……在等谁？">复制</button></div>
+<p class="act-line">她随大臣走向巍峨的宫门。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻声</i></span><span class="said">王子在门后等我吗？</span><button class="copy mini" data-copy="王子在门后等我吗？">复制</button></div>
+<p class="act-line">晨风掠过，宫灯轻晃像在招手。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">她把每个细节都记成幸福。</span><button class="copy mini" data-copy="她把每个细节都记成幸福。">复制</button></div>
+<p class="act-line">她摸了摸发间，怕乱了仪容。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻声</i></span><span class="said">可别让王子认不出我。</span><button class="copy mini" data-copy="可别让王子认不出我。">复制</button></div>
+<p class="act-line">宫道两旁的灯，一盏盏亮起来。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">她数着灯，像数着幸福。</span><button class="copy mini" data-copy="她数着灯，像数着幸福。">复制</button></div>
+<p class="act-line">宫门在晨光里敞开，金光铺地。</p>
+<p class="act-line">她深吸一口气，踏过宫门石槛。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻颤</i></span><span class="said">来了，我的幸福来了。</span><button class="copy mini" data-copy="来了，我的幸福来了。">复制</button></div>
+</section>
+<section class="scene-blk">
+  <header class="scene-h">
+    <b>第 2 场</b>
+    <span class="chip">S04 殉葬大殿</span>
+    <span class="chip lite">光照 · 殿内幽光</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">大臣</span>
+    
+  </header>
+  <p class="act-line">大臣引她踏入空旷石殿，回声空洞。</p>
+<p class="act-line">四角青铜火盆尚冷，兽首泛青灰。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>试探</i></span><span class="said">王子何时来接我？</span><button class="copy mini" data-copy="王子何时来接我？">复制</button></div>
+<div class="dlg-line"><span class="who">大臣<i>垂目</i></span><span class="said">请在此等候，臣告退。</span><button class="copy mini" data-copy="请在此等候，臣告退。">复制</button></div>
+<p class="act-line">大臣躬身退下，殿门在身后合拢。</p>
+<p class="act-line">她独自立在中央，王座石台覆黑绒。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>不安</i></span><span class="said">这殿……怎的这样冷。</span><button class="copy mini" data-copy="这殿……怎的这样冷。">复制</button></div>
+<p class="act-line">她踱到窗边，宫外却一片死寂。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">说好的重逢，怎么还没来。</span><button class="copy mini" data-copy="说好的重逢，怎么还没来。">复制</button></div>
+<p class="act-line">殿外传来极轻的脚步与甲叶轻响。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>燃起希望</i></span><span class="said">是王子来了吗？</span><button class="copy mini" data-copy="是王子来了吗？">复制</button></div>
+<p class="act-line">她理了理发，朝门的方向望去。</p>
+<p class="act-line">门后却只有沉默，脚步声也停了。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>困惑</i></span><span class="said">为何……不推门？</span><button class="copy mini" data-copy="为何……不推门？">复制</button></div>
+<p class="act-line">她走近王座石台，抚过黑绒褶皱。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>不安</i></span><span class="said">这黑绒，像为谁备的丧布。</span><button class="copy mini" data-copy="这黑绒，像为谁备的丧布。">复制</button></div>
+<p class="act-line">殿角阴影里，似有物事轻轻一响。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>警觉</i></span><span class="said">谁在那？</span><button class="copy mini" data-copy="谁在那？">复制</button></div>
+<p class="act-line">她屏息望去，却只有风穿过拱顶。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">幸福的样子，比我想的安静。</span><button class="copy mini" data-copy="幸福的样子，比我想的安静。">复制</button></div>
+<p class="act-line">她望向殿顶高拱，回声吞没脚步。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>孤</i></span><span class="said">这么大，却只剩我一个。</span><button class="copy mini" data-copy="这么大，却只剩我一个。">复制</button></div>
+<p class="act-line">青铜火盆的兽首，在幽光里咧嘴。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">连影子都显得森冷。</span><button class="copy mini" data-copy="连影子都显得森冷。">复制</button></div>
+<p class="act-line">她拢紧披风，却暖不进心底。</p>
+<p class="act-line">她退回殿心，望着那扇紧闭的门。</p>
+<p class="act-line">她望向殿门，金光在缝里一闪而灭。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>不安</i></span><span class="said">那光……是火，还是灯？</span><button class="copy mini" data-copy="那光……是火，还是灯？">复制</button></div>
+<p class="act-line">她攥紧披风，听见自己心跳如鼓。</p>
+</section>
+  </div>
+  <button class="scmore">▾ 展开全部场次</button>
+  <div class="hk cliff"><b>结尾悬念</b><span>王子为何始终不现身？殿外隐约有异样声响。</span></div>
+</article>
+<article class="ep" id="ep-4">
+  <header class="ep-h">
+    <span class="ep-n">E04</span>
+    <span class="ep-est">预估 109.8 秒 / 目标 120 秒</span>
+    <i class="bt">真相反转</i>
+  </header>
+  <div class="hk"><b>开场钩子</b><span>盼来的不是重逢，而是王子已死的噩耗。 <i class="hookat">第 1 场第 2 拍兑现</i></span></div>
+  <div class="scenes clip">
+  <section class="scene-blk">
+  <header class="scene-h">
+    <b>第 1 场</b>
+    <span class="chip">S04 殉葬大殿</span>
+    <span class="chip lite">光照 · 殿内幽光</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">大臣</span><span class="chip">国王</span>
+    
+  </header>
+  <p class="act-line">殿门未开，低沉宣告自门外沉沉传来。</p>
+<p class="act-line hooked" title="开场钩子">她屏息转身，望向那道紧闭的门。</p>
+<div class="dlg-line"><span class="who">国王<i>威严</i></span><span class="said">王子思念成疾，三日前已薨。</span><button class="copy mini" data-copy="王子思念成疾，三日前已薨。">复制</button></div>
+<div class="dlg-line"><span class="who">国王<i>空洞</i></span><span class="said">临终仍念舞会上的少女。</span><button class="copy mini" data-copy="临终仍念舞会上的少女。">复制</button></div>
+<p class="act-line">她腿一软，扶住王座石台才站稳。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>如遭雷击</i></span><span class="said">死了？他……死了？</span><button class="copy mini" data-copy="死了？他……死了？">复制</button></div>
+<p class="act-line">门外一声高呼炸开：婚礼开始！</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>茫然</i></span><span class="said">婚礼？可新郎已经……</span><button class="copy mini" data-copy="婚礼？可新郎已经……">复制</button></div>
+<p class="act-line">一缕烟味从门缝渗进，她猛地怔住。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>警觉</i></span><span class="said">这味道……是火。</span><button class="copy mini" data-copy="这味道……是火。">复制</button></div>
+<p class="act-line">她嗅到焦糊，殿外隐约有柴薪堆叠声。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">他们不是来娶我，是来葬我。</span><button class="copy mini" data-copy="他们不是来娶我，是来葬我。">复制</button></div>
+<p class="act-line">她扑向殿门，双掌死死抵住门板。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>嘶喊</i></span><span class="said">开门！这不是婚礼！</span><button class="copy mini" data-copy="开门！这不是婚礼！">复制</button></div>
+<p class="act-line">门外毫无回应，只有浇油的声响。</p>
+<p class="act-line">火光自门缝爬进，把石壁染成橘红。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>震怒</i></span><span class="said">大臣……你骗我！</span><button class="copy mini" data-copy="大臣……你骗我！">复制</button></div>
+<p class="act-line">她顺着门缝嗅，烟味越来越浓。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>颤</i></span><span class="said">他们在门外堆了柴。</span><button class="copy mini" data-copy="他们在门外堆了柴。">复制</button></div>
+<p class="act-line">她回头望殿内，石壁映着橘红光。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>绝望</i></span><span class="said">连逃的路都没有。</span><button class="copy mini" data-copy="连逃的路都没有。">复制</button></div>
+<p class="act-line">她抓起王座石台上的黑绒想堵门缝。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">可那布，本就是为葬我备的。</span><button class="copy mini" data-copy="可那布，本就是为葬我备的。">复制</button></div>
+</section>
+<section class="scene-blk">
+  <header class="scene-h">
+    <b>第 2 场</b>
+    <span class="chip">S04 殉葬大殿</span>
+    <span class="chip lite">光照 · 火光渐近</span>
+    <span class="chip">辛德瑞拉</span><span class="chip">大臣</span>
+    
+  </header>
+  <p class="act-line">火光自门缝爬进，石壁映成橘红。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>骇极</i></span><span class="said">他们要烧死我！</span><button class="copy mini" data-copy="他们要烧死我！">复制</button></div>
+<p class="act-line">她提起裙摆，发疯般扑向殿门。</p>
+<p class="act-line">双掌死死抵住门板，用力往外推。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>嘶喊</i></span><span class="said">开门！我不是王子妃！</span><button class="copy mini" data-copy="开门！我不是王子妃！">复制</button></div>
+<p class="act-line">门纹丝不动，铁栓在外锁得死死的。</p>
+<p class="act-line">她捶打门板，指节撞在包铁上生疼。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>绝望</i></span><span class="said">来人——救我！</span><button class="copy mini" data-copy="来人——救我！">复制</button></div>
+<p class="act-line">门外柴薪噼啪作响，热浪逼近门缝。</p>
+<p class="act-line">她后退半步，火光已舔上殿门底边。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">我连幸福的样子都没看清。</span><button class="copy mini" data-copy="我连幸福的样子都没看清。">复制</button></div>
+<p class="act-line">她攥紧那只水晶鞋，把它护在胸口。</p>
+<p class="act-line">热浪扑面，她的裙摆边缘开始卷曲。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>哽咽</i></span><span class="said">仙女……你骗我。</span><button class="copy mini" data-copy="仙女……你骗我。">复制</button></div>
+<p class="act-line">她背靠王座石台，望着那扇不再开的门。</p>
+<p class="act-line">她顺着殿壁摸索，寻不到半扇窗。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>颤</i></span><span class="said">没有窗，没有缝，只有这扇门。</span><button class="copy mini" data-copy="没有窗，没有缝，只有这扇门。">复制</button></div>
+<p class="act-line">火光爬上她裙摆，烫得她缩回脚。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">原来入宫是赴一场葬礼。</span><button class="copy mini" data-copy="原来入宫是赴一场葬礼。">复制</button></div>
+<p class="act-line">她抓起水晶鞋，狠狠砸向殿门。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>嘶喊</i></span><span class="said">听见了吗！我在这儿！</span><button class="copy mini" data-copy="听见了吗！我在这儿！">复制</button></div>
+<p class="act-line">门外火油滴落，烫红了阶前石。</p>
+<p class="act-line">她望着橘红，缓缓滑坐到地上。</p>
+</section>
+  </div>
+  <button class="scmore">▾ 展开全部场次</button>
+  <div class="hk cliff"><b>结尾悬念</b><span>这场婚礼究竟要为谁举行？</span></div>
+</article>
+<article class="ep" id="ep-5">
+  <header class="ep-h">
+    <span class="ep-n">E05</span>
+    <span class="ep-est">预估 104.4 秒 / 目标 120 秒</span>
+    <i class="bt">锁门绝境</i>
+  </header>
+  <div class="hk"><b>开场钩子</b><span>她终于看清——所谓召见，是要她为死去的王子陪葬。 <i class="hookat">第 1 场第 2 拍兑现</i></span></div>
+  <div class="scenes clip">
+  <section class="scene-blk">
+  <header class="scene-h">
+    <b>第 1 场</b>
+    <span class="chip">S04 殉葬大殿</span>
+    <span class="chip lite">光照 · 火光渐近</span>
+    <span class="chip">辛德瑞拉</span>
+    
+  </header>
+  <p class="act-line">火光自门缝爬进，把石壁染成橘红。</p>
+<div class="dlg-line hooked"><span class="who">辛德瑞拉<i>骇极</i></span><span class="said">他们要烧死我！</span><button class="copy mini" data-copy="他们要烧死我！">复制</button></div>
+<p class="act-line">她骤然清醒，这就是殉葬的火。</p>
+<p class="act-line">她提起裙摆，发疯般扑向殿门。</p>
+<p class="act-line">双掌死死抵住门板，用力往外推。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>嘶喊</i></span><span class="said">开门！我不是王子妃！</span><button class="copy mini" data-copy="开门！我不是王子妃！">复制</button></div>
+<p class="act-line">门纹丝不动，铁栓在外锁得死死的。</p>
+<p class="act-line">她捶打门板，指节撞在包铁上生疼。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>绝望</i></span><span class="said">来人——救我！</span><button class="copy mini" data-copy="来人——救我！">复制</button></div>
+<p class="act-line">她退后半步，院中火把影在门缝晃动。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">原来入宫是赴一场葬礼。</span><button class="copy mini" data-copy="原来入宫是赴一场葬礼。">复制</button></div>
+<p class="act-line">她转身扫视大殿，寻不到半条出路。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>颤</i></span><span class="said">没有窗……连缝都没有。</span><button class="copy mini" data-copy="没有窗……连缝都没有。">复制</button></div>
+<p class="act-line">她扑回殿门，用肩膀死死顶住。</p>
+<p class="act-line">门外传来柴薪堆高的闷响。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>骇然</i></span><span class="said">他们在封门！</span><button class="copy mini" data-copy="他们在封门！">复制</button></div>
+<p class="act-line">热浪扑面，殿门底边已烧得发红。</p>
+<p class="act-line">她退到殿心，裙摆被热风掀起。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">我离幸福只差一步。</span><button class="copy mini" data-copy="我离幸福只差一步。">复制</button></div>
+<p class="act-line">她攥紧水晶鞋，鞋跟抵着掌心。</p>
+<p class="act-line">她望向王座石台，黑绒下似有物事。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>惊疑</i></span><span class="said">那下面……是什么？</span><button class="copy mini" data-copy="那下面……是什么？">复制</button></div>
+<p class="act-line">她掀开黑绒一角，露出冰冷的石棺。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>如坠冰窟</i></span><span class="said">这是给我备的？</span><button class="copy mini" data-copy="这是给我备的？">复制</button></div>
+<p class="act-line">她跌坐石阶，火光在眸里跳动。</p>
+<p class="act-line">殿外火声更烈，却始终没有脚步。</p>
+<p class="act-line">她爬向殿门，指甲抠进门缝。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>泣</i></span><span class="said">求求你们……开门。</span><button class="copy mini" data-copy="求求你们……开门。">复制</button></div>
+<p class="act-line">门外火油滴落，烫红阶前石。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">仙女若真在，为何不显灵。</span><button class="copy mini" data-copy="仙女若真在，为何不显灵。">复制</button></div>
+<p class="act-line">她扯下裙摆一角，想去捂门缝的火。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>颤</i></span><span class="said">这样……至少慢一点。</span><button class="copy mini" data-copy="这样……至少慢一点。">复制</button></div>
+<p class="act-line">热浪掀翻她的发，汗水混着烟灰。</p>
+<p class="act-line">她望向王座石台，黑绒下露出棺角。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>如坠冰窟</i></span><span class="said">那棺……是给我的？</span><button class="copy mini" data-copy="那棺……是给我的？">复制</button></div>
+<p class="act-line">她扑过去掀开黑绒，触到冰冷的石。</p>
+<p class="act-line">石棺空着，像张开的口等她。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>惨笑</i></span><span class="said">他们早算好了。</span><button class="copy mini" data-copy="他们早算好了。">复制</button></div>
+<p class="act-line">她回头，火光已封住半扇殿门。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">幸福曾那么近，近到能听见。</span><button class="copy mini" data-copy="幸福曾那么近，近到能听见。">复制</button></div>
+<p class="act-line">她滑坐石棺边，把水晶鞋抱在怀里。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>轻声</i></span><span class="said">至少……鞋还在。</span><button class="copy mini" data-copy="至少……鞋还在。">复制</button></div>
+<p class="act-line">她望向殿门，火光在缝里一跳一跳。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>极轻</i></span><span class="said">门外的人，听见了吗。</span><button class="copy mini" data-copy="门外的人，听见了吗。">复制</button></div>
+<p class="act-line">热浪卷过，她的影子在石壁摇晃。</p>
+</section>
+  </div>
+  <button class="scmore">▾ 展开全部场次</button>
+  <div class="hk cliff"><b>结尾悬念</b><span>门外的火，会不会真的烧进来？</span></div>
+</article>
+<article class="ep" id="ep-6">
+  <header class="ep-h">
+    <span class="ep-n">E06</span>
+    <span class="ep-est">预估 106.4 秒 / 目标 120 秒</span>
+    <i class="bt">求生无门</i>
+  </header>
+  <div class="hk"><b>开场钩子</b><span>曾经离幸福只差一步的女孩，如今被反锁在焚烧的殿里。 <i class="hookat">第 1 场第 2 拍兑现</i></span></div>
+  <div class="scenes clip">
+  <section class="scene-blk">
+  <header class="scene-h">
+    <b>第 1 场</b>
+    <span class="chip">S04 殉葬大殿</span>
+    <span class="chip lite">光照 · 火光渐近</span>
+    <span class="chip">辛德瑞拉</span>
+    <span class="chip prop">水晶鞋</span>
+  </header>
+  <p class="act-line">烟味浓得呛人，她掩口退到殿心。</p>
+<p class="act-line hooked" title="开场钩子">火光已爬满殿门，热浪扑面而来。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>颤</i></span><span class="said">就这样……结束了吗？</span><button class="copy mini" data-copy="就这样……结束了吗？">复制</button></div>
+<p class="act-line">她又冲向殿门，用全身重量撞去。</p>
+<p class="act-line">门板闷响，铁栓却纹丝不动。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>哀求</i></span><span class="said">仙女……你在哪？</span><button class="copy mini" data-copy="仙女……你在哪？">复制</button></div>
+<p class="act-line">她滑坐在地，把水晶鞋贴在耳边。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>苦笑</i></span><span class="said">那只鞋，本该带我去舞会。</span><button class="copy mini" data-copy="那只鞋，本该带我去舞会。">复制</button></div>
+<p class="act-line">门外火声更烈，却始终没有脚步。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>渐弱</i></span><span class="said">若是梦……该醒了啊。</span><button class="copy mini" data-copy="若是梦……该醒了啊。">复制</button></div>
+<p class="act-line">她最后一次望向紧闭的殿门。</p>
+<div class="dlg-line"><span class="who">画外音<i>留白</i></span><span class="said">门，终究没有开。</span><button class="copy mini" data-copy="门，终究没有开。">复制</button></div>
+<p class="act-line">火光吞没视线，殿内只剩一片橘红。</p>
+<p class="act-line">水晶鞋从她松开的指间滑落轻响。</p>
+<p class="act-line">她闭上眼，火光在睫毛上跳跃。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>极轻</i></span><span class="said">王子……对不起。</span><button class="copy mini" data-copy="王子……对不起。">复制</button></div>
+<p class="act-line">殿外火舌舔过门缝，烟灌满殿堂。</p>
+<p class="act-line">她的身影在橘红里渐渐模糊。</p>
+<div class="dlg-line"><span class="who">画外音<i>留白</i></span><span class="said">幸福，原是一双没能穿上的鞋。</span><button class="copy mini" data-copy="幸福，原是一双没能穿上的鞋。">复制</button></div>
+<p class="act-line">火光收束成一点，归于沉寂。</p>
+<p class="act-line">烟灌满殿堂，她咳得弯下腰。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>窒息</i></span><span class="said">咳……这烟，好呛。</span><button class="copy mini" data-copy="咳……这烟，好呛。">复制</button></div>
+<p class="act-line">她扯过黑绒捂住口鼻，仍止不住咳。</p>
+<p class="act-line">火光爬上王座石台，黑绒卷起焦边。</p>
+<div class="dlg-line"><span class="who">画外音<i>心声</i></span><span class="said">原来死，是这样的味道。</span><button class="copy mini" data-copy="原来死，是这样的味道。">复制</button></div>
+<p class="act-line">她踉跄爬向殿门，徒手扒门缝。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>哀</i></span><span class="said">哪怕一条缝，让我看看天。</span><button class="copy mini" data-copy="哪怕一条缝，让我看看天。">复制</button></div>
+<p class="act-line">门外火舌舔过缝口，灼得她缩手。</p>
+<p class="act-line">她瘫坐门边，水晶鞋滚落膝前。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>苦笑</i></span><span class="said">鞋还在，人却要没了。</span><button class="copy mini" data-copy="鞋还在，人却要没了。">复制</button></div>
+<p class="act-line">她拾起鞋，轻轻拂去上面的灰。</p>
+<div class="dlg-line"><span class="who">画外音<i>留白</i></span><span class="said">若重来，我还去那场舞会吗。</span><button class="copy mini" data-copy="若重来，我还去那场舞会吗。">复制</button></div>
+<p class="act-line">火光收束，殿内橘红渐渐转暗。</p>
+<p class="act-line">她的剪影映在门上，像幅定格画。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>极轻</i></span><span class="said">王子……下辈子见。</span><button class="copy mini" data-copy="王子……下辈子见。">复制</button></div>
+<p class="act-line">最后一缕烟漫过她的眉眼。</p>
+<div class="dlg-line"><span class="who">画外音<i>留白</i></span><span class="said">门，终究没有开。</span><button class="copy mini" data-copy="门，终究没有开。">复制</button></div>
+<p class="act-line">殿外火声渐弱，只剩风穿过拱顶。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>极轻</i></span><span class="said">原来……这就是结局。</span><button class="copy mini" data-copy="原来……这就是结局。">复制</button></div>
+<p class="act-line">火光在她眸里最后跳了一下。</p>
+<div class="dlg-line"><span class="who">辛德瑞拉<i>极轻</i></span><span class="said">若有来生，别再试那双鞋。</span><button class="copy mini" data-copy="若有来生，别再试那双鞋。">复制</button></div>
+<p class="act-line">她的手缓缓垂落，松开黑绒。</p>
+<p class="act-line">橘红的光，一寸寸退成灰。</p>
+<p class="act-line">殿门之外，火仍在烧，无人来开。</p>
+</section>
+  </div>
+  <button class="scmore">▾ 展开全部场次</button>
+  <div class="hk cliff"><b>结尾悬念</b><span>那扇门，会不会有人来开？（留白）</span></div>
+</article>
+  </div>
+</section>
+
+<section class="top-sec" id="sec-scenes">
+  <div class="sec-h"><span class="no">03</span><h2>场次总表</h2><span class="note">自动汇总 · 模型不写</span></div>
+  <table><thead><tr><th>集</th><th>场</th><th>场景</th><th>光照</th><th>人物</th><th>台词句数</th><th>估秒</th></tr></thead>
+<tbody><tr><td>1</td><td>1</td><td>S02 辛德瑞拉家</td><td>日间阴光</td><td>辛德瑞拉、后母、大姐、二姐、仙女</td><td>4</td><td>27.8</td></tr>
+<tr><td>1</td><td>2</td><td>S03 南瓜马车与长路</td><td>月夜启程</td><td>辛德瑞拉</td><td>3</td><td>20.8</td></tr>
+<tr><td>1</td><td>3</td><td>S01 王宫舞会大厅</td><td>烛光晚宴</td><td>辛德瑞拉、王子</td><td>9</td><td>54.1</td></tr>
+<tr><td>2</td><td>1</td><td>S02 辛德瑞拉家</td><td>日间阴光</td><td>辛德瑞拉、大姐、二姐、大臣</td><td>10</td><td>58.1</td></tr>
+<tr><td>2</td><td>2</td><td>S03 南瓜马车与长路</td><td>黎明归途</td><td>辛德瑞拉、大臣</td><td>7</td><td>37.8</td></tr>
+<tr><td>2</td><td>3</td><td>S01 王宫舞会大厅</td><td>晓光空厅</td><td>辛德瑞拉、大臣</td><td>4</td><td>26.8</td></tr>
+<tr><td>3</td><td>1</td><td>S03 南瓜马车与长路</td><td>黎明归途</td><td>辛德瑞拉、大臣</td><td>8</td><td>44.8</td></tr>
+<tr><td>3</td><td>2</td><td>S04 殉葬大殿</td><td>殿内幽光</td><td>辛德瑞拉、大臣</td><td>12</td><td>68.1</td></tr>
+<tr><td>4</td><td>1</td><td>S04 殉葬大殿</td><td>殿内幽光</td><td>辛德瑞拉、大臣、国王</td><td>11</td><td>54.7</td></tr>
+<tr><td>4</td><td>2</td><td>S04 殉葬大殿</td><td>火光渐近</td><td>辛德瑞拉、大臣</td><td>8</td><td>55.1</td></tr>
+<tr><td>5</td><td>1</td><td>S04 殉葬大殿</td><td>火光渐近</td><td>辛德瑞拉</td><td>17</td><td>104.4</td></tr>
+<tr><td>6</td><td>1</td><td>S04 殉葬大殿</td><td>火光渐近</td><td>辛德瑞拉</td><td>16</td><td>106.4</td></tr></tbody></table>
+</section>
+
+<section class="top-sec" id="sec-cast">
+  <div class="sec-h"><span class="no">04</span><h2>台词本</h2><span class="note">按角色聚合 · 列表最多显示 6 行可滚动 · 直接对接 TTS 批量生成</span></div>
+  <div class="casts">
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>辛德瑞拉</b>
+    <span class="cast-meta">67 句 · 608 字 · 约 135.1 秒</span>
+    <button class="copy" data-copy="A young female voice, around eighteen. Soft, warm, slightly breathy soprano. Gentle pace, refined diction with a faint old-European court lilt. Calm but with underlying melancholy.">音色提示词</button>
+    <button class="copy" data-copy="我真能去吗？
+原来，也有人等我。
+今夜，去见命运。
+原来幸福这么近。
+这一步，我等了好久。
+殿下，请。
+叫我辛德瑞拉。
+仙女的话……十二点！
+不如，让我试试。
+这一回，换我赴约。
+她们笑不出的样子，真好看。
+原来幸福这么近。
+这一次，不会再跑了。
+他们都……在等谁？
+王子会喜欢我现在的样子吗？
+王子……你在哪？
+这座位，本该是我们的。
+待会儿，该说什么好？
+他们都……在等谁？
+王子在门后等我吗？
+可别让王子认不出我。
+来了，我的幸福来了。
+王子何时来接我？
+这殿……怎的这样冷。
+是王子来了吗？
+为何……不推门？
+这黑绒，像为谁备的丧布。
+谁在那？
+这么大，却只剩我一个。
+那光……是火，还是灯？
+死了？他……死了？
+婚礼？可新郎已经……
+这味道……是火。
+开门！这不是婚礼！
+大臣……你骗我！
+他们在门外堆了柴。
+连逃的路都没有。
+他们要烧死我！
+开门！我不是王子妃！
+来人——救我！
+仙女……你骗我。
+没有窗，没有缝，只有这扇门。
+听见了吗！我在这儿！
+他们要烧死我！
+开门！我不是王子妃！
+来人——救我！
+没有窗……连缝都没有。
+他们在封门！
+那下面……是什么？
+这是给我备的？
+求求你们……开门。
+这样……至少慢一点。
+那棺……是给我的？
+他们早算好了。
+至少……鞋还在。
+门外的人，听见了吗。
+就这样……结束了吗？
+仙女……你在哪？
+那只鞋，本该带我去舞会。
+若是梦……该醒了啊。
+王子……对不起。
+咳……这烟，好呛。
+哪怕一条缝，让我看看天。
+鞋还在，人却要没了。
+王子……下辈子见。
+原来……这就是结局。
+若有来生，别再试那双鞋。">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E01 第 1 场</i><span>我真能去吗？</span><em>不敢置信</em></li><li><i>E01 第 1 场</i><span>原来，也有人等我。</span><em>鼻酸</em></li><li><i>E01 第 2 场</i><span>今夜，去见命运。</span><em>轻却笃定</em></li><li><i>E01 第 2 场</i><span>原来幸福这么近。</span><em>微怔</em></li><li><i>E01 第 2 场</i><span>这一步，我等了好久。</span><em>轻声</em></li><li><i>E01 第 3 场</i><span>殿下，请。</span><em>优雅从容</em></li><li><i>E01 第 3 场</i><span>叫我辛德瑞拉。</span><em>含笑</em></li><li><i>E01 第 3 场</i><span>仙女的话……十二点！</span><em>慌</em></li><li><i>E02 第 1 场</i><span>不如，让我试试。</span><em>从容</em></li><li><i>E02 第 1 场</i><span>这一回，换我赴约。</span><em>笃定</em></li><li><i>E02 第 1 场</i><span>她们笑不出的样子，真好看。</span><em>轻笑</em></li><li><i>E02 第 2 场</i><span>原来幸福这么近。</span><em>微怔</em></li><li><i>E02 第 2 场</i><span>这一次，不会再跑了。</span><em>轻声</em></li><li><i>E02 第 2 场</i><span>他们都……在等谁？</span><em>隐隐不安</em></li><li><i>E02 第 2 场</i><span>王子会喜欢我现在的样子吗？</span><em>轻声</em></li><li><i>E02 第 3 场</i><span>王子……你在哪？</span><em>轻声</em></li><li><i>E02 第 3 场</i><span>这座位，本该是我们的。</span><em>轻叹</em></li><li><i>E03 第 1 场</i><span>待会儿，该说什么好？</span><em>忐忑又甜</em></li><li><i>E03 第 1 场</i><span>他们都……在等谁？</span><em>隐隐不安</em></li><li><i>E03 第 1 场</i><span>王子在门后等我吗？</span><em>轻声</em></li><li><i>E03 第 1 场</i><span>可别让王子认不出我。</span><em>轻声</em></li><li><i>E03 第 1 场</i><span>来了，我的幸福来了。</span><em>轻颤</em></li><li><i>E03 第 2 场</i><span>王子何时来接我？</span><em>试探</em></li><li><i>E03 第 2 场</i><span>这殿……怎的这样冷。</span><em>不安</em></li><li><i>E03 第 2 场</i><span>是王子来了吗？</span><em>燃起希望</em></li><li><i>E03 第 2 场</i><span>为何……不推门？</span><em>困惑</em></li><li><i>E03 第 2 场</i><span>这黑绒，像为谁备的丧布。</span><em>不安</em></li><li><i>E03 第 2 场</i><span>谁在那？</span><em>警觉</em></li><li><i>E03 第 2 场</i><span>这么大，却只剩我一个。</span><em>孤</em></li><li><i>E03 第 2 场</i><span>那光……是火，还是灯？</span><em>不安</em></li><li><i>E04 第 1 场</i><span>死了？他……死了？</span><em>如遭雷击</em></li><li><i>E04 第 1 场</i><span>婚礼？可新郎已经……</span><em>茫然</em></li><li><i>E04 第 1 场</i><span>这味道……是火。</span><em>警觉</em></li><li><i>E04 第 1 场</i><span>开门！这不是婚礼！</span><em>嘶喊</em></li><li><i>E04 第 1 场</i><span>大臣……你骗我！</span><em>震怒</em></li><li><i>E04 第 1 场</i><span>他们在门外堆了柴。</span><em>颤</em></li><li><i>E04 第 1 场</i><span>连逃的路都没有。</span><em>绝望</em></li><li><i>E04 第 2 场</i><span>他们要烧死我！</span><em>骇极</em></li><li><i>E04 第 2 场</i><span>开门！我不是王子妃！</span><em>嘶喊</em></li><li><i>E04 第 2 场</i><span>来人——救我！</span><em>绝望</em></li><li><i>E04 第 2 场</i><span>仙女……你骗我。</span><em>哽咽</em></li><li><i>E04 第 2 场</i><span>没有窗，没有缝，只有这扇门。</span><em>颤</em></li><li><i>E04 第 2 场</i><span>听见了吗！我在这儿！</span><em>嘶喊</em></li><li><i>E05 第 1 场</i><span>他们要烧死我！</span><em>骇极</em></li><li><i>E05 第 1 场</i><span>开门！我不是王子妃！</span><em>嘶喊</em></li><li><i>E05 第 1 场</i><span>来人——救我！</span><em>绝望</em></li><li><i>E05 第 1 场</i><span>没有窗……连缝都没有。</span><em>颤</em></li><li><i>E05 第 1 场</i><span>他们在封门！</span><em>骇然</em></li><li><i>E05 第 1 场</i><span>那下面……是什么？</span><em>惊疑</em></li><li><i>E05 第 1 场</i><span>这是给我备的？</span><em>如坠冰窟</em></li><li><i>E05 第 1 场</i><span>求求你们……开门。</span><em>泣</em></li><li><i>E05 第 1 场</i><span>这样……至少慢一点。</span><em>颤</em></li><li><i>E05 第 1 场</i><span>那棺……是给我的？</span><em>如坠冰窟</em></li><li><i>E05 第 1 场</i><span>他们早算好了。</span><em>惨笑</em></li><li><i>E05 第 1 场</i><span>至少……鞋还在。</span><em>轻声</em></li><li><i>E05 第 1 场</i><span>门外的人，听见了吗。</span><em>极轻</em></li><li><i>E06 第 1 场</i><span>就这样……结束了吗？</span><em>颤</em></li><li><i>E06 第 1 场</i><span>仙女……你在哪？</span><em>哀求</em></li><li><i>E06 第 1 场</i><span>那只鞋，本该带我去舞会。</span><em>苦笑</em></li><li><i>E06 第 1 场</i><span>若是梦……该醒了啊。</span><em>渐弱</em></li><li><i>E06 第 1 场</i><span>王子……对不起。</span><em>极轻</em></li><li><i>E06 第 1 场</i><span>咳……这烟，好呛。</span><em>窒息</em></li><li><i>E06 第 1 场</i><span>哪怕一条缝，让我看看天。</span><em>哀</em></li><li><i>E06 第 1 场</i><span>鞋还在，人却要没了。</span><em>苦笑</em></li><li><i>E06 第 1 场</i><span>王子……下辈子见。</span><em>极轻</em></li><li><i>E06 第 1 场</i><span>原来……这就是结局。</span><em>极轻</em></li><li><i>E06 第 1 场</i><span>若有来生，别再试那双鞋。</span><em>极轻</em></li></ol>
+</section>
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>画外音</b>
+    <span class="cast-meta">23 句 · 264 字 · 约 58.7 秒</span>
+    
+    <button class="copy" data-copy="这一刻，全世界都为她停住。
+他眼里的光，让她忘了所有苦。
+她们的脸色，比鞋还合脚。
+她以为奔赴的是婚礼。
+幸福只差最后一步了。
+她把每个细节都记成幸福。
+她数着灯，像数着幸福。
+说好的重逢，怎么还没来。
+幸福的样子，比我想的安静。
+连影子都显得森冷。
+他们不是来娶我，是来葬我。
+可那布，本就是为葬我备的。
+我连幸福的样子都没看清。
+原来入宫是赴一场葬礼。
+原来入宫是赴一场葬礼。
+我离幸福只差一步。
+仙女若真在，为何不显灵。
+幸福曾那么近，近到能听见。
+门，终究没有开。
+幸福，原是一双没能穿上的鞋。
+原来死，是这样的味道。
+若重来，我还去那场舞会吗。
+门，终究没有开。">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E01 第 3 场</i><span>这一刻，全世界都为她停住。</span><em>她的心声</em></li><li><i>E01 第 3 场</i><span>他眼里的光，让她忘了所有苦。</span><em>她的心声</em></li><li><i>E02 第 1 场</i><span>她们的脸色，比鞋还合脚。</span><em>心声</em></li><li><i>E02 第 2 场</i><span>她以为奔赴的是婚礼。</span><em>心声</em></li><li><i>E02 第 3 场</i><span>幸福只差最后一步了。</span><em>心声</em></li><li><i>E03 第 1 场</i><span>她把每个细节都记成幸福。</span><em>心声</em></li><li><i>E03 第 1 场</i><span>她数着灯，像数着幸福。</span><em>心声</em></li><li><i>E03 第 2 场</i><span>说好的重逢，怎么还没来。</span><em>心声</em></li><li><i>E03 第 2 场</i><span>幸福的样子，比我想的安静。</span><em>心声</em></li><li><i>E03 第 2 场</i><span>连影子都显得森冷。</span><em>心声</em></li><li><i>E04 第 1 场</i><span>他们不是来娶我，是来葬我。</span><em>心声</em></li><li><i>E04 第 1 场</i><span>可那布，本就是为葬我备的。</span><em>心声</em></li><li><i>E04 第 2 场</i><span>我连幸福的样子都没看清。</span><em>心声</em></li><li><i>E04 第 2 场</i><span>原来入宫是赴一场葬礼。</span><em>心声</em></li><li><i>E05 第 1 场</i><span>原来入宫是赴一场葬礼。</span><em>心声</em></li><li><i>E05 第 1 场</i><span>我离幸福只差一步。</span><em>心声</em></li><li><i>E05 第 1 场</i><span>仙女若真在，为何不显灵。</span><em>心声</em></li><li><i>E05 第 1 场</i><span>幸福曾那么近，近到能听见。</span><em>心声</em></li><li><i>E06 第 1 场</i><span>门，终究没有开。</span><em>留白</em></li><li><i>E06 第 1 场</i><span>幸福，原是一双没能穿上的鞋。</span><em>留白</em></li><li><i>E06 第 1 场</i><span>原来死，是这样的味道。</span><em>心声</em></li><li><i>E06 第 1 场</i><span>若重来，我还去那场舞会吗。</span><em>留白</em></li><li><i>E06 第 1 场</i><span>门，终究没有开。</span><em>留白</em></li></ol>
+</section>
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>大臣</b>
+    <span class="cast-meta">8 句 · 83 字 · 约 18.4 秒</span>
+    <button class="copy" data-copy="A male voice, around fifty. Steady measured baritone, courtly. Careful measured diction, faint reluctance.">音色提示词</button>
+    <button class="copy" data-copy="奉国王之命，寻鞋主完婚。
+二位都非鞋主，请让一让。
+果真是王子寻的姑娘！
+姑娘，王宫到了。
+请随臣入殿，殿下候着。
+请在此等候，殿下随后便来。
+到了，姑娘请。
+请在此等候，臣告退。">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E02 第 1 场</i><span>奉国王之命，寻鞋主完婚。</span><em>恭敬</em></li><li><i>E02 第 1 场</i><span>二位都非鞋主，请让一让。</span><em>公事公办</em></li><li><i>E02 第 1 场</i><span>果真是王子寻的姑娘！</span><em>又惊又喜</em></li><li><i>E02 第 2 场</i><span>姑娘，王宫到了。</span><em>恭敬</em></li><li><i>E02 第 2 场</i><span>请随臣入殿，殿下候着。</span><em>意味深长</em></li><li><i>E02 第 3 场</i><span>请在此等候，殿下随后便来。</span><em>意味深长</em></li><li><i>E03 第 1 场</i><span>到了，姑娘请。</span><em>恭敬</em></li><li><i>E03 第 2 场</i><span>请在此等候，臣告退。</span><em>垂目</em></li></ol>
+</section>
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>王子</b>
+    <span class="cast-meta">4 句 · 37 字 · 约 8.2 秒</span>
+    <button class="copy" data-copy="A young male voice, around twenty-two. Warm clear tenor with noble breeding. Moderate pace, earnest and gentle. Refined royal diction.">音色提示词</button>
+    <button class="copy" data-copy="美丽的女孩，我能邀你共舞吗？
+你叫什么名字？
+你比所有灯都亮。
+等等——你的鞋！">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E01 第 3 场</i><span>美丽的女孩，我能邀你共舞吗？</span><em>温柔倾慕</em></li><li><i>E01 第 3 场</i><span>你叫什么名字？</span><em>低声</em></li><li><i>E01 第 3 场</i><span>你比所有灯都亮。</span><em>痴看</em></li><li><i>E01 第 3 场</i><span>等等——你的鞋！</span><em>追出门外</em></li></ol>
+</section>
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>仙女</b>
+    <span class="cast-meta">2 句 · 20 字 · 约 4.4 秒</span>
+    <button class="copy" data-copy="A female voice, ageless. Ethereal soft contralto with a faint reverberant hush. Slow, gentle, benevolent.">音色提示词</button>
+    <button class="copy" data-copy="孩子，今夜舞会该你了。
+去吧，别过十二点。">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E01 第 1 场</i><span>孩子，今夜舞会该你了。</span><em>慈和</em></li><li><i>E01 第 1 场</i><span>去吧，别过十二点。</span><em>意味深长</em></li></ol>
+</section>
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>大姐</b>
+    <span class="cast-meta">2 句 · 17 字 · 约 3.8 秒</span>
+    <button class="copy" data-copy="A young female voice, around twenty. Bright thin fast soprano, eager to seize the spotlight. Shifts from pleased to sullen.">音色提示词</button>
+    <button class="copy" data-copy="这分明是我的鞋。
+该不会是那丫头吧？">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E02 第 1 场</i><span>这分明是我的鞋。</span><em>争先</em></li><li><i>E02 第 1 场</i><span>该不会是那丫头吧？</span><em>妒火</em></li></ol>
+</section>
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>国王</b>
+    <span class="cast-meta">2 句 · 24 字 · 约 5.3 秒</span>
+    <button class="copy" data-copy="An elderly male voice, around sixty. Deep grave bass, weary but absolute. Slow, weighty diction.">音色提示词</button>
+    <button class="copy" data-copy="王子思念成疾，三日前已薨。
+临终仍念舞会上的少女。">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E04 第 1 场</i><span>王子思念成疾，三日前已薨。</span><em>威严</em></li><li><i>E04 第 1 场</i><span>临终仍念舞会上的少女。</span><em>空洞</em></li></ol>
+</section>
+<section class="cast-blk">
+  <header class="cast-h">
+    <b>二姐</b>
+    <span class="cast-meta">1 句 · 11 字 · 约 2.4 秒</span>
+    <button class="copy" data-copy="A young female voice, around eighteen. Thin hurried soprano. Flustered, follows her sister's lead.">音色提示词</button>
+    <button class="copy" data-copy="轮到我了，量我的尺寸。">复制全部台词</button>
+  </header>
+  <ol class="cast-lines"><li><i>E02 第 1 场</i><span>轮到我了，量我的尺寸。</span><em>不服</em></li></ol>
+</section>
+  </div>
+</section>
+
+<section class="top-sec" id="sec-gates">
+  <div class="sec-h"><span class="no">05</span><h2>质量门</h2></div>
+  <ul class="gate">
+  <li class="ok"><span class="m">✓</span><span>每集时长在目标 ±15% 内</span></li>
+  <li class="ok"><span class="m">✓</span><span>单句台词 ≤ 35 字</span></li>
+  <li class="ok"><span class="m">✓</span><span>说话人在本场人物里，或明确标画外音 VO</span></li>
+  <li class="ok"><span class="m">✓</span><span>每集开场钩子与结尾悬念都落在纸面</span></li>
+  <li class="ok"><span class="m">✓</span><span>钩子的具象在全集前 3 拍内兑现（hookBeat 认领）</span></li>
+  <li class="ok"><span class="m">✓</span><span>每场至少一个动作节拍——纯对白的场是广播剧</span></li>
+  <li class="ok"><span class="m">✓</span><span>动作描述叙述体，台词只进 dialogue 字段</span></li>
+  <li class="ok"><span class="m">✓</span><span>大纲爽点逐集认领</span></li>
+  <li class="ok"><span class="m">✓</span><span>角色引用对账大纲</span></li>
+  <li class="ok"><span class="m">✓</span><span>场景／光照／道具对账美术设定</span></li>
+</ul>
+  <p class="gsum">全部通过</p>
+</section>
+
+<p class="foot">剧本由模型依据大纲与美术设定生成，时长与引用由脚本确定性检查。分镜与首帧提示词是下一层的事，不在本报告里。</p>
+</div>
+
+<script type="application/json" id="script-data">{"source":"灰姑娘·殉葬","params":{"charsPerSecond":4.5,"actionSeconds":2.5,"tolerance":0.15,"maxLineChars":35},"episodes":[{"ep":1,"targetSeconds":120,"hook":"一个平日被使唤的灰姑娘，竟成了舞会中央被所有人仰望的身影。","cliff":"钟声将敲十二下，她为何骤然脸色一变匆匆离去？","beatsClaimed":["惊艳登场"],"hookBeat":[1,2],"scenes":[{"sceneId":"S02","lighting":"日间阴光","characters":["C01","C03","C04","C05","C06"],"props":[],"flow":[{"action":"后母拎裙跨出门，两姐姐尾随而去。"},{"action":"木门吱呀合上，辛德瑞拉独站冷灶边。"},{"action":"星尘自窗缝落定，仙女自影里走出。"},{"action":"魔杖轻点她肩，旧裙在光里褪去。"},{"speaker":"C06","line":"孩子，今夜舞会该你了。","delivery":"慈和"},{"action":"浅蓝礼裙裹上身，银线随呼吸流光。"},{"action":"一只水晶鞋落上脚尖，严丝合缝。"},{"speaker":"C01","line":"我真能去吗？","delivery":"不敢置信"},{"action":"她提裙转了个圈，像换了个人。"},{"speaker":"C06","line":"去吧，别过十二点。","delivery":"意味深长"},{"action":"门外传来马蹄声，南瓜马车已候着。"},{"speaker":"C01","line":"原来，也有人等我。","delivery":"鼻酸"}]},{"sceneId":"S03","lighting":"月夜启程","characters":["C01"],"props":["P02","P03"],"flow":[{"action":"南瓜马车停在月下，白马喷着白气。"},{"action":"她提裙登车，裙摆扫过车阶。"},{"speaker":"C01","line":"今夜，去见命运。","delivery":"轻却笃定"},{"action":"车轮碾过石板，长路在月光里铺白。"},{"action":"枯柳掠过窗边，她望着宫墙灯火。"},{"speaker":"C01","line":"原来幸福这么近。","delivery":"微怔"},{"action":"城门前灯火通明，她深吸一口气。"},{"action":"侍卫打开宫门，金光自内涌出。"},{"speaker":"C01","line":"这一步，我等了好久。","delivery":"轻声"}]},{"sceneId":"S01","lighting":"烛光晚宴","characters":["C01","C02"],"props":["P01","P03"],"flow":[{"action":"大厅金光骤亮，满场视线转向门口。"},{"action":"她缓步踏入，水晶鞋敲出清响。"},{"speaker":"C02","line":"美丽的女孩，我能邀你共舞吗？","delivery":"温柔倾慕"},{"speaker":"C01","line":"殿下，请。","delivery":"优雅从容"},{"action":"乐声起，两人旋入光影，满场屏息。"},{"action":"她裙摆翻飞，像被风托起的白鸟。"},{"speaker":"VO","line":"这一刻，全世界都为她停住。","delivery":"她的心声"},{"action":"王子揽她转圈，烛火在发间跳跃。"},{"speaker":"C02","line":"你叫什么名字？","delivery":"低声"},{"speaker":"C01","line":"叫我辛德瑞拉。","delivery":"含笑"},{"action":"宾客们交头接耳，目送这对璧人。"},{"speaker":"VO","line":"他眼里的光，让她忘了所有苦。","delivery":"她的心声"},{"action":"镜墙映出两人，像一幅会动的画。"},{"speaker":"C02","line":"你比所有灯都亮。","delivery":"痴看"},{"action":"钟楼指针爬向十二，她猛地低头。"},{"action":"脚踝空了一处——水晶鞋不见了踪影。"},{"speaker":"C01","line":"仙女的话……十二点！","delivery":"慌"},{"action":"她抽手提起裙摆，朝门外疾奔。"},{"action":"满场错愕，王子伸手只抓住风。"},{"action":"红毯阶上，一只水晶鞋静静遗落。"},{"action":"她赤着一只脚，没入宫外的夜色。"},{"speaker":"C02","line":"等等——你的鞋！","delivery":"追出门外"},{"action":"殿外一片空，只剩月光落在石阶。"}]}]},{"ep":2,"targetSeconds":120,"hook":"那只谁都穿不上的鞋，偏偏在她脚上严丝合缝。","cliff":"王宫近在眼前，可为何迟迟不见王子的身影？","beatsClaimed":["试鞋打脸"],"hookBeat":[1,2],"scenes":[{"sceneId":"S02","lighting":"日间阴光","characters":["C01","C04","C05","C07"],"props":["P01","P04"],"flow":[{"action":"大门被拍响，大臣率侍卫跨进门。"},{"action":"两侍卫托天鹅绒垫，垫上躺着水晶鞋。"},{"speaker":"C07","line":"奉国王之命，寻鞋主完婚。","delivery":"恭敬"},{"action":"大姐抢先一步，把脚塞向那只鞋。"},{"speaker":"C04","line":"这分明是我的鞋。","delivery":"争先"},{"action":"鞋跟卡在趾尖，她涨红脸也穿不进。"},{"action":"二姐推开姐姐，自己也去试鞋。"},{"speaker":"C05","line":"轮到我了，量我的尺寸。","delivery":"不服"},{"action":"鞋口勒住脚背，二姐疼得缩回脚。"},{"speaker":"C07","line":"二位都非鞋主，请让一让。","delivery":"公事公办"},{"action":"两姐妹对视，又看向里屋的门。"},{"speaker":"C04","line":"该不会是那丫头吧？","delivery":"妒火"},{"action":"里屋门响，辛德瑞拉缓步走出。"},{"speaker":"C01","line":"不如，让我试试。","delivery":"从容"},{"action":"她坐下，足尖轻探，鞋口温柔含住脚。"},{"action":"轻轻一套，分毫不差，不大不小。"},{"speaker":"C07","line":"果真是王子寻的姑娘！","delivery":"又惊又喜"},{"action":"两个姐姐瞪圆眼，嫉妒涨满脸。"},{"speaker":"C01","line":"这一回，换我赴约。","delivery":"笃定"},{"action":"大臣伸手相扶，请她登门外马车。"},{"speaker":"C01","line":"她们笑不出的样子，真好看。","delivery":"轻笑"},{"action":"她提裙上车，水晶鞋在光里一闪。"},{"speaker":"VO","line":"她们的脸色，比鞋还合脚。","delivery":"心声"},{"action":"车轮转动，宅门在身后缓缓合上。"}]},{"sceneId":"S03","lighting":"黎明归途","characters":["C01","C07"],"props":["P01","P04"],"flow":[{"action":"车轮碾过石板，长路在晨光里铺白。"},{"speaker":"C01","line":"原来幸福这么近。","delivery":"微怔"},{"action":"枯柳掠过窗边，她攥紧膝上水晶鞋。"},{"speaker":"C01","line":"这一次，不会再跑了。","delivery":"轻声"},{"action":"城门前灯火渐隐，宫墙在望。"},{"speaker":"C07","line":"姑娘，王宫到了。","delivery":"恭敬"},{"action":"马车停稳，大臣先下车开门。"},{"action":"她提裙下车，裙摆扫过御道石。"},{"speaker":"C07","line":"请随臣入殿，殿下候着。","delivery":"意味深长"},{"action":"宫道两侧侍卫垂目，无人看她一眼。"},{"speaker":"C01","line":"他们都……在等谁？","delivery":"隐隐不安"},{"action":"她随大臣踏过漫长宫道。"},{"speaker":"C01","line":"王子会喜欢我现在的样子吗？","delivery":"轻声"},{"action":"风掀起她的裙角，像展翅的白鸟。"},{"speaker":"VO","line":"她以为奔赴的是婚礼。","delivery":"心声"},{"action":"宫门在晨光里缓缓开，金光涌出。"}]},{"sceneId":"S01","lighting":"晓光空厅","characters":["C01","C07"],"props":["P01"],"flow":[{"action":"马车驶入王宫，宫门在晨光里开。"},{"action":"大臣引她入殿，自己停在门外。"},{"speaker":"C07","line":"请在此等候，殿下随后便来。","delivery":"意味深长"},{"action":"殿门合上，她独自立空旷大殿。"},{"speaker":"C01","line":"王子……你在哪？","delivery":"轻声"},{"action":"她抚过水晶鞋，望向幽深殿外。"},{"speaker":"VO","line":"幸福只差最后一步了。","delivery":"心声"},{"action":"她走向王座石台，指尖掠过黑绒。"},{"speaker":"C01","line":"这座位，本该是我们的。","delivery":"轻叹"},{"action":"殿外脚步声近了，又停在门后。"},{"action":"她攥紧水晶鞋，屏息望向殿门。"}]}]},{"ep":3,"targetSeconds":120,"hook":"幸福近在咫尺，她却只等来一片空殿与静默。","cliff":"王子为何始终不现身？殿外隐约有异样声响。","beatsClaimed":["入宫期待"],"hookBeat":[1,2],"scenes":[{"sceneId":"S03","lighting":"黎明归途","characters":["C01","C07"],"props":["P01"],"flow":[{"action":"马车驶过晨雾长路，她贴窗望宫墙。"},{"action":"水晶鞋拢在膝上，指尖微微发颤。"},{"speaker":"C01","line":"待会儿，该说什么好？","delivery":"忐忑又甜"},{"action":"车轮停稳，大臣先一步下车开门。"},{"speaker":"C07","line":"到了，姑娘请。","delivery":"恭敬"},{"action":"她提裙下车，裙摆扫过御道石。"},{"action":"宫道两侧侍卫垂目，没人看她一眼。"},{"speaker":"C01","line":"他们都……在等谁？","delivery":"隐隐不安"},{"action":"她随大臣走向巍峨的宫门。"},{"speaker":"C01","line":"王子在门后等我吗？","delivery":"轻声"},{"action":"晨风掠过，宫灯轻晃像在招手。"},{"speaker":"VO","line":"她把每个细节都记成幸福。","delivery":"心声"},{"action":"她摸了摸发间，怕乱了仪容。"},{"speaker":"C01","line":"可别让王子认不出我。","delivery":"轻声"},{"action":"宫道两旁的灯，一盏盏亮起来。"},{"speaker":"VO","line":"她数着灯，像数着幸福。","delivery":"心声"},{"action":"宫门在晨光里敞开，金光铺地。"},{"action":"她深吸一口气，踏过宫门石槛。"},{"speaker":"C01","line":"来了，我的幸福来了。","delivery":"轻颤"}]},{"sceneId":"S04","lighting":"殿内幽光","characters":["C01","C07"],"props":[],"flow":[{"action":"大臣引她踏入空旷石殿，回声空洞。"},{"action":"四角青铜火盆尚冷，兽首泛青灰。"},{"speaker":"C01","line":"王子何时来接我？","delivery":"试探"},{"speaker":"C07","line":"请在此等候，臣告退。","delivery":"垂目"},{"action":"大臣躬身退下，殿门在身后合拢。"},{"action":"她独自立在中央，王座石台覆黑绒。"},{"speaker":"C01","line":"这殿……怎的这样冷。","delivery":"不安"},{"action":"她踱到窗边，宫外却一片死寂。"},{"speaker":"VO","line":"说好的重逢，怎么还没来。","delivery":"心声"},{"action":"殿外传来极轻的脚步与甲叶轻响。"},{"speaker":"C01","line":"是王子来了吗？","delivery":"燃起希望"},{"action":"她理了理发，朝门的方向望去。"},{"action":"门后却只有沉默，脚步声也停了。"},{"speaker":"C01","line":"为何……不推门？","delivery":"困惑"},{"action":"她走近王座石台，抚过黑绒褶皱。"},{"speaker":"C01","line":"这黑绒，像为谁备的丧布。","delivery":"不安"},{"action":"殿角阴影里，似有物事轻轻一响。"},{"speaker":"C01","line":"谁在那？","delivery":"警觉"},{"action":"她屏息望去，却只有风穿过拱顶。"},{"speaker":"VO","line":"幸福的样子，比我想的安静。","delivery":"心声"},{"action":"她望向殿顶高拱，回声吞没脚步。"},{"speaker":"C01","line":"这么大，却只剩我一个。","delivery":"孤"},{"action":"青铜火盆的兽首，在幽光里咧嘴。"},{"speaker":"VO","line":"连影子都显得森冷。","delivery":"心声"},{"action":"她拢紧披风，却暖不进心底。"},{"action":"她退回殿心，望着那扇紧闭的门。"},{"action":"她望向殿门，金光在缝里一闪而灭。"},{"speaker":"C01","line":"那光……是火，还是灯？","delivery":"不安"},{"action":"她攥紧披风，听见自己心跳如鼓。"}]}]},{"ep":4,"targetSeconds":120,"hook":"盼来的不是重逢，而是王子已死的噩耗。","cliff":"这场婚礼究竟要为谁举行？","beatsClaimed":["真相反转"],"hookBeat":[1,2],"scenes":[{"sceneId":"S04","lighting":"殿内幽光","characters":["C01","C07","C08"],"props":[],"flow":[{"action":"殿门未开，低沉宣告自门外沉沉传来。"},{"action":"她屏息转身，望向那道紧闭的门。"},{"speaker":"C08","line":"王子思念成疾，三日前已薨。","delivery":"威严"},{"speaker":"C08","line":"临终仍念舞会上的少女。","delivery":"空洞"},{"action":"她腿一软，扶住王座石台才站稳。"},{"speaker":"C01","line":"死了？他……死了？","delivery":"如遭雷击"},{"action":"门外一声高呼炸开：婚礼开始！"},{"speaker":"C01","line":"婚礼？可新郎已经……","delivery":"茫然"},{"action":"一缕烟味从门缝渗进，她猛地怔住。"},{"speaker":"C01","line":"这味道……是火。","delivery":"警觉"},{"action":"她嗅到焦糊，殿外隐约有柴薪堆叠声。"},{"speaker":"VO","line":"他们不是来娶我，是来葬我。","delivery":"心声"},{"action":"她扑向殿门，双掌死死抵住门板。"},{"speaker":"C01","line":"开门！这不是婚礼！","delivery":"嘶喊"},{"action":"门外毫无回应，只有浇油的声响。"},{"action":"火光自门缝爬进，把石壁染成橘红。"},{"speaker":"C01","line":"大臣……你骗我！","delivery":"震怒"},{"action":"她顺着门缝嗅，烟味越来越浓。"},{"speaker":"C01","line":"他们在门外堆了柴。","delivery":"颤"},{"action":"她回头望殿内，石壁映着橘红光。"},{"speaker":"C01","line":"连逃的路都没有。","delivery":"绝望"},{"action":"她抓起王座石台上的黑绒想堵门缝。"},{"speaker":"VO","line":"可那布，本就是为葬我备的。","delivery":"心声"}]},{"sceneId":"S04","lighting":"火光渐近","characters":["C01","C07"],"props":[],"flow":[{"action":"火光自门缝爬进，石壁映成橘红。"},{"speaker":"C01","line":"他们要烧死我！","delivery":"骇极"},{"action":"她提起裙摆，发疯般扑向殿门。"},{"action":"双掌死死抵住门板，用力往外推。"},{"speaker":"C01","line":"开门！我不是王子妃！","delivery":"嘶喊"},{"action":"门纹丝不动，铁栓在外锁得死死的。"},{"action":"她捶打门板，指节撞在包铁上生疼。"},{"speaker":"C01","line":"来人——救我！","delivery":"绝望"},{"action":"门外柴薪噼啪作响，热浪逼近门缝。"},{"action":"她后退半步，火光已舔上殿门底边。"},{"speaker":"VO","line":"我连幸福的样子都没看清。","delivery":"心声"},{"action":"她攥紧那只水晶鞋，把它护在胸口。"},{"action":"热浪扑面，她的裙摆边缘开始卷曲。"},{"speaker":"C01","line":"仙女……你骗我。","delivery":"哽咽"},{"action":"她背靠王座石台，望着那扇不再开的门。"},{"action":"她顺着殿壁摸索，寻不到半扇窗。"},{"speaker":"C01","line":"没有窗，没有缝，只有这扇门。","delivery":"颤"},{"action":"火光爬上她裙摆，烫得她缩回脚。"},{"speaker":"VO","line":"原来入宫是赴一场葬礼。","delivery":"心声"},{"action":"她抓起水晶鞋，狠狠砸向殿门。"},{"speaker":"C01","line":"听见了吗！我在这儿！","delivery":"嘶喊"},{"action":"门外火油滴落，烫红了阶前石。"},{"action":"她望着橘红，缓缓滑坐到地上。"}]}]},{"ep":5,"targetSeconds":120,"hook":"她终于看清——所谓召见，是要她为死去的王子陪葬。","cliff":"门外的火，会不会真的烧进来？","beatsClaimed":["锁门绝境"],"hookBeat":[1,2],"scenes":[{"sceneId":"S04","lighting":"火光渐近","characters":["C01"],"props":[],"flow":[{"action":"火光自门缝爬进，把石壁染成橘红。"},{"speaker":"C01","line":"他们要烧死我！","delivery":"骇极"},{"action":"她骤然清醒，这就是殉葬的火。"},{"action":"她提起裙摆，发疯般扑向殿门。"},{"action":"双掌死死抵住门板，用力往外推。"},{"speaker":"C01","line":"开门！我不是王子妃！","delivery":"嘶喊"},{"action":"门纹丝不动，铁栓在外锁得死死的。"},{"action":"她捶打门板，指节撞在包铁上生疼。"},{"speaker":"C01","line":"来人——救我！","delivery":"绝望"},{"action":"她退后半步，院中火把影在门缝晃动。"},{"speaker":"VO","line":"原来入宫是赴一场葬礼。","delivery":"心声"},{"action":"她转身扫视大殿，寻不到半条出路。"},{"speaker":"C01","line":"没有窗……连缝都没有。","delivery":"颤"},{"action":"她扑回殿门，用肩膀死死顶住。"},{"action":"门外传来柴薪堆高的闷响。"},{"speaker":"C01","line":"他们在封门！","delivery":"骇然"},{"action":"热浪扑面，殿门底边已烧得发红。"},{"action":"她退到殿心，裙摆被热风掀起。"},{"speaker":"VO","line":"我离幸福只差一步。","delivery":"心声"},{"action":"她攥紧水晶鞋，鞋跟抵着掌心。"},{"action":"她望向王座石台，黑绒下似有物事。"},{"speaker":"C01","line":"那下面……是什么？","delivery":"惊疑"},{"action":"她掀开黑绒一角，露出冰冷的石棺。"},{"speaker":"C01","line":"这是给我备的？","delivery":"如坠冰窟"},{"action":"她跌坐石阶，火光在眸里跳动。"},{"action":"殿外火声更烈，却始终没有脚步。"},{"action":"她爬向殿门，指甲抠进门缝。"},{"speaker":"C01","line":"求求你们……开门。","delivery":"泣"},{"action":"门外火油滴落，烫红阶前石。"},{"speaker":"VO","line":"仙女若真在，为何不显灵。","delivery":"心声"},{"action":"她扯下裙摆一角，想去捂门缝的火。"},{"speaker":"C01","line":"这样……至少慢一点。","delivery":"颤"},{"action":"热浪掀翻她的发，汗水混着烟灰。"},{"action":"她望向王座石台，黑绒下露出棺角。"},{"speaker":"C01","line":"那棺……是给我的？","delivery":"如坠冰窟"},{"action":"她扑过去掀开黑绒，触到冰冷的石。"},{"action":"石棺空着，像张开的口等她。"},{"speaker":"C01","line":"他们早算好了。","delivery":"惨笑"},{"action":"她回头，火光已封住半扇殿门。"},{"speaker":"VO","line":"幸福曾那么近，近到能听见。","delivery":"心声"},{"action":"她滑坐石棺边，把水晶鞋抱在怀里。"},{"speaker":"C01","line":"至少……鞋还在。","delivery":"轻声"},{"action":"她望向殿门，火光在缝里一跳一跳。"},{"speaker":"C01","line":"门外的人，听见了吗。","delivery":"极轻"},{"action":"热浪卷过，她的影子在石壁摇晃。"}]}]},{"ep":6,"targetSeconds":120,"hook":"曾经离幸福只差一步的女孩，如今被反锁在焚烧的殿里。","cliff":"那扇门，会不会有人来开？（留白）","beatsClaimed":["求生无门"],"hookBeat":[1,2],"scenes":[{"sceneId":"S04","lighting":"火光渐近","characters":["C01"],"props":["P01"],"flow":[{"action":"烟味浓得呛人，她掩口退到殿心。"},{"action":"火光已爬满殿门，热浪扑面而来。"},{"speaker":"C01","line":"就这样……结束了吗？","delivery":"颤"},{"action":"她又冲向殿门，用全身重量撞去。"},{"action":"门板闷响，铁栓却纹丝不动。"},{"speaker":"C01","line":"仙女……你在哪？","delivery":"哀求"},{"action":"她滑坐在地，把水晶鞋贴在耳边。"},{"speaker":"C01","line":"那只鞋，本该带我去舞会。","delivery":"苦笑"},{"action":"门外火声更烈，却始终没有脚步。"},{"speaker":"C01","line":"若是梦……该醒了啊。","delivery":"渐弱"},{"action":"她最后一次望向紧闭的殿门。"},{"speaker":"VO","line":"门，终究没有开。","delivery":"留白"},{"action":"火光吞没视线，殿内只剩一片橘红。"},{"action":"水晶鞋从她松开的指间滑落轻响。"},{"action":"她闭上眼，火光在睫毛上跳跃。"},{"speaker":"C01","line":"王子……对不起。","delivery":"极轻"},{"action":"殿外火舌舔过门缝，烟灌满殿堂。"},{"action":"她的身影在橘红里渐渐模糊。"},{"speaker":"VO","line":"幸福，原是一双没能穿上的鞋。","delivery":"留白"},{"action":"火光收束成一点，归于沉寂。"},{"action":"烟灌满殿堂，她咳得弯下腰。"},{"speaker":"C01","line":"咳……这烟，好呛。","delivery":"窒息"},{"action":"她扯过黑绒捂住口鼻，仍止不住咳。"},{"action":"火光爬上王座石台，黑绒卷起焦边。"},{"speaker":"VO","line":"原来死，是这样的味道。","delivery":"心声"},{"action":"她踉跄爬向殿门，徒手扒门缝。"},{"speaker":"C01","line":"哪怕一条缝，让我看看天。","delivery":"哀"},{"action":"门外火舌舔过缝口，灼得她缩手。"},{"action":"她瘫坐门边，水晶鞋滚落膝前。"},{"speaker":"C01","line":"鞋还在，人却要没了。","delivery":"苦笑"},{"action":"她拾起鞋，轻轻拂去上面的灰。"},{"speaker":"VO","line":"若重来，我还去那场舞会吗。","delivery":"留白"},{"action":"火光收束，殿内橘红渐渐转暗。"},{"action":"她的剪影映在门上，像幅定格画。"},{"speaker":"C01","line":"王子……下辈子见。","delivery":"极轻"},{"action":"最后一缕烟漫过她的眉眼。"},{"speaker":"VO","line":"门，终究没有开。","delivery":"留白"},{"action":"殿外火声渐弱，只剩风穿过拱顶。"},{"speaker":"C01","line":"原来……这就是结局。","delivery":"极轻"},{"action":"火光在她眸里最后跳了一下。"},{"speaker":"C01","line":"若有来生，别再试那双鞋。","delivery":"极轻"},{"action":"她的手缓缓垂落，松开黑绒。"},{"action":"橘红的光，一寸寸退成灰。"},{"action":"殿门之外，火仍在烧，无人来开。"}]}]}]}</script>
+<script>
+const L = {"copied":"已复制","failed":"复制失败","show":"▾ 展开全部场次","hide":"▴ 收起场次"};
+
+// episode scripts: scene areas clip at 300px; short ones unclip, tall ones toggle
+document.querySelectorAll('.scmore').forEach((btn) => {
+  const zone = btn.previousElementSibling;
+  if (zone.scrollHeight <= 320) {
+    zone.classList.remove('clip');
+    btn.remove();
+    return;
+  }
+  btn.addEventListener('click', () => {
+    const clipped = zone.classList.toggle('clip');
+    btn.textContent = clipped ? L.show : L.hide;
+    if (clipped) zone.closest('.ep').scrollIntoView({ block: 'nearest' });
+  });
+});
+
+// copy buttons (a single line / a character's whole line book)
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy');
+  if (!btn) return;
+  e.preventDefault();
+  const label = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(btn.dataset.copy);
+    btn.textContent = L.copied;
+    btn.dataset.done = '1';
+  } catch {
+    btn.textContent = L.failed;
+  }
+  setTimeout(() => { btn.textContent = label; delete btn.dataset.done; }, 1600);
+});
+
+// export: the report carries the full script.json; the download is it verbatim
+document.querySelector('.expo').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const url = URL.createObjectURL(
+    new Blob([document.getElementById('script-data').textContent], { type: 'application/json' }),
+  );
+  const a = Object.assign(document.createElement('a'), { href: url, download: btn.dataset.name });
+  a.click();
+  // don't revoke right away — Safari kills the blob before the download finishes reading it
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+});
+</script>
+</body></html>

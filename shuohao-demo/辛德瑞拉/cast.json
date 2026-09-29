@@ -1,0 +1,304 @@
+{
+  "source": "灰姑娘·殉葬",
+  "lang": "zh",
+  "summary": "欧洲童话王国，一位受后母与两位姐姐欺压的少女在仙女帮助下盛装奔赴王宫舞会，以天仙之姿赢得王子倾心，却因钟声仓促离去遗落一只水晶鞋。一月后，宫廷携鞋全城寻主，少女在姐姐们落败后从容穿上，随大臣入宫，期盼与王子重逢。",
+  "characters": [
+    {
+      "name": "辛德瑞拉",
+      "aliases": ["那个女孩"],
+      "importance": "protagonist",
+      "oneLiner": "寄人篱下却优雅自持的少女，被命运推上幸福的悬崖又坠入殉葬的绝境。",
+      "persona": {
+        "gender": "女",
+        "ageRange": "约十八岁",
+        "identity": "受压迫的继女 / 舞会上的无名佳人",
+        "appearance": "身形纤细优雅，柔金长发，大眼温柔含愁。盛装时是浅蓝舞会礼裙配单只水晶鞋、另一只赤足的天仙之姿。",
+        "personality": ["优雅", "隐忍", "从容", "清醒"],
+        "temperament": "外表温婉平和，内里自有主见，绝境中仍保持体面。",
+        "motivation": "挣脱压迫、赢得属于自己的幸福，最终只是想活着走出那扇门。",
+        "arc": "从默默劳作的灰姑娘到被万众瞩目的舞会佳人，再于真相前由憧憬跌入求生的本能。",
+        "relationships": [
+          { "name": "王子", "relation": "舞会上倾心于她的倾慕者" },
+          { "name": "后母", "relation": "长期压迫她的家长" },
+          { "name": "仙女", "relation": "赐她华服与马车的好意者" }
+        ],
+        "evidence": ["轻轻一套，就穿上了水晶鞋，不大不小，不胖不瘦", "可是，殿门锁死了。", "辛德瑞拉恍然明白过来自己的处境"]
+      },
+      "image": {
+        "prompt": "Character design sheet of a young European woman from a fairy-tale kingdom era, around eighteen, slender and graceful. She wears a flowing pale-blue ball gown with delicate silver embroidery and a single crystal shoe on one foot while the other foot is bare. Soft golden hair, large expressive eyes, gentle features. Visible design cues: ballroom gown, single glass slipper, bare foot. Neutral studio background, soft rim light.",
+        "promptLocal": "角色设定图：约十八岁的欧洲童话王国少女，身形纤细优雅。穿浅蓝舞会礼裙缀银线刺绣，一只脚穿水晶鞋、另一只赤足。柔金长发，大眼温柔。可见设计：舞会礼裙、单只水晶鞋、赤足。",
+        "negativePrompt": "extra fingers, deformed hands, fused fingers, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "European", "period costume", "three-quarter view", "neutral background"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor, fine facial features. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and proportions; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crystal slipper, gown embroidery, hairstyle, bare foot). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "柔和略带气声的年轻女声，温润清亮",
+        "pitch": "中高",
+        "pace": "从容舒缓，重逢戏里微微发颤",
+        "accent": "旧欧洲宫廷的雅致口音，尾音轻扬",
+        "emotion": "平静中藏着隐忍与一丝哀愁",
+        "referenceHint": "像一个在压迫中仍保持优雅、说话轻声却字字清楚的少女",
+        "prompt": "A young female voice, around eighteen. Soft, warm, slightly breathy soprano. Gentle pace, refined diction with a faint old-European court lilt. Calm but with underlying melancholy."
+      }
+    },
+    {
+      "name": "王子",
+      "aliases": ["王子殿下"],
+      "importance": "protagonist",
+      "oneLiner": "在舞会上被灰姑娘彻底征服的年轻王子，因思念成疾而早逝。",
+      "persona": {
+        "gender": "男",
+        "ageRange": "约二十二岁",
+        "identity": "王国继承人",
+        "appearance": "身形挺拔高贵，柔黑短发，眼神诚挚温热。盛装时着带肩饰与绶带的王室军礼服。",
+        "personality": ["温柔", "诚挚", "深情", "单纯"],
+        "temperament": "眼中藏不住倾慕，待人宽厚，却也天真易陷。",
+        "motivation": "找到舞会上那个无名少女，立她为妃。",
+        "arc": "偶遇倾心到思念成疾而亡，始终未再见她一面。",
+        "relationships": [
+          { "name": "辛德瑞拉", "relation": "舞会上倾心、临终仍念念不忘的少女" },
+          { "name": "国王", "relation": "父子" }
+        ],
+        "evidence": ["王子走上前去，眼中是无法抹去的温柔与倾慕", "美丽的女孩，我能邀请你跳一支舞吗？", "王子殿下因为过度思念那个在舞会上偶遇的少女，已经思念成疾，于三天前去世了"]
+      },
+      "image": {
+        "prompt": "Character design sheet of a young European prince from a fairy-tale kingdom era, around twenty-two, tall and noble. He wears a royal military dress uniform with epaulettes and a ceremonial sash, a slender sword at his side. Soft dark hair, earnest warm eyes. Visible design: prince regalia, sash, dress uniform. Neutral studio background.",
+        "promptLocal": "角色设定图：约二十二岁的欧洲童话国度年轻王室男性，身形挺拔高贵。着带肩饰与绶带的军礼服，腰侧佩细剑。柔黑短发，眼神诚挚温热。可见设计：王室礼服、绶带、佩剑。",
+        "negativePrompt": "extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "European", "royal uniform", "three-quarter view", "neutral background"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing uniform silhouette and posture; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (sash, epaulette, sword hilt, boot). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "温润清朗的年轻男声，带贵族教养",
+        "pitch": "中",
+        "pace": "舒缓而恳切",
+        "accent": "王室典雅口音",
+        "emotion": "温柔倾慕、真诚",
+        "referenceHint": "像一个从小被礼数浸润、说话低柔却让人安心的年轻王子",
+        "prompt": "A young male voice, around twenty-two. Warm clear tenor with noble breeding. Moderate pace, earnest and gentle. Refined royal diction."
+      }
+    },
+    {
+      "name": "后母",
+      "aliases": [],
+      "importance": "supporting",
+      "oneLiner": "长期压迫辛德瑞拉、见其命运反转便满眼嫉妒的家长。",
+      "persona": {
+        "gender": "女",
+        "ageRange": "约四十五岁",
+        "identity": "宅邸的女主人",
+        "appearance": "衣着暗色高领长裙，发髻紧绾，面容刻薄，唇线紧抿。",
+        "personality": ["刻薄", "控制", "嫉妒", "冷硬"],
+        "temperament": "永远绷着脸，对辛德瑞拉的胜利难以释怀。",
+        "motivation": "压住继女的风头，维系自家女儿的出路。",
+        "arc": "从掌控全局的压迫者，到眼睁睁看继女登上马车、满心不甘。",
+        "relationships": [
+          { "name": "辛德瑞拉", "relation": "被她长期压迫的继女" },
+          { "name": "大姐", "relation": "亲生女儿" },
+          { "name": "二姐", "relation": "亲生女儿" }
+        ],
+        "evidence": ["后母和两位姐姐走后"]
+      },
+      "image": {
+        "prompt": "Character design sheet of a middle-aged European woman, stern matron of a household, around forty-five. She wears a dark high-necked gown with a rigid corseted silhouette, hair pinned in a tight severe bun. Sharp features, thin pressed lips, cold eyes. Visible design: dark austere gown, tight bun, perpetual frown. Neutral studio background.",
+        "promptLocal": "角色设定图：约四十五岁的欧洲中年贵妇，神情严厉。穿暗色高领紧身长裙，发髻紧绾，唇线抿紧，眼神冷硬。可见设计：暗色肃穆长裙、紧发髻、惯常的蹙眉。",
+        "negativePrompt": "extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "European", "period gown", "three-quarter view", "neutral background"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (bun, gown collar, ring, shoes). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "低沉干涩的中年女声",
+        "pitch": "中低",
+        "pace": "慢而带着命令感",
+        "accent": "旧欧洲家母口音",
+        "emotion": "冷淡、不耐",
+        "referenceHint": "像一个习惯发号施令、从不肯软下声气的女主人",
+        "prompt": "A middle-aged female voice, around forty-five. Low dry contralto, commanding. Slow pace, crisp cold diction."
+      }
+    },
+    {
+      "name": "大姐",
+      "aliases": ["姐姐"],
+      "importance": "supporting",
+      "oneLiner": "争穿水晶鞋落败、满心嫉妒的姐姐之一。",
+      "persona": {
+        "gender": "女",
+        "ageRange": "约二十岁",
+        "identity": "后母的长女",
+        "appearance": "穿繁复珠宝色长裙，发卷夸张，嘴角因不服而绷着。身量略高。",
+        "personality": ["虚荣", "争强", "善妒"],
+        "temperament": "争宠时抢在前头，落败后写满不甘。",
+        "motivation": "抢先穿上水晶鞋、嫁给王子。",
+        "arc": "争穿失败，垂头丧气离场，目送继妹登车。",
+        "relationships": [
+          { "name": "后母", "relation": "母女" },
+          { "name": "辛德瑞拉", "relation": "嫉妒的继妹" }
+        ],
+        "evidence": ["看着两个姐姐争先恐后地试穿水晶鞋", "在两个姐姐嫉妒的目光下"]
+      },
+      "image": {
+        "prompt": "Character design sheet of a young European woman of a noble household, around twenty, vain and competitive, slightly taller. She wears an ornate jewel-toned gown with excessive frills, elaborate curled hair, a jealous set to the mouth. Visible design: ostentatious gown, heavy curls. Neutral studio background.",
+        "promptLocal": "角色设定图：约二十岁的欧洲贵族少女，虚荣好胜、身量略高。穿繁复珠宝色长裙缀过多荷叶边，发卷夸张，嘴角因不服而绷着。可见设计：张扬长裙、厚重卷发。",
+        "negativePrompt": "extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "European", "period gown", "three-quarter view", "neutral background"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (curls, gown frill, necklace, shoe). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "尖细略快年轻女声",
+        "pitch": "高",
+        "pace": "快、抢话",
+        "accent": "旧欧洲贵族口音",
+        "emotion": "得意转不甘",
+        "referenceHint": "像一个抢着出风头、落了下风就绷着嘴的千金",
+        "prompt": "A young female voice, around twenty. Bright thin fast soprano, eager to seize the spotlight. Shifts from pleased to sullen."
+      }
+    },
+    {
+      "name": "二姐",
+      "aliases": ["姐姐"],
+      "importance": "supporting",
+      "oneLiner": "与大姐一同争穿水晶鞋落败的妹妹。",
+      "persona": {
+        "gender": "女",
+        "ageRange": "约十八岁",
+        "identity": "后母的次女",
+        "appearance": "衣着同样华丽但身形略圆，发饰更细碎，神情更慌。",
+        "personality": ["虚荣", "善妒", "慌张"],
+        "temperament": "附和姐姐争宠，失败后更显无措。",
+        "motivation": "同姐姐一般想穿上水晶鞋。",
+        "arc": "争穿失败，随姐姐垂头离场。",
+        "relationships": [
+          { "name": "后母", "relation": "母女" },
+          { "name": "辛德瑞拉", "relation": "嫉妒的继妹" }
+        ],
+        "evidence": ["看着两个姐姐争先恐后地试穿水晶鞋", "在两个姐姐嫉妒的目光下"]
+      },
+      "image": {
+        "prompt": "Character design sheet of a young European woman of a noble household, around eighteen, vain and competitive, slightly rounder build. She wears an ornate gown with finer scattered ornaments, fussy small hairpins, a flustered look. Visible design: fussy gown, small hairpins. Neutral studio background.",
+        "promptLocal": "角色设定图：约十八岁的欧洲贵族少女，虚荣好胜、身形略圆。穿华丽长裙缀细碎小饰，发间别细簪，神情慌张。可见设计：细碎发饰、繁复小裙。",
+        "negativePrompt": "extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "European", "period gown", "three-quarter view", "neutral background"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (hairpin, gown trim, bracelet, shoe). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "细弱急促年轻女声",
+        "pitch": "高",
+        "pace": "急促",
+        "accent": "旧欧洲贵族口音",
+        "emotion": "慌张、不甘",
+        "referenceHint": "像总跟在姐姐身后、遇事就慌神的妹妹",
+        "prompt": "A young female voice, around eighteen. Thin hurried soprano. Flustered, follows her sister's lead."
+      }
+    },
+    {
+      "name": "仙女",
+      "aliases": [],
+      "importance": "supporting",
+      "oneLiner": "赐下华服、水晶鞋与南瓜马车，开启入宫前提的魔法助力者。",
+      "persona": {
+        "gender": "女",
+        "ageRange": "不老不死之感",
+        "identity": "魔法教母",
+        "appearance": "身披层叠半透淡色织物，泛着细微星光，柔银长发，眼含慈光，手持发光的细杖。",
+        "personality": ["慈爱", "神秘", "从容"],
+        "temperament": "言语轻缓，出手即是转折。",
+        "motivation": "助被压迫的少女一朝惊艳。",
+        "arc": "以魔法铺好入宫之路，此后不再现身。",
+        "relationships": [
+          { "name": "辛德瑞拉", "relation": "受她眷顾的少女" }
+        ],
+        "evidence": ["辛德瑞拉穿上仙女给予她的美丽衣裙", "踏着水晶鞋，乘坐着南瓜马车"]
+      },
+      "image": {
+        "prompt": "Character design sheet of an ethereal European woman, a fairy benefactor, ageless. She wears a gown of layered translucent pale fabric with faint starlight shimmer, soft silver hair, kind luminous eyes, carrying a slender wand with a glowing tip. Visible design: diaphanous starlit gown, wand, silver hair. Neutral studio background with soft glow.",
+        "promptLocal": "角色设定图：不老不死的欧洲神话女性，蒙受神恩的施助者。披层叠半透淡色织物泛细微星光，柔银长发，眼含慈光，手持发光细杖。可见设计：星光纱裙、魔杖、银发。",
+        "negativePrompt": "extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "ethereal", "magical", "three-quarter view", "soft glow"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and wand; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (wand tip glow, gown shimmer, silver hair, hem). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "空灵轻柔的年长女声",
+        "pitch": "中",
+        "pace": "缓、字句轻盈",
+        "accent": "无地域的飘渺口音",
+        "emotion": "慈爱、安然",
+        "referenceHint": "像一个说话带薄光的、从不慌张的引路人",
+        "prompt": "A female voice, ageless. Ethereal soft contralto with a faint reverberant hush. Slow, gentle, benevolent."
+      }
+    },
+    {
+      "name": "大臣",
+      "aliases": [],
+      "importance": "minor",
+      "oneLiner": "奉命携水晶鞋全城寻主、将少女引入殉葬大殿的宫廷官员。",
+      "persona": {
+        "gender": "男",
+        "ageRange": "约五十岁",
+        "identity": "宫廷大臣",
+        "appearance": "着高领深色朝服配绶带勋章，短须整齐，神情持重。",
+        "personality": ["持重", "顺从", "克制"],
+        "temperament": "公事公办，话到嘴边又咽下。",
+        "motivation": "执行国王寻人与殉葬的旨意。",
+        "arc": "从寻鞋的恭敬，到宣旨时欲言又止，终将少女引入绝境。",
+        "relationships": [
+          { "name": "国王", "relation": "君臣" },
+          { "name": "辛德瑞拉", "relation": "奉命寻来又引入大殿的少女" }
+        ],
+        "evidence": ["大臣戴着两个托着天鹅绒垫的侍卫敲开了辛德瑞拉家的大门", "大臣将辛德瑞拉带进一个宫殿，然后告退"]
+      },
+      "image": {
+        "prompt": "Character design sheet of a middle-aged European royal court official, around fifty, composed and formally dressed. He wears a dark formal court coat with a high collar and a medal sash, carrying a pair of velvet cushions. Neat short beard, neutral authoritative expression. Visible design: court coat, medal sash, velvet cushions. Neutral studio background.",
+        "promptLocal": "角色设定图：约五十岁的欧洲朝臣，持重方正。穿高领深色朝服配绶带勋章，短须整齐，手托一对天鹅绒垫。可见设计：朝服、勋章绶带、天鹅绒垫。",
+        "negativePrompt": "extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "European", "court coat", "three-quarter view", "neutral background"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing coat silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (medal sash, cushion, cuff, shoe). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "平稳持重的中年男声",
+        "pitch": "中",
+        "pace": "稳、字斟句酌",
+        "accent": "宫廷官话",
+        "emotion": "克制、欲言又止",
+        "referenceHint": "像一个把圣旨念得四平八稳、又藏住不安的朝臣",
+        "prompt": "A male voice, around fifty. Steady measured baritone, courtly. Careful measured diction, faint reluctance."
+      }
+    },
+    {
+      "name": "国王",
+      "aliases": ["国王陛下"],
+      "importance": "minor",
+      "oneLiner": "下令全城寻鞋、为亡子举行殉葬之礼的垂暮君王。",
+      "persona": {
+        "gender": "男",
+        "ageRange": "约六十岁",
+        "identity": "王国君主",
+        "appearance": "着厚重貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。",
+        "personality": ["威严", "固执", "暮气"],
+        "temperament": "一言决人生死，不见悲喜。",
+        "motivation": "为逝去的王子寻回那个少女，依礼殉葬。",
+        "arc": "未见其人，只以旨意推动结局。",
+        "relationships": [
+          { "name": "王子", "relation": "父子" },
+          { "name": "大臣", "relation": "君臣" }
+        ],
+        "evidence": ["按照国王的指示，我等在全城内搜寻鞋子的主人", "国王陛下让我们一定要找到那个女孩子"]
+      },
+      "image": {
+        "prompt": "Character design sheet of an elderly European king, around sixty, seated-authority bearing. He wears heavy royal robes with ermine trim and a jeweled crown, a long beard of silver. Weary but regal eyes. Visible design: ermine-trimmed robe, crown, silver beard. Neutral studio background.",
+        "promptLocal": "角色设定图：约六十岁的欧洲年迈男性君王，仪态威重。穿貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。可见设计：貂皮王袍、王冠、银须。",
+        "negativePrompt": "extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality",
+        "tags": ["character sheet", "fairy tale", "European", "royal robe", "three-quarter view", "neutral background"],
+        "sheet": "Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing robe silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crown, ermine trim, scepter, shoe). Details extend toward right edge; figure never compressed."
+      },
+      "voice": {
+        "timbre": "低沉苍老的年长男声",
+        "pitch": "低",
+        "pace": "缓、字字沉重",
+        "accent": "王室威严口音",
+        "emotion": "疲惫而不可违逆",
+        "referenceHint": "像一个说一不二、连丧子之痛都压在冠冕下的老国王",
+        "prompt": "An elderly male voice, around sixty. Deep grave bass, weary but absolute. Slow, weighty diction."
+      }
+    }
+  ]
+}

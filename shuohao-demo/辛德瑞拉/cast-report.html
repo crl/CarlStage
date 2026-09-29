@@ -1,0 +1,1783 @@
+<!doctype html>
+<html lang="zh"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>灰姑娘·殉葬 · 角色设定集</title>
+<style>
+/* 冷灰印张 + 铁锈红印记。红色只用在与原文有关的地方和当前选中态。 */
+:root{
+  --paper:#eceded; --panel:#f5f6f5; --side:#e4e6e3; --ink:#191d21; --ink-2:#5b636a; --ink-3:#8c9298;
+  --rule:#d2d5d0; --rule-2:#c2c6bf; --seal:#8a3324; --seal-soft:#8a332412;
+  --serif:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC",Georgia,"Iowan Old Style",serif;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --top:60px; --side-w:400px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.7 var(--sans);
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:400}
+button{font-family:inherit}
+
+/* ---------- 顶栏 ---------- */
+.top{position:sticky;top:0;z-index:20;height:var(--top);display:flex;align-items:center;gap:24px;
+  padding:0 20px;background:var(--panel);border-bottom:1px solid var(--rule-2)}
+.brand{display:flex;align-items:baseline;gap:10px;flex:none}
+.brand h1{font:400 22px/1 var(--serif);letter-spacing:.04em}
+.brand em{font:italic 12px/1 var(--serif);color:var(--ink-3)}
+.search{flex:1;max-width:720px;position:relative}
+.search input{width:100%;height:34px;padding:0 12px 0 32px;border:1px solid var(--rule-2);
+  border-radius:3px;background:var(--paper);color:var(--ink);font:14px/1 var(--sans);outline:none}
+.search input:focus{border-color:var(--seal)}
+.search svg{position:absolute;left:10px;top:9px;width:14px;height:14px;stroke:var(--ink-3);fill:none}
+.topmeta{margin-left:auto;font-size:12px;color:var(--ink-3);display:flex;align-items:center;
+  gap:10px;flex:none}
+.topmeta i{font-style:normal;color:var(--rule-2)}
+/* 导出：下载的就是内嵌的那份 cast.json，编辑完能直接喂回 render */
+.expo{margin-left:4px;font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--paper);
+  border:1px solid var(--rule-2);border-radius:2px;padding:6px 10px;cursor:pointer;transition:.15s}
+.expo:hover{border-color:var(--seal);color:var(--seal)}
+.expo:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+
+/* ---------- 骨架 ---------- */
+.shell{display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);align-items:start}
+@media(max-width:1080px){:root{--side-w:100%}.shell{grid-template-columns:1fr}}
+
+/* ---------- 左栏 ---------- */
+.side{position:sticky;top:var(--top);height:calc(100vh - var(--top));overflow-y:auto;
+  background:var(--side);border-right:1px solid var(--rule-2)}
+@media(max-width:1080px){.side{position:static;height:auto}}
+.synopsis{padding:18px 20px;border-bottom:1px solid var(--rule)}
+.lbl{font:500 10px/1 var(--sans);letter-spacing:.24em;text-transform:uppercase;color:var(--ink-3)}
+.synopsis p{margin:10px 0 0;font:400 14px/1.95 var(--serif)}
+/* 摘要默认三行，底部渐隐——左栏第一屏要留给角色列表。点一下展开，之后不再收起 */
+.syn-clamp{cursor:pointer}
+.syn-clamp p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,#000 58%,transparent);
+  mask-image:linear-gradient(180deg,#000 58%,transparent)}
+.syn-more{display:none;margin-top:7px;padding:0;background:none;border:0;cursor:pointer;
+  font:500 11px/1 var(--sans);letter-spacing:.06em;color:var(--seal)}
+.syn-clamp .syn-more{display:block}
+.syn-more:hover{text-decoration:underline}
+.syn-more:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.roster-h{padding:14px 20px 8px}
+.roster{display:block}
+.rost{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;width:100%;text-align:left;
+  padding:12px 20px;background:none;border:0;border-bottom:1px solid var(--rule);
+  border-left:2px solid transparent;cursor:pointer;color:inherit}
+.rost:hover{background:#00000006}
+.rost.on{background:var(--panel);border-left-color:var(--seal)}
+.rost:focus-visible{outline:2px solid var(--seal);outline-offset:-2px}
+/* 缩略图 = 设定图的左栏切片。设定图固定 16:9、左栏占约 34%，
+   所以把整图按 1/0.34 ≈ 294% 放大再左上对齐，裁出来正好是半身像。
+   比 <img> + object-position 可控：不依赖浏览器怎么 cover。 */
+.rost-thumb{display:block;width:76px;height:76px;border:1px solid var(--rule-2);border-radius:6px;
+  background:#fff no-repeat left top;background-size:294% auto}
+.rost-body{min-width:0}
+.rost-top{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.rost-n{font:500 10px/1 var(--mono);color:var(--ink-3);font-style:normal}
+.rost-name{font:400 17px/1.2 var(--serif);letter-spacing:.03em}
+.rost-meta{font-size:11px;color:var(--ink-3)}
+.rost-one{display:block;margin-top:5px;font-size:12.5px;line-height:1.65;color:var(--ink-2)}
+.rost-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.rost-chips i{font-style:normal;font-size:11px;padding:1px 6px;border:1px solid var(--rule-2);
+  border-radius:2px;color:var(--ink-2);background:var(--paper)}
+.side-foot{padding:14px 20px 28px;font-size:11px;line-height:1.7;color:var(--ink-3)}
+.badge{font-size:11px;padding:1px 7px;border:1px solid var(--rule-2);border-radius:2px;color:var(--ink-2)}
+.rost.on .badge,.char-h .badge{border-color:var(--seal);color:var(--seal)}
+
+/* ---------- 主区 ---------- */
+.main{padding:26px 28px 72px;min-width:0;max-width:1500px}
+.char{display:none}
+.char.on{display:block}
+.char-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+  padding-bottom:14px;border-bottom:1px solid var(--rule-2)}
+.char-n{font:500 13px/1 var(--mono);color:var(--seal)}
+.char-h h2{font:400 clamp(24px,2.4vw,30px)/1.1 var(--serif);letter-spacing:.05em}
+.aka{font-size:12px;color:var(--ink-3)}
+.char-one{margin-left:auto;font:400 14px/1.7 var(--serif);color:var(--ink-2);text-align:right;max-width:44ch}
+@media(max-width:900px){.char-one{margin-left:0;text-align:left}}
+
+.upper{display:grid;grid-template-columns:minmax(0,1fr) 500px;gap:26px;align-items:start;margin-top:20px}
+@media(max-width:1240px){.upper{grid-template-columns:1fr}}
+
+/* 设定图是白底印张 */
+.plate-wrap{position:relative;margin:0}
+.plate{display:block;width:100%;padding:0;background:#fff;border:1px solid var(--rule-2);
+  border-radius:2px;overflow:hidden;cursor:zoom-in}
+.plate img{display:block;width:100%;height:auto}
+.plate:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+/* 右下角浮在图上，hover 才明显——别挡住画面 */
+.copy-img{position:absolute;right:10px;bottom:10px;font:500 11px/1 var(--sans);color:var(--ink-2);
+  background:var(--paper);border:1px solid var(--rule-2);border-radius:3px;padding:6px 10px;
+  cursor:pointer;opacity:.55;transition:.15s}
+.plate-wrap:hover .copy-img{opacity:1}
+.copy-img:hover{border-color:var(--seal);color:var(--seal)}
+.copy-img:focus-visible{opacity:1;outline:2px solid var(--seal);outline-offset:2px}
+.copy-img[data-done]{border-color:var(--seal);color:var(--seal);opacity:1}
+
+/* 弹层 */
+.lightbox{position:fixed;inset:0;z-index:50;display:none;place-items:center;
+  background:#191d21e6;padding:32px;cursor:zoom-out}
+.lightbox.on{display:grid}
+.lightbox img{max-width:100%;max-height:100%;background:#fff;border-radius:2px;
+  box-shadow:0 8px 40px #0006}
+.lightbox-x{position:absolute;top:18px;right:22px;font:500 13px/1 var(--sans);color:#fff;
+  background:none;border:1px solid #fff6;border-radius:3px;padding:8px 12px;cursor:pointer}
+.lightbox-x:hover{border-color:#fff}
+.plate-empty{display:grid;place-items:center;min-height:220px;text-align:center;
+  border:1px dashed var(--rule-2);background:var(--panel);color:var(--ink-3);font-size:13px}
+.plate-empty em{font-style:normal;font-size:12px;opacity:.8}
+.plate-c{margin:7px 0 0;font-size:11px;letter-spacing:.1em;color:var(--ink-3)}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 30px;margin-top:24px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+.blk{margin-bottom:20px}
+.blk h3{font:500 11px/1 var(--sans);letter-spacing:.2em;color:var(--seal);margin-bottom:7px}
+.blk p{margin:0;font-size:13.5px;line-height:1.85}
+
+/* 原文：衬线体，铁锈红边栏。这里是书自己在说话 */
+.source .quotes{display:grid;grid-template-columns:1fr 1fr;gap:10px 30px}
+@media(max-width:700px){.source .quotes{grid-template-columns:1fr}}
+.source blockquote{margin:0;padding-left:13px;border-left:2px solid var(--seal);
+  font:400 13.5px/1.85 var(--serif)}
+
+/* ---------- 右侧信息卡 ---------- */
+.side-cards{display:flex;flex-direction:column;gap:14px}
+.card{border:1px solid var(--rule);border-radius:2px;background:var(--panel);padding:14px 16px}
+.card h4{font:500 11px/1 var(--sans);letter-spacing:.2em;color:var(--ink-3);margin-bottom:10px;
+  display:flex;align-items:center;gap:8px}
+.tag-en{font:500 9px/1 var(--mono);letter-spacing:.22em;color:var(--rule-2);font-style:normal}
+.card dl{margin:0}
+.kv{display:flex;gap:12px;padding:2.5px 0;font-size:13px}
+.kv dt{color:var(--ink-3);flex:none;width:46px}
+.kv dd{margin:0;min-width:0}
+.rel-n{color:var(--ink)!important;width:auto!important;min-width:46px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 0;padding:0;list-style:none}
+.tags li{font:400 11px/1.5 var(--mono);color:var(--ink-2);border:1px solid var(--rule-2);
+  background:var(--paper);border-radius:2px;padding:1px 6px}
+
+/* ---------- 提示词 ---------- */
+.prompts{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px}
+@media(max-width:900px){.prompts{grid-template-columns:1fr}}
+.pgroup{border:1px solid var(--rule);border-radius:2px;background:var(--panel);padding:6px 14px 10px}
+.pr{border-bottom:1px solid var(--rule)}
+.pgroup .pr:last-of-type{border-bottom:0}
+.pr summary{display:flex;align-items:center;gap:10px;padding:11px 0;cursor:pointer;list-style:none;
+  font:500 12px/1 var(--sans);letter-spacing:.04em}
+.pr summary::-webkit-details-marker{display:none}
+.pr summary::before{content:"▸";color:var(--seal);font-size:11px;transition:transform .15s}
+.pr[open] summary::before{transform:rotate(90deg)}
+.pr summary span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr p{margin:0 0 12px;padding:11px 12px;background:var(--paper);border:1px solid var(--rule);
+  border-radius:2px;font:400 12px/1.75 var(--mono);white-space:pre-wrap;word-break:break-word}
+.pgroup-f{padding:12px 0 4px}
+
+.copy{flex:none;font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--paper);
+  border:1px solid var(--rule-2);border-radius:2px;padding:4px 10px;cursor:pointer;transition:.15s}
+.copy:hover{border-color:var(--seal);color:var(--seal)}
+.copy:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.copy[data-done]{border-color:var(--seal);color:var(--seal)}
+.copy.wide{width:100%;padding:9px}
+
+/* ---------- 关系图谱 ---------- */
+/* 布局在 Node 里算好写进 SVG，这里只管高亮。红色仍然只给选中态 */
+.gtoggle{display:flex;align-items:center;gap:9px;width:100%;padding:13px 20px;text-align:left;
+  background:none;border:0;border-bottom:1px solid var(--rule);border-left:2px solid transparent;
+  cursor:pointer;color:var(--ink-2);font:500 12px/1 var(--sans);letter-spacing:.1em}
+.gtoggle:hover{background:#00000006}
+.gtoggle.on{background:var(--panel);border-left-color:var(--seal);color:var(--seal)}
+.gtoggle:focus-visible{outline:2px solid var(--seal);outline-offset:-2px}
+.gtoggle svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.3}
+.graph{display:none}
+.graph.on{display:block}
+.main.gmode .char{display:none}
+.graph-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+  padding-bottom:14px;border-bottom:1px solid var(--rule-2)}
+.graph-h h2{font:400 clamp(22px,2.2vw,28px)/1.1 var(--serif);letter-spacing:.05em}
+.graph-h .hint{margin-left:auto;font-size:12px;color:var(--ink-3)}
+.graph-body{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:26px;
+  align-items:start;margin-top:20px}
+@media(max-width:1100px){.graph-body{grid-template-columns:1fr}}
+.graph-canvas{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:10px}
+.graph-canvas svg{display:block;width:100%;height:auto}
+.graph-empty{margin:0 0 8px;text-align:center;font-size:12.5px;color:var(--ink-3)}
+.gedge{fill:none;stroke:var(--rule-2);stroke-width:1.1;transition:.15s}
+.gedge.hot{stroke:var(--seal);stroke-width:2}
+.gedge.dim{opacity:.15}
+.gnode{cursor:pointer;transition:.15s}
+.gnode .gdot{fill:var(--paper);stroke:var(--ink-2);stroke-width:1.5}
+/* 看不见的命中区：节点本身才十来个像素，光标很难压准。
+   单独一个类，免得被下面 .lead / .hot 的规则一起染色 */
+.gnode .ghit{fill:none;stroke:none;pointer-events:all}
+.gnode text{font:400 13px var(--serif);fill:var(--ink)}
+.gnode.lead .gdot{fill:var(--seal);stroke:var(--seal)}
+.gnode.hot .gdot{stroke:var(--seal);stroke-width:2.5}
+.gnode.hot text{fill:var(--seal)}
+.gnode.dim{opacity:.22}
+.gnode:focus-visible{outline:2px solid var(--seal)}
+/* 弦上的关系文字。默认按边数决定开不开，悬停的那条永远显示。
+   paint-order + 同色描边 = 给字加一圈底衬，压在弦上也读得清 */
+.glabel{display:none;font:400 9px var(--sans);fill:var(--ink-3);pointer-events:none;
+  paint-order:stroke;stroke:var(--panel);stroke-width:3px;stroke-linejoin:round}
+.graph.labels .glabel{display:block}
+.glabel.dim{opacity:.15}
+.glabel.hot{display:block;fill:var(--seal);font-weight:500}
+.glabtoggle{font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--paper);
+  border:1px solid var(--rule-2);border-radius:2px;padding:4px 10px;cursor:pointer;transition:.15s}
+.glabtoggle:hover{border-color:var(--seal);color:var(--seal)}
+.glabtoggle.on{border-color:var(--seal);color:var(--seal);background:var(--seal-soft)}
+.glabtoggle:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.grel{border:1px solid var(--rule);border-radius:2px;background:var(--panel)}
+.grel h4{font:500 11px/1 var(--sans);letter-spacing:.2em;color:var(--ink-3);padding:14px 16px 11px}
+.grel-list{max-height:56vh;overflow-y:auto;border-top:1px solid var(--rule)}
+.grow{display:block;width:100%;text-align:left;padding:11px 16px;background:none;border:0;
+  border-bottom:1px solid var(--rule);cursor:pointer;color:inherit;transition:.15s}
+.grow:last-child{border-bottom:0}
+.grow:hover,.grow.hot{background:var(--seal-soft)}
+.grow.dim{opacity:.3}
+.grow:focus-visible{outline:2px solid var(--seal);outline-offset:-2px}
+.grow b{font:400 14px/1.4 var(--serif);letter-spacing:.03em}
+.grow i{font-style:normal;color:var(--ink-3);padding:0 6px}
+.grow span{display:block;margin-top:4px;font-size:12.5px;line-height:1.65;color:var(--ink-2)}
+.grow em{font-style:normal;color:var(--ink-3)}
+.grel-foot{margin:0;padding:11px 16px;border-top:1px solid var(--rule);
+  font-size:11px;line-height:1.6;color:var(--ink-3)}
+
+/* 签名：推断标记 */
+.inf{color:var(--ink-3);font-size:.88em;background:var(--seal-soft);padding:0 3px;border-radius:2px}
+
+.nomatch{display:none;padding:20px;font-size:13px;color:var(--ink-3)}
+.nomatch.on{display:block}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* 屏幕上一次一个角色，纸上要完整 */
+@media print{
+  .top,.side,.copy{display:none!important}
+  .shell{display:block}
+  .main{padding:0}
+  .graph{display:block!important;page-break-after:always}
+  .char{display:block!important;page-break-after:always}
+  .pr p{display:block!important}
+  .pr summary::before{content:""}
+  body{background:#fff}
+}
+</style></head><body>
+
+<header class="top">
+  <div class="brand"><h1>灰姑娘·殉葬</h1></div>
+  <div class="search">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke-width="1.5"/><path d="M11 11l4 4" stroke-width="1.5"/></svg>
+    <input id="q" type="search" placeholder="搜索角色、特质、身份" aria-label="搜索角色、特质、身份" autocomplete="off">
+  </div>
+  <div class="topmeta">
+    <span>角色设定集</span><i>·</i>
+    <span>8 位角色 · 按戏份排序</span>
+    <button class="expo" data-name="灰姑娘·殉葬-cast.json">导出 JSON</button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="side">
+    <section class="synopsis syn-clamp"><div class="lbl">故事摘要</div><p>欧洲童话王国，一位受后母与两位姐姐欺压的少女在仙女帮助下盛装奔赴王宫舞会，以天仙之姿赢得王子倾心，却因钟声仓促离去遗落一只水晶鞋。一月后，宫廷携鞋全城寻主，少女在姐姐们落败后从容穿上，随大臣入宫，期盼与王子重逢。</p><button class="syn-more">全部展开</button></section>
+    <button class="gtoggle" aria-controls="graph">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.2" cy="4" r="1.9"/><circle cx="12.8" cy="6.2" r="1.9"/><circle cx="7.2" cy="13" r="1.9"/><path d="M5 4.6l6 1.2M4 5.9l2.5 5.4M11.7 7.9l-3.3 3.7"/></svg>
+      <span>关系图谱</span>
+    </button>
+    <div class="roster-h lbl">角色 · 按戏份排序</div>
+    <nav class="roster" aria-label="角色索引">
+      <button class="rost on" data-target="p-辛德瑞拉" data-hay="辛德瑞拉 那个女孩 受压迫的继女 / 舞会上的无名佳人 女 约十八岁 优雅 隐忍 从容 清醒 寄人篱下却优雅自持的少女，被命运推上幸福的悬崖又坠入殉葬的绝境。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">01</em>
+      <b class="rost-name">辛德瑞拉</b>
+      <span class="badge">主角</span>
+      <span class="rost-meta">女 · 约十八岁</span>
+    </span>
+    <span class="rost-one">寄人篱下却优雅自持的少女，被命运推上幸福的悬崖又坠入殉葬的绝境。</span>
+    <span class="rost-chips"><i>优雅</i><i>隐忍</i><i>从容</i><i>清醒</i></span>
+  </span>
+</button>
+<button class="rost" data-target="p-王子" data-hay="王子 王子殿下 王国继承人 男 约二十二岁 温柔 诚挚 深情 单纯 在舞会上被灰姑娘彻底征服的年轻王子，因思念成疾而早逝。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">02</em>
+      <b class="rost-name">王子</b>
+      <span class="badge">主角</span>
+      <span class="rost-meta">男 · 约二十二岁</span>
+    </span>
+    <span class="rost-one">在舞会上被灰姑娘彻底征服的年轻王子，因思念成疾而早逝。</span>
+    <span class="rost-chips"><i>温柔</i><i>诚挚</i><i>深情</i><i>单纯</i></span>
+  </span>
+</button>
+<button class="rost" data-target="p-后母" data-hay="后母 宅邸的女主人 女 约四十五岁 刻薄 控制 嫉妒 冷硬 长期压迫辛德瑞拉、见其命运反转便满眼嫉妒的家长。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">03</em>
+      <b class="rost-name">后母</b>
+      <span class="badge">配角</span>
+      <span class="rost-meta">女 · 约四十五岁</span>
+    </span>
+    <span class="rost-one">长期压迫辛德瑞拉、见其命运反转便满眼嫉妒的家长。</span>
+    <span class="rost-chips"><i>刻薄</i><i>控制</i><i>嫉妒</i><i>冷硬</i></span>
+  </span>
+</button>
+<button class="rost" data-target="p-大姐" data-hay="大姐 姐姐 后母的长女 女 约二十岁 虚荣 争强 善妒 争穿水晶鞋落败、满心嫉妒的姐姐之一。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">04</em>
+      <b class="rost-name">大姐</b>
+      <span class="badge">配角</span>
+      <span class="rost-meta">女 · 约二十岁</span>
+    </span>
+    <span class="rost-one">争穿水晶鞋落败、满心嫉妒的姐姐之一。</span>
+    <span class="rost-chips"><i>虚荣</i><i>争强</i><i>善妒</i></span>
+  </span>
+</button>
+<button class="rost" data-target="p-二姐" data-hay="二姐 姐姐 后母的次女 女 约十八岁 虚荣 善妒 慌张 与大姐一同争穿水晶鞋落败的妹妹。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">05</em>
+      <b class="rost-name">二姐</b>
+      <span class="badge">配角</span>
+      <span class="rost-meta">女 · 约十八岁</span>
+    </span>
+    <span class="rost-one">与大姐一同争穿水晶鞋落败的妹妹。</span>
+    <span class="rost-chips"><i>虚荣</i><i>善妒</i><i>慌张</i></span>
+  </span>
+</button>
+<button class="rost" data-target="p-仙女" data-hay="仙女 魔法教母 女 不老不死之感 慈爱 神秘 从容 赐下华服、水晶鞋与南瓜马车，开启入宫前提的魔法助力者。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">06</em>
+      <b class="rost-name">仙女</b>
+      <span class="badge">配角</span>
+      <span class="rost-meta">女 · 不老不死之感</span>
+    </span>
+    <span class="rost-one">赐下华服、水晶鞋与南瓜马车，开启入宫前提的魔法助力者。</span>
+    <span class="rost-chips"><i>慈爱</i><i>神秘</i><i>从容</i></span>
+  </span>
+</button>
+<button class="rost" data-target="p-大臣" data-hay="大臣 宫廷大臣 男 约五十岁 持重 顺从 克制 奉命携水晶鞋全城寻主、将少女引入殉葬大殿的宫廷官员。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">07</em>
+      <b class="rost-name">大臣</b>
+      <span class="badge">龙套</span>
+      <span class="rost-meta">男 · 约五十岁</span>
+    </span>
+    <span class="rost-one">奉命携水晶鞋全城寻主、将少女引入殉葬大殿的宫廷官员。</span>
+    <span class="rost-chips"><i>持重</i><i>顺从</i><i>克制</i></span>
+  </span>
+</button>
+<button class="rost" data-target="p-国王" data-hay="国王 国王陛下 王国君主 男 约六十岁 威严 固执 暮气 下令全城寻鞋、为亡子举行殉葬之礼的垂暮君王。">
+  <span class="rost-thumb"></span>
+  <span class="rost-body">
+    <span class="rost-top">
+      <em class="rost-n">08</em>
+      <b class="rost-name">国王</b>
+      <span class="badge">龙套</span>
+      <span class="rost-meta">男 · 约六十岁</span>
+    </span>
+    <span class="rost-one">下令全城寻鞋、为亡子举行殉葬之礼的垂暮君王。</span>
+    <span class="rost-chips"><i>威严</i><i>固执</i><i>暮气</i></span>
+  </span>
+</button>
+    </nav>
+    <p class="nomatch">没有匹配的角色</p>
+    <p class="side-foot">标注（推断）的条目为原文未明写、依据文本推演。</p>
+  </aside>
+
+  <main class="main">
+    <section class="graph labels" id="graph">
+  <header class="graph-h">
+    <h2>关系图谱</h2>
+    <span class="badge">8 位角色 · 10 组关系</span>
+    <button class="glabtoggle on" aria-pressed="true">关系文字</button>
+    <span class="hint">悬停看关系，点击进角色</span>
+  </header>
+  <div class="graph-body">
+    <div class="graph-canvas">
+      <svg viewBox="0 0 524 524" role="img" aria-label="关系图谱">
+        <g class="gedges"><path class="gedge" data-a="王子" data-b="辛德瑞拉" d="M369.5 154.5 Q280.8 216.6 262 110"></path><path class="gedge" data-a="后母" data-b="辛德瑞拉" d="M414 262 Q288.6 235.4 262 110"></path><path class="gedge" data-a="仙女" data-b="辛德瑞拉" d="M154.5 369.5 Q243.2 254.2 262 110"></path><path class="gedge" data-a="国王" data-b="王子" d="M154.5 154.5 Q262 224.4 369.5 154.5"></path><path class="gedge" data-a="后母" data-b="大姐" d="M414 262 Q307.4 280.8 369.5 369.5"></path><path class="gedge" data-a="二姐" data-b="后母" d="M262 414 Q288.6 288.6 414 262"></path><path class="gedge" data-a="大姐" data-b="辛德瑞拉" d="M369.5 369.5 Q280.8 254.2 262 110"></path><path class="gedge" data-a="二姐" data-b="辛德瑞拉" d="M262 414 Q262 262 262 110"></path><path class="gedge" data-a="国王" data-b="大臣" d="M154.5 154.5 Q216.6 243.2 110 262"></path><path class="gedge" data-a="大臣" data-b="辛德瑞拉" d="M110 262 Q235.4 235.4 262 110"></path></g>
+        <g class="gnodes"><g class="gnode lead" data-node="辛德瑞拉" data-target="p-辛德瑞拉" tabindex="0" role="button" aria-label="辛德瑞拉">
+  <circle class="ghit" cx="262" cy="110" r="24"></circle>
+  <circle class="gdot" cx="262" cy="110" r="11"></circle>
+  <text x="262" y="89" text-anchor="middle">辛德瑞拉</text>
+</g><g class="gnode lead" data-node="王子" data-target="p-王子" tabindex="0" role="button" aria-label="王子">
+  <circle class="ghit" cx="369.5" cy="154.5" r="24"></circle>
+  <circle class="gdot" cx="369.5" cy="154.5" r="11"></circle>
+  <text x="380.1" y="148.4" text-anchor="start">王子</text>
+</g><g class="gnode" data-node="后母" data-target="p-后母" tabindex="0" role="button" aria-label="后母">
+  <circle class="ghit" cx="414" cy="262" r="24"></circle>
+  <circle class="gdot" cx="414" cy="262" r="7"></circle>
+  <text x="429" y="266.5" text-anchor="start">后母</text>
+</g><g class="gnode" data-node="大姐" data-target="p-大姐" tabindex="0" role="button" aria-label="大姐">
+  <circle class="ghit" cx="369.5" cy="369.5" r="24"></circle>
+  <circle class="gdot" cx="369.5" cy="369.5" r="7"></circle>
+  <text x="380.1" y="384.6" text-anchor="start">大姐</text>
+</g><g class="gnode" data-node="二姐" data-target="p-二姐" tabindex="0" role="button" aria-label="二姐">
+  <circle class="ghit" cx="262" cy="414" r="24"></circle>
+  <circle class="gdot" cx="262" cy="414" r="7"></circle>
+  <text x="262" y="443" text-anchor="middle">二姐</text>
+</g><g class="gnode" data-node="仙女" data-target="p-仙女" tabindex="0" role="button" aria-label="仙女">
+  <circle class="ghit" cx="154.5" cy="369.5" r="24"></circle>
+  <circle class="gdot" cx="154.5" cy="369.5" r="7"></circle>
+  <text x="143.9" y="384.6" text-anchor="end">仙女</text>
+</g><g class="gnode" data-node="大臣" data-target="p-大臣" tabindex="0" role="button" aria-label="大臣">
+  <circle class="ghit" cx="110" cy="262" r="24"></circle>
+  <circle class="gdot" cx="110" cy="262" r="5.5"></circle>
+  <text x="95" y="266.5" text-anchor="end">大臣</text>
+</g><g class="gnode" data-node="国王" data-target="p-国王" tabindex="0" role="button" aria-label="国王">
+  <circle class="ghit" cx="154.5" cy="154.5" r="24"></circle>
+  <circle class="gdot" cx="154.5" cy="154.5" r="5.5"></circle>
+  <text x="143.9" y="148.4" text-anchor="end">国王</text>
+</g></g>
+        <g class="glabels"><text class="glabel" data-a="王子" data-b="辛德瑞拉" x="314.7" y="177.4" text-anchor="middle" dominant-baseline="middle">舞会上倾心于…<title>辛德瑞拉 · 舞会上倾心于她的倾慕者
+王子 · 舞会上倾心、临终仍念念不忘的少女</title></text><text class="glabel" data-a="后母" data-b="辛德瑞拉" x="313.3" y="210.7" text-anchor="middle" dominant-baseline="middle">长期压迫她的…<title>辛德瑞拉 · 长期压迫她的家长
+后母 · 被她长期压迫的继女</title></text><text class="glabel" data-a="仙女" data-b="辛德瑞拉" x="239.4" y="210.1" text-anchor="middle" dominant-baseline="middle">受她眷顾的少…<title>辛德瑞拉 · 赐她华服与马车的好意者
+仙女 · 受她眷顾的少女</title></text><text class="glabel" data-a="国王" data-b="王子" x="231.9" y="186.7" text-anchor="middle" dominant-baseline="middle">父子<title>王子 · 父子
+国王 · 父子</title></text><text class="glabel" data-a="后母" data-b="大姐" x="349.6" y="298.3" text-anchor="middle" dominant-baseline="middle">母女<title>后母 · 亲生女儿
+大姐 · 母女</title></text><text class="glabel" data-a="二姐" data-b="后母" x="336.5" y="294" text-anchor="middle" dominant-baseline="middle">母女<title>后母 · 亲生女儿
+二姐 · 母女</title></text><text class="glabel" data-a="大姐" data-b="辛德瑞拉" x="314.7" y="282.7" text-anchor="middle" dominant-baseline="middle">嫉妒的继妹<title>大姐 · 嫉妒的继妹</title></text><text class="glabel" data-a="二姐" data-b="辛德瑞拉" x="262" y="262" text-anchor="middle" dominant-baseline="middle">嫉妒的继妹<title>二姐 · 嫉妒的继妹</title></text><text class="glabel" data-a="国王" data-b="大臣" x="164.9" y="239.4" text-anchor="middle" dominant-baseline="middle">君臣<title>大臣 · 君臣
+国王 · 君臣</title></text><text class="glabel" data-a="大臣" data-b="辛德瑞拉" x="187.5" y="230" text-anchor="middle" dominant-baseline="middle">奉命寻来又引…<title>大臣 · 奉命寻来又引入大殿的少女</title></text></g>
+      </svg>
+      
+    </div>
+    <aside class="grel">
+      <h4>全部关系</h4>
+      <div class="grel-list"><button class="grow" data-a="王子" data-b="辛德瑞拉" data-target="p-王子">
+  <b>王子</b><i>—</i><b>辛德瑞拉</b>
+  <span><em>辛德瑞拉</em> 舞会上倾心于她的倾慕者</span><span><em>王子</em> 舞会上倾心、临终仍念念不忘的少女</span>
+</button><button class="grow" data-a="后母" data-b="辛德瑞拉" data-target="p-后母">
+  <b>后母</b><i>—</i><b>辛德瑞拉</b>
+  <span><em>辛德瑞拉</em> 长期压迫她的家长</span><span><em>后母</em> 被她长期压迫的继女</span>
+</button><button class="grow" data-a="仙女" data-b="辛德瑞拉" data-target="p-仙女">
+  <b>仙女</b><i>—</i><b>辛德瑞拉</b>
+  <span><em>辛德瑞拉</em> 赐她华服与马车的好意者</span><span><em>仙女</em> 受她眷顾的少女</span>
+</button><button class="grow" data-a="国王" data-b="王子" data-target="p-国王">
+  <b>国王</b><i>—</i><b>王子</b>
+  <span><em>王子</em> 父子</span><span><em>国王</em> 父子</span>
+</button><button class="grow" data-a="后母" data-b="大姐" data-target="p-后母">
+  <b>后母</b><i>—</i><b>大姐</b>
+  <span><em>后母</em> 亲生女儿</span><span><em>大姐</em> 母女</span>
+</button><button class="grow" data-a="二姐" data-b="后母" data-target="p-二姐">
+  <b>二姐</b><i>—</i><b>后母</b>
+  <span><em>后母</em> 亲生女儿</span><span><em>二姐</em> 母女</span>
+</button><button class="grow" data-a="大姐" data-b="辛德瑞拉" data-target="p-大姐">
+  <b>大姐</b><i>—</i><b>辛德瑞拉</b>
+  <span><em>大姐</em> 嫉妒的继妹</span>
+</button><button class="grow" data-a="二姐" data-b="辛德瑞拉" data-target="p-二姐">
+  <b>二姐</b><i>—</i><b>辛德瑞拉</b>
+  <span><em>二姐</em> 嫉妒的继妹</span>
+</button><button class="grow" data-a="国王" data-b="大臣" data-target="p-国王">
+  <b>国王</b><i>—</i><b>大臣</b>
+  <span><em>大臣</em> 君臣</span><span><em>国王</em> 君臣</span>
+</button><button class="grow" data-a="大臣" data-b="辛德瑞拉" data-target="p-大臣">
+  <b>大臣</b><i>—</i><b>辛德瑞拉</b>
+  <span><em>大臣</em> 奉命寻来又引入大殿的少女</span>
+</button></div>
+      
+    </aside>
+  </div>
+</section>
+    <article class="char on" id="p-辛德瑞拉">
+  <header class="char-h">
+    <span class="char-n">01</span>
+    <h2>辛德瑞拉</h2>
+    <span class="badge">主角</span>
+    <span class="aka">又称　那个女孩</span>
+    <span class="char-one">寄人篱下却优雅自持的少女，被命运推上幸福的悬崖又坠入殉葬的绝境。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>辛德瑞拉 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>身形纤细优雅，柔金长发，大眼温柔含愁。盛装时是浅蓝舞会礼裙配单只水晶鞋、另一只赤足的天仙之姿。</p></section>
+        <section class="blk"><h3>性情</h3><p>外表温婉平和，内里自有主见，绝境中仍保持体面。</p></section>
+        <section class="blk"><h3>动机</h3><p>挣脱压迫、赢得属于自己的幸福，最终只是想活着走出那扇门。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>从默默劳作的灰姑娘到被万众瞩目的舞会佳人，再于真相前由憧憬跌入求生的本能。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>轻轻一套，就穿上了水晶鞋，不大不小，不胖不瘦</blockquote><blockquote>可是，殿门锁死了。</blockquote><blockquote>辛德瑞拉恍然明白过来自己的处境</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>女</dd></div><div class="kv"><dt>年龄</dt><dd>约十八岁</dd></div><div class="kv"><dt>身份</dt><dd>受压迫的继女 / 舞会上的无名佳人</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">王子</dt><dd>舞会上倾心于她的倾慕者</dd></div><div class="kv"><dt class="rel-n">后母</dt><dd>长期压迫她的家长</dd></div><div class="kv"><dt class="rel-n">仙女</dt><dd>赐她华服与马车的好意者</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>柔和略带气声的年轻女声，温润清亮</dd></div><div class="kv"><dt>音高</dt><dd>中高</dd></div><div class="kv"><dt>语速</dt><dd>从容舒缓，重逢戏里微微发颤</dd></div><div class="kv"><dt>口音</dt><dd>旧欧洲宫廷的雅致口音，尾音轻扬</dd></div><div class="kv"><dt>情绪</dt><dd>平静中藏着隐忍与一丝哀愁</dd></div><div class="kv"><dt>类比</dt><dd>像一个在压迫中仍保持优雅、说话轻声却字字清楚的少女</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>European</li><li>period costume</li><li>three-quarter view</li><li>neutral background</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of a young European woman from a fairy-tale kingdom era, around eighteen, slender and graceful. She wears a flowing pale-blue ball gown with delicate silver embroidery and a single crystal shoe on one foot while the other foot is bare. Soft golden hair, large expressive eyes, gentle features. Visible design cues: ballroom gown, single glass slipper, bare foot. Neutral studio background, soft rim light.">复制</button></summary>
+  <p>Character design sheet of a young European woman from a fairy-tale kingdom era, around eighteen, slender and graceful. She wears a flowing pale-blue ball gown with delicate silver embroidery and a single crystal shoe on one foot while the other foot is bare. Soft golden hair, large expressive eyes, gentle features. Visible design cues: ballroom gown, single glass slipper, bare foot. Neutral studio background, soft rim light.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor, fine facial features. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and proportions; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crystal slipper, gown embroidery, hairstyle, bare foot). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor, fine facial features. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and proportions; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crystal slipper, gown embroidery, hairstyle, bare foot). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, fused fingers, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, fused fingers, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：约十八岁的欧洲童话王国少女，身形纤细优雅。穿浅蓝舞会礼裙缀银线刺绣，一只脚穿水晶鞋、另一只赤足。柔金长发，大眼温柔。可见设计：舞会礼裙、单只水晶鞋、赤足。">复制</button></summary>
+  <p>角色设定图：约十八岁的欧洲童话王国少女，身形纤细优雅。穿浅蓝舞会礼裙缀银线刺绣，一只脚穿水晶鞋、另一只赤足。柔金长发，大眼温柔。可见设计：舞会礼裙、单只水晶鞋、赤足。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="A young female voice, around eighteen. Soft, warm, slightly breathy soprano. Gentle pace, refined diction with a faint old-European court lilt. Calm but with underlying melancholy.">复制</button></summary>
+  <p>A young female voice, around eighteen. Soft, warm, slightly breathy soprano. Gentle pace, refined diction with a faint old-European court lilt. Calm but with underlying melancholy.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;辛德瑞拉&quot;,
+  &quot;aliases&quot;: [
+    &quot;那个女孩&quot;
+  ],
+  &quot;importance&quot;: &quot;protagonist&quot;,
+  &quot;oneLiner&quot;: &quot;寄人篱下却优雅自持的少女，被命运推上幸福的悬崖又坠入殉葬的绝境。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;女&quot;,
+    &quot;ageRange&quot;: &quot;约十八岁&quot;,
+    &quot;identity&quot;: &quot;受压迫的继女 / 舞会上的无名佳人&quot;,
+    &quot;appearance&quot;: &quot;身形纤细优雅，柔金长发，大眼温柔含愁。盛装时是浅蓝舞会礼裙配单只水晶鞋、另一只赤足的天仙之姿。&quot;,
+    &quot;personality&quot;: [
+      &quot;优雅&quot;,
+      &quot;隐忍&quot;,
+      &quot;从容&quot;,
+      &quot;清醒&quot;
+    ],
+    &quot;temperament&quot;: &quot;外表温婉平和，内里自有主见，绝境中仍保持体面。&quot;,
+    &quot;motivation&quot;: &quot;挣脱压迫、赢得属于自己的幸福，最终只是想活着走出那扇门。&quot;,
+    &quot;arc&quot;: &quot;从默默劳作的灰姑娘到被万众瞩目的舞会佳人，再于真相前由憧憬跌入求生的本能。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;王子&quot;,
+        &quot;relation&quot;: &quot;舞会上倾心于她的倾慕者&quot;
+      },
+      {
+        &quot;name&quot;: &quot;后母&quot;,
+        &quot;relation&quot;: &quot;长期压迫她的家长&quot;
+      },
+      {
+        &quot;name&quot;: &quot;仙女&quot;,
+        &quot;relation&quot;: &quot;赐她华服与马车的好意者&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;轻轻一套，就穿上了水晶鞋，不大不小，不胖不瘦&quot;,
+      &quot;可是，殿门锁死了。&quot;,
+      &quot;辛德瑞拉恍然明白过来自己的处境&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of a young European woman from a fairy-tale kingdom era, around eighteen, slender and graceful. She wears a flowing pale-blue ball gown with delicate silver embroidery and a single crystal shoe on one foot while the other foot is bare. Soft golden hair, large expressive eyes, gentle features. Visible design cues: ballroom gown, single glass slipper, bare foot. Neutral studio background, soft rim light.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：约十八岁的欧洲童话王国少女，身形纤细优雅。穿浅蓝舞会礼裙缀银线刺绣，一只脚穿水晶鞋、另一只赤足。柔金长发，大眼温柔。可见设计：舞会礼裙、单只水晶鞋、赤足。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, fused fingers, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;European&quot;,
+      &quot;period costume&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;neutral background&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor, fine facial features. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and proportions; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crystal slipper, gown embroidery, hairstyle, bare foot). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;柔和略带气声的年轻女声，温润清亮&quot;,
+    &quot;pitch&quot;: &quot;中高&quot;,
+    &quot;pace&quot;: &quot;从容舒缓，重逢戏里微微发颤&quot;,
+    &quot;accent&quot;: &quot;旧欧洲宫廷的雅致口音，尾音轻扬&quot;,
+    &quot;emotion&quot;: &quot;平静中藏着隐忍与一丝哀愁&quot;,
+    &quot;referenceHint&quot;: &quot;像一个在压迫中仍保持优雅、说话轻声却字字清楚的少女&quot;,
+    &quot;prompt&quot;: &quot;A young female voice, around eighteen. Soft, warm, slightly breathy soprano. Gentle pace, refined diction with a faint old-European court lilt. Calm but with underlying melancholy.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+<article class="char" id="p-王子">
+  <header class="char-h">
+    <span class="char-n">02</span>
+    <h2>王子</h2>
+    <span class="badge">主角</span>
+    <span class="aka">又称　王子殿下</span>
+    <span class="char-one">在舞会上被灰姑娘彻底征服的年轻王子，因思念成疾而早逝。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>王子 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>身形挺拔高贵，柔黑短发，眼神诚挚温热。盛装时着带肩饰与绶带的王室军礼服。</p></section>
+        <section class="blk"><h3>性情</h3><p>眼中藏不住倾慕，待人宽厚，却也天真易陷。</p></section>
+        <section class="blk"><h3>动机</h3><p>找到舞会上那个无名少女，立她为妃。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>偶遇倾心到思念成疾而亡，始终未再见她一面。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>王子走上前去，眼中是无法抹去的温柔与倾慕</blockquote><blockquote>美丽的女孩，我能邀请你跳一支舞吗？</blockquote><blockquote>王子殿下因为过度思念那个在舞会上偶遇的少女，已经思念成疾，于三天前去世了</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>男</dd></div><div class="kv"><dt>年龄</dt><dd>约二十二岁</dd></div><div class="kv"><dt>身份</dt><dd>王国继承人</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">辛德瑞拉</dt><dd>舞会上倾心、临终仍念念不忘的少女</dd></div><div class="kv"><dt class="rel-n">国王</dt><dd>父子</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>温润清朗的年轻男声，带贵族教养</dd></div><div class="kv"><dt>音高</dt><dd>中</dd></div><div class="kv"><dt>语速</dt><dd>舒缓而恳切</dd></div><div class="kv"><dt>口音</dt><dd>王室典雅口音</dd></div><div class="kv"><dt>情绪</dt><dd>温柔倾慕、真诚</dd></div><div class="kv"><dt>类比</dt><dd>像一个从小被礼数浸润、说话低柔却让人安心的年轻王子</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>European</li><li>royal uniform</li><li>three-quarter view</li><li>neutral background</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of a young European prince from a fairy-tale kingdom era, around twenty-two, tall and noble. He wears a royal military dress uniform with epaulettes and a ceremonial sash, a slender sword at his side. Soft dark hair, earnest warm eyes. Visible design: prince regalia, sash, dress uniform. Neutral studio background.">复制</button></summary>
+  <p>Character design sheet of a young European prince from a fairy-tale kingdom era, around twenty-two, tall and noble. He wears a royal military dress uniform with epaulettes and a ceremonial sash, a slender sword at his side. Soft dark hair, earnest warm eyes. Visible design: prince regalia, sash, dress uniform. Neutral studio background.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing uniform silhouette and posture; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (sash, epaulette, sword hilt, boot). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing uniform silhouette and posture; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (sash, epaulette, sword hilt, boot). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：约二十二岁的欧洲童话国度年轻王室男性，身形挺拔高贵。着带肩饰与绶带的军礼服，腰侧佩细剑。柔黑短发，眼神诚挚温热。可见设计：王室礼服、绶带、佩剑。">复制</button></summary>
+  <p>角色设定图：约二十二岁的欧洲童话国度年轻王室男性，身形挺拔高贵。着带肩饰与绶带的军礼服，腰侧佩细剑。柔黑短发，眼神诚挚温热。可见设计：王室礼服、绶带、佩剑。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="A young male voice, around twenty-two. Warm clear tenor with noble breeding. Moderate pace, earnest and gentle. Refined royal diction.">复制</button></summary>
+  <p>A young male voice, around twenty-two. Warm clear tenor with noble breeding. Moderate pace, earnest and gentle. Refined royal diction.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;王子&quot;,
+  &quot;aliases&quot;: [
+    &quot;王子殿下&quot;
+  ],
+  &quot;importance&quot;: &quot;protagonist&quot;,
+  &quot;oneLiner&quot;: &quot;在舞会上被灰姑娘彻底征服的年轻王子，因思念成疾而早逝。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;男&quot;,
+    &quot;ageRange&quot;: &quot;约二十二岁&quot;,
+    &quot;identity&quot;: &quot;王国继承人&quot;,
+    &quot;appearance&quot;: &quot;身形挺拔高贵，柔黑短发，眼神诚挚温热。盛装时着带肩饰与绶带的王室军礼服。&quot;,
+    &quot;personality&quot;: [
+      &quot;温柔&quot;,
+      &quot;诚挚&quot;,
+      &quot;深情&quot;,
+      &quot;单纯&quot;
+    ],
+    &quot;temperament&quot;: &quot;眼中藏不住倾慕，待人宽厚，却也天真易陷。&quot;,
+    &quot;motivation&quot;: &quot;找到舞会上那个无名少女，立她为妃。&quot;,
+    &quot;arc&quot;: &quot;偶遇倾心到思念成疾而亡，始终未再见她一面。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;辛德瑞拉&quot;,
+        &quot;relation&quot;: &quot;舞会上倾心、临终仍念念不忘的少女&quot;
+      },
+      {
+        &quot;name&quot;: &quot;国王&quot;,
+        &quot;relation&quot;: &quot;父子&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;王子走上前去，眼中是无法抹去的温柔与倾慕&quot;,
+      &quot;美丽的女孩，我能邀请你跳一支舞吗？&quot;,
+      &quot;王子殿下因为过度思念那个在舞会上偶遇的少女，已经思念成疾，于三天前去世了&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of a young European prince from a fairy-tale kingdom era, around twenty-two, tall and noble. He wears a royal military dress uniform with epaulettes and a ceremonial sash, a slender sword at his side. Soft dark hair, earnest warm eyes. Visible design: prince regalia, sash, dress uniform. Neutral studio background.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：约二十二岁的欧洲童话国度年轻王室男性，身形挺拔高贵。着带肩饰与绶带的军礼服，腰侧佩细剑。柔黑短发，眼神诚挚温热。可见设计：王室礼服、绶带、佩剑。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;European&quot;,
+      &quot;royal uniform&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;neutral background&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing uniform silhouette and posture; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (sash, epaulette, sword hilt, boot). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;温润清朗的年轻男声，带贵族教养&quot;,
+    &quot;pitch&quot;: &quot;中&quot;,
+    &quot;pace&quot;: &quot;舒缓而恳切&quot;,
+    &quot;accent&quot;: &quot;王室典雅口音&quot;,
+    &quot;emotion&quot;: &quot;温柔倾慕、真诚&quot;,
+    &quot;referenceHint&quot;: &quot;像一个从小被礼数浸润、说话低柔却让人安心的年轻王子&quot;,
+    &quot;prompt&quot;: &quot;A young male voice, around twenty-two. Warm clear tenor with noble breeding. Moderate pace, earnest and gentle. Refined royal diction.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+<article class="char" id="p-后母">
+  <header class="char-h">
+    <span class="char-n">03</span>
+    <h2>后母</h2>
+    <span class="badge">配角</span>
+    
+    <span class="char-one">长期压迫辛德瑞拉、见其命运反转便满眼嫉妒的家长。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>后母 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>衣着暗色高领长裙，发髻紧绾，面容刻薄，唇线紧抿。</p></section>
+        <section class="blk"><h3>性情</h3><p>永远绷着脸，对辛德瑞拉的胜利难以释怀。</p></section>
+        <section class="blk"><h3>动机</h3><p>压住继女的风头，维系自家女儿的出路。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>从掌控全局的压迫者，到眼睁睁看继女登上马车、满心不甘。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>后母和两位姐姐走后</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>女</dd></div><div class="kv"><dt>年龄</dt><dd>约四十五岁</dd></div><div class="kv"><dt>身份</dt><dd>宅邸的女主人</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">辛德瑞拉</dt><dd>被她长期压迫的继女</dd></div><div class="kv"><dt class="rel-n">大姐</dt><dd>亲生女儿</dd></div><div class="kv"><dt class="rel-n">二姐</dt><dd>亲生女儿</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>低沉干涩的中年女声</dd></div><div class="kv"><dt>音高</dt><dd>中低</dd></div><div class="kv"><dt>语速</dt><dd>慢而带着命令感</dd></div><div class="kv"><dt>口音</dt><dd>旧欧洲家母口音</dd></div><div class="kv"><dt>情绪</dt><dd>冷淡、不耐</dd></div><div class="kv"><dt>类比</dt><dd>像一个习惯发号施令、从不肯软下声气的女主人</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>European</li><li>period gown</li><li>three-quarter view</li><li>neutral background</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of a middle-aged European woman, stern matron of a household, around forty-five. She wears a dark high-necked gown with a rigid corseted silhouette, hair pinned in a tight severe bun. Sharp features, thin pressed lips, cold eyes. Visible design: dark austere gown, tight bun, perpetual frown. Neutral studio background.">复制</button></summary>
+  <p>Character design sheet of a middle-aged European woman, stern matron of a household, around forty-five. She wears a dark high-necked gown with a rigid corseted silhouette, hair pinned in a tight severe bun. Sharp features, thin pressed lips, cold eyes. Visible design: dark austere gown, tight bun, perpetual frown. Neutral studio background.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (bun, gown collar, ring, shoes). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (bun, gown collar, ring, shoes). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：约四十五岁的欧洲中年贵妇，神情严厉。穿暗色高领紧身长裙，发髻紧绾，唇线抿紧，眼神冷硬。可见设计：暗色肃穆长裙、紧发髻、惯常的蹙眉。">复制</button></summary>
+  <p>角色设定图：约四十五岁的欧洲中年贵妇，神情严厉。穿暗色高领紧身长裙，发髻紧绾，唇线抿紧，眼神冷硬。可见设计：暗色肃穆长裙、紧发髻、惯常的蹙眉。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="A middle-aged female voice, around forty-five. Low dry contralto, commanding. Slow pace, crisp cold diction.">复制</button></summary>
+  <p>A middle-aged female voice, around forty-five. Low dry contralto, commanding. Slow pace, crisp cold diction.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;后母&quot;,
+  &quot;aliases&quot;: [],
+  &quot;importance&quot;: &quot;supporting&quot;,
+  &quot;oneLiner&quot;: &quot;长期压迫辛德瑞拉、见其命运反转便满眼嫉妒的家长。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;女&quot;,
+    &quot;ageRange&quot;: &quot;约四十五岁&quot;,
+    &quot;identity&quot;: &quot;宅邸的女主人&quot;,
+    &quot;appearance&quot;: &quot;衣着暗色高领长裙，发髻紧绾，面容刻薄，唇线紧抿。&quot;,
+    &quot;personality&quot;: [
+      &quot;刻薄&quot;,
+      &quot;控制&quot;,
+      &quot;嫉妒&quot;,
+      &quot;冷硬&quot;
+    ],
+    &quot;temperament&quot;: &quot;永远绷着脸，对辛德瑞拉的胜利难以释怀。&quot;,
+    &quot;motivation&quot;: &quot;压住继女的风头，维系自家女儿的出路。&quot;,
+    &quot;arc&quot;: &quot;从掌控全局的压迫者，到眼睁睁看继女登上马车、满心不甘。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;辛德瑞拉&quot;,
+        &quot;relation&quot;: &quot;被她长期压迫的继女&quot;
+      },
+      {
+        &quot;name&quot;: &quot;大姐&quot;,
+        &quot;relation&quot;: &quot;亲生女儿&quot;
+      },
+      {
+        &quot;name&quot;: &quot;二姐&quot;,
+        &quot;relation&quot;: &quot;亲生女儿&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;后母和两位姐姐走后&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of a middle-aged European woman, stern matron of a household, around forty-five. She wears a dark high-necked gown with a rigid corseted silhouette, hair pinned in a tight severe bun. Sharp features, thin pressed lips, cold eyes. Visible design: dark austere gown, tight bun, perpetual frown. Neutral studio background.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：约四十五岁的欧洲中年贵妇，神情严厉。穿暗色高领紧身长裙，发髻紧绾，唇线抿紧，眼神冷硬。可见设计：暗色肃穆长裙、紧发髻、惯常的蹙眉。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;European&quot;,
+      &quot;period gown&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;neutral background&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (bun, gown collar, ring, shoes). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;低沉干涩的中年女声&quot;,
+    &quot;pitch&quot;: &quot;中低&quot;,
+    &quot;pace&quot;: &quot;慢而带着命令感&quot;,
+    &quot;accent&quot;: &quot;旧欧洲家母口音&quot;,
+    &quot;emotion&quot;: &quot;冷淡、不耐&quot;,
+    &quot;referenceHint&quot;: &quot;像一个习惯发号施令、从不肯软下声气的女主人&quot;,
+    &quot;prompt&quot;: &quot;A middle-aged female voice, around forty-five. Low dry contralto, commanding. Slow pace, crisp cold diction.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+<article class="char" id="p-大姐">
+  <header class="char-h">
+    <span class="char-n">04</span>
+    <h2>大姐</h2>
+    <span class="badge">配角</span>
+    <span class="aka">又称　姐姐</span>
+    <span class="char-one">争穿水晶鞋落败、满心嫉妒的姐姐之一。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>大姐 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>穿繁复珠宝色长裙，发卷夸张，嘴角因不服而绷着。身量略高。</p></section>
+        <section class="blk"><h3>性情</h3><p>争宠时抢在前头，落败后写满不甘。</p></section>
+        <section class="blk"><h3>动机</h3><p>抢先穿上水晶鞋、嫁给王子。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>争穿失败，垂头丧气离场，目送继妹登车。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>看着两个姐姐争先恐后地试穿水晶鞋</blockquote><blockquote>在两个姐姐嫉妒的目光下</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>女</dd></div><div class="kv"><dt>年龄</dt><dd>约二十岁</dd></div><div class="kv"><dt>身份</dt><dd>后母的长女</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">后母</dt><dd>母女</dd></div><div class="kv"><dt class="rel-n">辛德瑞拉</dt><dd>嫉妒的继妹</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>尖细略快年轻女声</dd></div><div class="kv"><dt>音高</dt><dd>高</dd></div><div class="kv"><dt>语速</dt><dd>快、抢话</dd></div><div class="kv"><dt>口音</dt><dd>旧欧洲贵族口音</dd></div><div class="kv"><dt>情绪</dt><dd>得意转不甘</dd></div><div class="kv"><dt>类比</dt><dd>像一个抢着出风头、落了下风就绷着嘴的千金</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>European</li><li>period gown</li><li>three-quarter view</li><li>neutral background</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of a young European woman of a noble household, around twenty, vain and competitive, slightly taller. She wears an ornate jewel-toned gown with excessive frills, elaborate curled hair, a jealous set to the mouth. Visible design: ostentatious gown, heavy curls. Neutral studio background.">复制</button></summary>
+  <p>Character design sheet of a young European woman of a noble household, around twenty, vain and competitive, slightly taller. She wears an ornate jewel-toned gown with excessive frills, elaborate curled hair, a jealous set to the mouth. Visible design: ostentatious gown, heavy curls. Neutral studio background.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (curls, gown frill, necklace, shoe). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (curls, gown frill, necklace, shoe). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：约二十岁的欧洲贵族少女，虚荣好胜、身量略高。穿繁复珠宝色长裙缀过多荷叶边，发卷夸张，嘴角因不服而绷着。可见设计：张扬长裙、厚重卷发。">复制</button></summary>
+  <p>角色设定图：约二十岁的欧洲贵族少女，虚荣好胜、身量略高。穿繁复珠宝色长裙缀过多荷叶边，发卷夸张，嘴角因不服而绷着。可见设计：张扬长裙、厚重卷发。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="A young female voice, around twenty. Bright thin fast soprano, eager to seize the spotlight. Shifts from pleased to sullen.">复制</button></summary>
+  <p>A young female voice, around twenty. Bright thin fast soprano, eager to seize the spotlight. Shifts from pleased to sullen.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;大姐&quot;,
+  &quot;aliases&quot;: [
+    &quot;姐姐&quot;
+  ],
+  &quot;importance&quot;: &quot;supporting&quot;,
+  &quot;oneLiner&quot;: &quot;争穿水晶鞋落败、满心嫉妒的姐姐之一。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;女&quot;,
+    &quot;ageRange&quot;: &quot;约二十岁&quot;,
+    &quot;identity&quot;: &quot;后母的长女&quot;,
+    &quot;appearance&quot;: &quot;穿繁复珠宝色长裙，发卷夸张，嘴角因不服而绷着。身量略高。&quot;,
+    &quot;personality&quot;: [
+      &quot;虚荣&quot;,
+      &quot;争强&quot;,
+      &quot;善妒&quot;
+    ],
+    &quot;temperament&quot;: &quot;争宠时抢在前头，落败后写满不甘。&quot;,
+    &quot;motivation&quot;: &quot;抢先穿上水晶鞋、嫁给王子。&quot;,
+    &quot;arc&quot;: &quot;争穿失败，垂头丧气离场，目送继妹登车。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;后母&quot;,
+        &quot;relation&quot;: &quot;母女&quot;
+      },
+      {
+        &quot;name&quot;: &quot;辛德瑞拉&quot;,
+        &quot;relation&quot;: &quot;嫉妒的继妹&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;看着两个姐姐争先恐后地试穿水晶鞋&quot;,
+      &quot;在两个姐姐嫉妒的目光下&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of a young European woman of a noble household, around twenty, vain and competitive, slightly taller. She wears an ornate jewel-toned gown with excessive frills, elaborate curled hair, a jealous set to the mouth. Visible design: ostentatious gown, heavy curls. Neutral studio background.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：约二十岁的欧洲贵族少女，虚荣好胜、身量略高。穿繁复珠宝色长裙缀过多荷叶边，发卷夸张，嘴角因不服而绷着。可见设计：张扬长裙、厚重卷发。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;European&quot;,
+      &quot;period gown&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;neutral background&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (curls, gown frill, necklace, shoe). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;尖细略快年轻女声&quot;,
+    &quot;pitch&quot;: &quot;高&quot;,
+    &quot;pace&quot;: &quot;快、抢话&quot;,
+    &quot;accent&quot;: &quot;旧欧洲贵族口音&quot;,
+    &quot;emotion&quot;: &quot;得意转不甘&quot;,
+    &quot;referenceHint&quot;: &quot;像一个抢着出风头、落了下风就绷着嘴的千金&quot;,
+    &quot;prompt&quot;: &quot;A young female voice, around twenty. Bright thin fast soprano, eager to seize the spotlight. Shifts from pleased to sullen.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+<article class="char" id="p-二姐">
+  <header class="char-h">
+    <span class="char-n">05</span>
+    <h2>二姐</h2>
+    <span class="badge">配角</span>
+    <span class="aka">又称　姐姐</span>
+    <span class="char-one">与大姐一同争穿水晶鞋落败的妹妹。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>二姐 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>衣着同样华丽但身形略圆，发饰更细碎，神情更慌。</p></section>
+        <section class="blk"><h3>性情</h3><p>附和姐姐争宠，失败后更显无措。</p></section>
+        <section class="blk"><h3>动机</h3><p>同姐姐一般想穿上水晶鞋。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>争穿失败，随姐姐垂头离场。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>看着两个姐姐争先恐后地试穿水晶鞋</blockquote><blockquote>在两个姐姐嫉妒的目光下</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>女</dd></div><div class="kv"><dt>年龄</dt><dd>约十八岁</dd></div><div class="kv"><dt>身份</dt><dd>后母的次女</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">后母</dt><dd>母女</dd></div><div class="kv"><dt class="rel-n">辛德瑞拉</dt><dd>嫉妒的继妹</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>细弱急促年轻女声</dd></div><div class="kv"><dt>音高</dt><dd>高</dd></div><div class="kv"><dt>语速</dt><dd>急促</dd></div><div class="kv"><dt>口音</dt><dd>旧欧洲贵族口音</dd></div><div class="kv"><dt>情绪</dt><dd>慌张、不甘</dd></div><div class="kv"><dt>类比</dt><dd>像总跟在姐姐身后、遇事就慌神的妹妹</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>European</li><li>period gown</li><li>three-quarter view</li><li>neutral background</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of a young European woman of a noble household, around eighteen, vain and competitive, slightly rounder build. She wears an ornate gown with finer scattered ornaments, fussy small hairpins, a flustered look. Visible design: fussy gown, small hairpins. Neutral studio background.">复制</button></summary>
+  <p>Character design sheet of a young European woman of a noble household, around eighteen, vain and competitive, slightly rounder build. She wears an ornate gown with finer scattered ornaments, fussy small hairpins, a flustered look. Visible design: fussy gown, small hairpins. Neutral studio background.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (hairpin, gown trim, bracelet, shoe). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (hairpin, gown trim, bracelet, shoe). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：约十八岁的欧洲贵族少女，虚荣好胜、身形略圆。穿华丽长裙缀细碎小饰，发间别细簪，神情慌张。可见设计：细碎发饰、繁复小裙。">复制</button></summary>
+  <p>角色设定图：约十八岁的欧洲贵族少女，虚荣好胜、身形略圆。穿华丽长裙缀细碎小饰，发间别细簪，神情慌张。可见设计：细碎发饰、繁复小裙。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="A young female voice, around eighteen. Thin hurried soprano. Flustered, follows her sister's lead.">复制</button></summary>
+  <p>A young female voice, around eighteen. Thin hurried soprano. Flustered, follows her sister's lead.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;二姐&quot;,
+  &quot;aliases&quot;: [
+    &quot;姐姐&quot;
+  ],
+  &quot;importance&quot;: &quot;supporting&quot;,
+  &quot;oneLiner&quot;: &quot;与大姐一同争穿水晶鞋落败的妹妹。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;女&quot;,
+    &quot;ageRange&quot;: &quot;约十八岁&quot;,
+    &quot;identity&quot;: &quot;后母的次女&quot;,
+    &quot;appearance&quot;: &quot;衣着同样华丽但身形略圆，发饰更细碎，神情更慌。&quot;,
+    &quot;personality&quot;: [
+      &quot;虚荣&quot;,
+      &quot;善妒&quot;,
+      &quot;慌张&quot;
+    ],
+    &quot;temperament&quot;: &quot;附和姐姐争宠，失败后更显无措。&quot;,
+    &quot;motivation&quot;: &quot;同姐姐一般想穿上水晶鞋。&quot;,
+    &quot;arc&quot;: &quot;争穿失败，随姐姐垂头离场。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;后母&quot;,
+        &quot;relation&quot;: &quot;母女&quot;
+      },
+      {
+        &quot;name&quot;: &quot;辛德瑞拉&quot;,
+        &quot;relation&quot;: &quot;嫉妒的继妹&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;看着两个姐姐争先恐后地试穿水晶鞋&quot;,
+      &quot;在两个姐姐嫉妒的目光下&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of a young European woman of a noble household, around eighteen, vain and competitive, slightly rounder build. She wears an ornate gown with finer scattered ornaments, fussy small hairpins, a flustered look. Visible design: fussy gown, small hairpins. Neutral studio background.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：约十八岁的欧洲贵族少女，虚荣好胜、身形略圆。穿华丽长裙缀细碎小饰，发间别细簪，神情慌张。可见设计：细碎发饰、繁复小裙。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;European&quot;,
+      &quot;period gown&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;neutral background&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (hairpin, gown trim, bracelet, shoe). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;细弱急促年轻女声&quot;,
+    &quot;pitch&quot;: &quot;高&quot;,
+    &quot;pace&quot;: &quot;急促&quot;,
+    &quot;accent&quot;: &quot;旧欧洲贵族口音&quot;,
+    &quot;emotion&quot;: &quot;慌张、不甘&quot;,
+    &quot;referenceHint&quot;: &quot;像总跟在姐姐身后、遇事就慌神的妹妹&quot;,
+    &quot;prompt&quot;: &quot;A young female voice, around eighteen. Thin hurried soprano. Flustered, follows her sister's lead.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+<article class="char" id="p-仙女">
+  <header class="char-h">
+    <span class="char-n">06</span>
+    <h2>仙女</h2>
+    <span class="badge">配角</span>
+    
+    <span class="char-one">赐下华服、水晶鞋与南瓜马车，开启入宫前提的魔法助力者。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>仙女 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>身披层叠半透淡色织物，泛着细微星光，柔银长发，眼含慈光，手持发光的细杖。</p></section>
+        <section class="blk"><h3>性情</h3><p>言语轻缓，出手即是转折。</p></section>
+        <section class="blk"><h3>动机</h3><p>助被压迫的少女一朝惊艳。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>以魔法铺好入宫之路，此后不再现身。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>辛德瑞拉穿上仙女给予她的美丽衣裙</blockquote><blockquote>踏着水晶鞋，乘坐着南瓜马车</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>女</dd></div><div class="kv"><dt>年龄</dt><dd>不老不死之感</dd></div><div class="kv"><dt>身份</dt><dd>魔法教母</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">辛德瑞拉</dt><dd>受她眷顾的少女</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>空灵轻柔的年长女声</dd></div><div class="kv"><dt>音高</dt><dd>中</dd></div><div class="kv"><dt>语速</dt><dd>缓、字句轻盈</dd></div><div class="kv"><dt>口音</dt><dd>无地域的飘渺口音</dd></div><div class="kv"><dt>情绪</dt><dd>慈爱、安然</dd></div><div class="kv"><dt>类比</dt><dd>像一个说话带薄光的、从不慌张的引路人</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>ethereal</li><li>magical</li><li>three-quarter view</li><li>soft glow</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of an ethereal European woman, a fairy benefactor, ageless. She wears a gown of layered translucent pale fabric with faint starlight shimmer, soft silver hair, kind luminous eyes, carrying a slender wand with a glowing tip. Visible design: diaphanous starlit gown, wand, silver hair. Neutral studio background with soft glow.">复制</button></summary>
+  <p>Character design sheet of an ethereal European woman, a fairy benefactor, ageless. She wears a gown of layered translucent pale fabric with faint starlight shimmer, soft silver hair, kind luminous eyes, carrying a slender wand with a glowing tip. Visible design: diaphanous starlit gown, wand, silver hair. Neutral studio background with soft glow.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and wand; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (wand tip glow, gown shimmer, silver hair, hem). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and wand; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (wand tip glow, gown shimmer, silver hair, hem). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：不老不死的欧洲神话女性，蒙受神恩的施助者。披层叠半透淡色织物泛细微星光，柔银长发，眼含慈光，手持发光细杖。可见设计：星光纱裙、魔杖、银发。">复制</button></summary>
+  <p>角色设定图：不老不死的欧洲神话女性，蒙受神恩的施助者。披层叠半透淡色织物泛细微星光，柔银长发，眼含慈光，手持发光细杖。可见设计：星光纱裙、魔杖、银发。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="A female voice, ageless. Ethereal soft contralto with a faint reverberant hush. Slow, gentle, benevolent.">复制</button></summary>
+  <p>A female voice, ageless. Ethereal soft contralto with a faint reverberant hush. Slow, gentle, benevolent.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;仙女&quot;,
+  &quot;aliases&quot;: [],
+  &quot;importance&quot;: &quot;supporting&quot;,
+  &quot;oneLiner&quot;: &quot;赐下华服、水晶鞋与南瓜马车，开启入宫前提的魔法助力者。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;女&quot;,
+    &quot;ageRange&quot;: &quot;不老不死之感&quot;,
+    &quot;identity&quot;: &quot;魔法教母&quot;,
+    &quot;appearance&quot;: &quot;身披层叠半透淡色织物，泛着细微星光，柔银长发，眼含慈光，手持发光的细杖。&quot;,
+    &quot;personality&quot;: [
+      &quot;慈爱&quot;,
+      &quot;神秘&quot;,
+      &quot;从容&quot;
+    ],
+    &quot;temperament&quot;: &quot;言语轻缓，出手即是转折。&quot;,
+    &quot;motivation&quot;: &quot;助被压迫的少女一朝惊艳。&quot;,
+    &quot;arc&quot;: &quot;以魔法铺好入宫之路，此后不再现身。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;辛德瑞拉&quot;,
+        &quot;relation&quot;: &quot;受她眷顾的少女&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;辛德瑞拉穿上仙女给予她的美丽衣裙&quot;,
+      &quot;踏着水晶鞋，乘坐着南瓜马车&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of an ethereal European woman, a fairy benefactor, ageless. She wears a gown of layered translucent pale fabric with faint starlight shimmer, soft silver hair, kind luminous eyes, carrying a slender wand with a glowing tip. Visible design: diaphanous starlit gown, wand, silver hair. Neutral studio background with soft glow.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：不老不死的欧洲神话女性，蒙受神恩的施助者。披层叠半透淡色织物泛细微星光，柔银长发，眼含慈光，手持发光细杖。可见设计：星光纱裙、魔杖、银发。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;ethereal&quot;,
+      &quot;magical&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;soft glow&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and wand; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (wand tip glow, gown shimmer, silver hair, hem). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;空灵轻柔的年长女声&quot;,
+    &quot;pitch&quot;: &quot;中&quot;,
+    &quot;pace&quot;: &quot;缓、字句轻盈&quot;,
+    &quot;accent&quot;: &quot;无地域的飘渺口音&quot;,
+    &quot;emotion&quot;: &quot;慈爱、安然&quot;,
+    &quot;referenceHint&quot;: &quot;像一个说话带薄光的、从不慌张的引路人&quot;,
+    &quot;prompt&quot;: &quot;A female voice, ageless. Ethereal soft contralto with a faint reverberant hush. Slow, gentle, benevolent.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+<article class="char" id="p-大臣">
+  <header class="char-h">
+    <span class="char-n">07</span>
+    <h2>大臣</h2>
+    <span class="badge">龙套</span>
+    
+    <span class="char-one">奉命携水晶鞋全城寻主、将少女引入殉葬大殿的宫廷官员。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>大臣 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>着高领深色朝服配绶带勋章，短须整齐，神情持重。</p></section>
+        <section class="blk"><h3>性情</h3><p>公事公办，话到嘴边又咽下。</p></section>
+        <section class="blk"><h3>动机</h3><p>执行国王寻人与殉葬的旨意。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>从寻鞋的恭敬，到宣旨时欲言又止，终将少女引入绝境。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>大臣戴着两个托着天鹅绒垫的侍卫敲开了辛德瑞拉家的大门</blockquote><blockquote>大臣将辛德瑞拉带进一个宫殿，然后告退</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>男</dd></div><div class="kv"><dt>年龄</dt><dd>约五十岁</dd></div><div class="kv"><dt>身份</dt><dd>宫廷大臣</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">国王</dt><dd>君臣</dd></div><div class="kv"><dt class="rel-n">辛德瑞拉</dt><dd>奉命寻来又引入大殿的少女</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>平稳持重的中年男声</dd></div><div class="kv"><dt>音高</dt><dd>中</dd></div><div class="kv"><dt>语速</dt><dd>稳、字斟句酌</dd></div><div class="kv"><dt>口音</dt><dd>宫廷官话</dd></div><div class="kv"><dt>情绪</dt><dd>克制、欲言又止</dd></div><div class="kv"><dt>类比</dt><dd>像一个把圣旨念得四平八稳、又藏住不安的朝臣</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>European</li><li>court coat</li><li>three-quarter view</li><li>neutral background</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of a middle-aged European royal court official, around fifty, composed and formally dressed. He wears a dark formal court coat with a high collar and a medal sash, carrying a pair of velvet cushions. Neat short beard, neutral authoritative expression. Visible design: court coat, medal sash, velvet cushions. Neutral studio background.">复制</button></summary>
+  <p>Character design sheet of a middle-aged European royal court official, around fifty, composed and formally dressed. He wears a dark formal court coat with a high collar and a medal sash, carrying a pair of velvet cushions. Neat short beard, neutral authoritative expression. Visible design: court coat, medal sash, velvet cushions. Neutral studio background.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing coat silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (medal sash, cushion, cuff, shoe). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing coat silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (medal sash, cushion, cuff, shoe). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：约五十岁的欧洲朝臣，持重方正。穿高领深色朝服配绶带勋章，短须整齐，手托一对天鹅绒垫。可见设计：朝服、勋章绶带、天鹅绒垫。">复制</button></summary>
+  <p>角色设定图：约五十岁的欧洲朝臣，持重方正。穿高领深色朝服配绶带勋章，短须整齐，手托一对天鹅绒垫。可见设计：朝服、勋章绶带、天鹅绒垫。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="A male voice, around fifty. Steady measured baritone, courtly. Careful measured diction, faint reluctance.">复制</button></summary>
+  <p>A male voice, around fifty. Steady measured baritone, courtly. Careful measured diction, faint reluctance.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;大臣&quot;,
+  &quot;aliases&quot;: [],
+  &quot;importance&quot;: &quot;minor&quot;,
+  &quot;oneLiner&quot;: &quot;奉命携水晶鞋全城寻主、将少女引入殉葬大殿的宫廷官员。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;男&quot;,
+    &quot;ageRange&quot;: &quot;约五十岁&quot;,
+    &quot;identity&quot;: &quot;宫廷大臣&quot;,
+    &quot;appearance&quot;: &quot;着高领深色朝服配绶带勋章，短须整齐，神情持重。&quot;,
+    &quot;personality&quot;: [
+      &quot;持重&quot;,
+      &quot;顺从&quot;,
+      &quot;克制&quot;
+    ],
+    &quot;temperament&quot;: &quot;公事公办，话到嘴边又咽下。&quot;,
+    &quot;motivation&quot;: &quot;执行国王寻人与殉葬的旨意。&quot;,
+    &quot;arc&quot;: &quot;从寻鞋的恭敬，到宣旨时欲言又止，终将少女引入绝境。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;国王&quot;,
+        &quot;relation&quot;: &quot;君臣&quot;
+      },
+      {
+        &quot;name&quot;: &quot;辛德瑞拉&quot;,
+        &quot;relation&quot;: &quot;奉命寻来又引入大殿的少女&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;大臣戴着两个托着天鹅绒垫的侍卫敲开了辛德瑞拉家的大门&quot;,
+      &quot;大臣将辛德瑞拉带进一个宫殿，然后告退&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of a middle-aged European royal court official, around fifty, composed and formally dressed. He wears a dark formal court coat with a high collar and a medal sash, carrying a pair of velvet cushions. Neat short beard, neutral authoritative expression. Visible design: court coat, medal sash, velvet cushions. Neutral studio background.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：约五十岁的欧洲朝臣，持重方正。穿高领深色朝服配绶带勋章，短须整齐，手托一对天鹅绒垫。可见设计：朝服、勋章绶带、天鹅绒垫。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;European&quot;,
+      &quot;court coat&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;neutral background&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing coat silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (medal sash, cushion, cuff, shoe). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;平稳持重的中年男声&quot;,
+    &quot;pitch&quot;: &quot;中&quot;,
+    &quot;pace&quot;: &quot;稳、字斟句酌&quot;,
+    &quot;accent&quot;: &quot;宫廷官话&quot;,
+    &quot;emotion&quot;: &quot;克制、欲言又止&quot;,
+    &quot;referenceHint&quot;: &quot;像一个把圣旨念得四平八稳、又藏住不安的朝臣&quot;,
+    &quot;prompt&quot;: &quot;A male voice, around fifty. Steady measured baritone, courtly. Careful measured diction, faint reluctance.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+<article class="char" id="p-国王">
+  <header class="char-h">
+    <span class="char-n">08</span>
+    <h2>国王</h2>
+    <span class="badge">龙套</span>
+    <span class="aka">又称　国王陛下</span>
+    <span class="char-one">下令全城寻鞋、为亡子举行殉葬之礼的垂暮君王。</span>
+  </header>
+
+  <div class="upper">
+    <div class="stage">
+      <div class="plate plate-empty">
+         <span>国王 · 尚未出图<br><em>用下方提示词生成</em></span>
+       </div>
+
+      <div class="grid2">
+        <section class="blk"><h3>外貌</h3><p>着厚重貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。</p></section>
+        <section class="blk"><h3>性情</h3><p>一言决人生死，不见悲喜。</p></section>
+        <section class="blk"><h3>动机</h3><p>为逝去的王子寻回那个少女，依礼殉葬。</p></section>
+        <section class="blk"><h3>人物弧光</h3><p>未见其人，只以旨意推动结局。</p></section>
+      </div>
+
+      <section class="blk source"><h3>原文依据</h3>
+               <div class="quotes"><blockquote>按照国王的指示，我等在全城内搜寻鞋子的主人</blockquote><blockquote>国王陛下让我们一定要找到那个女孩子</blockquote></div>
+             </section>
+    </div>
+
+    <aside class="side-cards">
+      <div class="card">
+        <dl><div class="kv"><dt>性别</dt><dd>男</dd></div><div class="kv"><dt>年龄</dt><dd>约六十岁</dd></div><div class="kv"><dt>身份</dt><dd>王国君主</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>关系</h4>
+               <dl><div class="kv"><dt class="rel-n">王子</dt><dd>父子</dd></div><div class="kv"><dt class="rel-n">大臣</dt><dd>君臣</dd></div></dl>
+             </div>
+
+      <div class="card">
+        <h4>声音<i class="tag-en">VOICE</i></h4>
+        <dl><div class="kv"><dt>音色</dt><dd>低沉苍老的年长男声</dd></div><div class="kv"><dt>音高</dt><dd>低</dd></div><div class="kv"><dt>语速</dt><dd>缓、字字沉重</dd></div><div class="kv"><dt>口音</dt><dd>王室威严口音</dd></div><div class="kv"><dt>情绪</dt><dd>疲惫而不可违逆</dd></div><div class="kv"><dt>类比</dt><dd>像一个说一不二、连丧子之痛都压在冠冕下的老国王</dd></div></dl>
+      </div>
+
+      <div class="card"><h4>形象</h4>
+               <ul class="tags"><li>character sheet</li><li>fairy tale</li><li>European</li><li>royal robe</li><li>three-quarter view</li><li>neutral background</li></ul>
+             </div>
+    </aside>
+  </div>
+
+  <div class="prompts">
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>出图提示词 · 喂出图模型用这条</span><button class="copy" data-copy="Character design sheet of an elderly European king, around sixty, seated-authority bearing. He wears heavy royal robes with ermine trim and a jeweled crown, a long beard of silver. Weary but regal eyes. Visible design: ermine-trimmed robe, crown, silver beard. Neutral studio background.">复制</button></summary>
+  <p>Character design sheet of an elderly European king, around sixty, seated-authority bearing. He wears heavy royal robes with ermine trim and a jeweled crown, a long beard of silver. Weary but regal eyes. Visible design: ermine-trimmed robe, crown, silver beard. Neutral studio background.</p>
+</details>
+      <details class="pr">
+  <summary><span>角色设定图提示词 EN</span><button class="copy" data-copy="Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing robe silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crown, ermine trim, scepter, shoe). Details extend toward right edge; figure never compressed.">复制</button></summary>
+  <p>Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing robe silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crown, ermine trim, scepter, shoe). Details extend toward right edge; figure never compressed.</p>
+</details>
+      <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality">复制</button></summary>
+  <p>extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality</p>
+</details>
+      <details class="pr">
+  <summary><span>出图提示词（中文对照）</span><button class="copy" data-copy="角色设定图：约六十岁的欧洲年迈男性君王，仪态威重。穿貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。可见设计：貂皮王袍、王冠、银须。">复制</button></summary>
+  <p>角色设定图：约六十岁的欧洲年迈男性君王，仪态威重。穿貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。可见设计：貂皮王袍、王冠、银须。</p>
+</details>
+    </div>
+    <div class="pgroup">
+      <details class="pr">
+  <summary><span>音色提示词 · 喂 TTS 引擎用这条</span><button class="copy" data-copy="An elderly male voice, around sixty. Deep grave bass, weary but absolute. Slow, weighty diction.">复制</button></summary>
+  <p>An elderly male voice, around sixty. Deep grave bass, weary but absolute. Slow, weighty diction.</p>
+</details>
+      <div class="pgroup-f">
+        <button class="copy wide" data-copy="{
+  &quot;name&quot;: &quot;国王&quot;,
+  &quot;aliases&quot;: [
+    &quot;国王陛下&quot;
+  ],
+  &quot;importance&quot;: &quot;minor&quot;,
+  &quot;oneLiner&quot;: &quot;下令全城寻鞋、为亡子举行殉葬之礼的垂暮君王。&quot;,
+  &quot;persona&quot;: {
+    &quot;gender&quot;: &quot;男&quot;,
+    &quot;ageRange&quot;: &quot;约六十岁&quot;,
+    &quot;identity&quot;: &quot;王国君主&quot;,
+    &quot;appearance&quot;: &quot;着厚重貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。&quot;,
+    &quot;personality&quot;: [
+      &quot;威严&quot;,
+      &quot;固执&quot;,
+      &quot;暮气&quot;
+    ],
+    &quot;temperament&quot;: &quot;一言决人生死，不见悲喜。&quot;,
+    &quot;motivation&quot;: &quot;为逝去的王子寻回那个少女，依礼殉葬。&quot;,
+    &quot;arc&quot;: &quot;未见其人，只以旨意推动结局。&quot;,
+    &quot;relationships&quot;: [
+      {
+        &quot;name&quot;: &quot;王子&quot;,
+        &quot;relation&quot;: &quot;父子&quot;
+      },
+      {
+        &quot;name&quot;: &quot;大臣&quot;,
+        &quot;relation&quot;: &quot;君臣&quot;
+      }
+    ],
+    &quot;evidence&quot;: [
+      &quot;按照国王的指示，我等在全城内搜寻鞋子的主人&quot;,
+      &quot;国王陛下让我们一定要找到那个女孩子&quot;
+    ]
+  },
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Character design sheet of an elderly European king, around sixty, seated-authority bearing. He wears heavy royal robes with ermine trim and a jeweled crown, a long beard of silver. Weary but regal eyes. Visible design: ermine-trimmed robe, crown, silver beard. Neutral studio background.&quot;,
+    &quot;promptLocal&quot;: &quot;角色设定图：约六十岁的欧洲年迈男性君王，仪态威重。穿貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。可见设计：貂皮王袍、王冠、银须。&quot;,
+    &quot;negativePrompt&quot;: &quot;extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality&quot;,
+    &quot;tags&quot;: [
+      &quot;character sheet&quot;,
+      &quot;fairy tale&quot;,
+      &quot;European&quot;,
+      &quot;royal robe&quot;,
+      &quot;three-quarter view&quot;,
+      &quot;neutral background&quot;
+    ],
+    &quot;sheet&quot;: &quot;Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing robe silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crown, ermine trim, scepter, shoe). Details extend toward right edge; figure never compressed.&quot;
+  },
+  &quot;voice&quot;: {
+    &quot;timbre&quot;: &quot;低沉苍老的年长男声&quot;,
+    &quot;pitch&quot;: &quot;低&quot;,
+    &quot;pace&quot;: &quot;缓、字字沉重&quot;,
+    &quot;accent&quot;: &quot;王室威严口音&quot;,
+    &quot;emotion&quot;: &quot;疲惫而不可违逆&quot;,
+    &quot;referenceHint&quot;: &quot;像一个说一不二、连丧子之痛都压在冠冕下的老国王&quot;,
+    &quot;prompt&quot;: &quot;An elderly male voice, around sixty. Deep grave bass, weary but absolute. Slow, weighty diction.&quot;
+  }
+}">复制整份角色 JSON</button>
+      </div>
+    </div>
+  </div>
+</article>
+  </main>
+</div>
+
+<div class="lightbox" role="dialog" aria-modal="true">
+  <button class="lightbox-x" aria-label="关闭">关闭</button>
+  <img alt="">
+</div>
+
+<script type="application/json" id="cast-data">{"source":"灰姑娘·殉葬","lang":"zh","summary":"欧洲童话王国，一位受后母与两位姐姐欺压的少女在仙女帮助下盛装奔赴王宫舞会，以天仙之姿赢得王子倾心，却因钟声仓促离去遗落一只水晶鞋。一月后，宫廷携鞋全城寻主，少女在姐姐们落败后从容穿上，随大臣入宫，期盼与王子重逢。","characters":[{"name":"辛德瑞拉","aliases":["那个女孩"],"importance":"protagonist","oneLiner":"寄人篱下却优雅自持的少女，被命运推上幸福的悬崖又坠入殉葬的绝境。","persona":{"gender":"女","ageRange":"约十八岁","identity":"受压迫的继女 / 舞会上的无名佳人","appearance":"身形纤细优雅，柔金长发，大眼温柔含愁。盛装时是浅蓝舞会礼裙配单只水晶鞋、另一只赤足的天仙之姿。","personality":["优雅","隐忍","从容","清醒"],"temperament":"外表温婉平和，内里自有主见，绝境中仍保持体面。","motivation":"挣脱压迫、赢得属于自己的幸福，最终只是想活着走出那扇门。","arc":"从默默劳作的灰姑娘到被万众瞩目的舞会佳人，再于真相前由憧憬跌入求生的本能。","relationships":[{"name":"王子","relation":"舞会上倾心于她的倾慕者"},{"name":"后母","relation":"长期压迫她的家长"},{"name":"仙女","relation":"赐她华服与马车的好意者"}],"evidence":["轻轻一套，就穿上了水晶鞋，不大不小，不胖不瘦","可是，殿门锁死了。","辛德瑞拉恍然明白过来自己的处境"]},"image":{"prompt":"Character design sheet of a young European woman from a fairy-tale kingdom era, around eighteen, slender and graceful. She wears a flowing pale-blue ball gown with delicate silver embroidery and a single crystal shoe on one foot while the other foot is bare. Soft golden hair, large expressive eyes, gentle features. Visible design cues: ballroom gown, single glass slipper, bare foot. Neutral studio background, soft rim light.","promptLocal":"角色设定图：约十八岁的欧洲童话王国少女，身形纤细优雅。穿浅蓝舞会礼裙缀银线刺绣，一只脚穿水晶鞋、另一只赤足。柔金长发，大眼温柔。可见设计：舞会礼裙、单只水晶鞋、赤足。","negativePrompt":"extra fingers, deformed hands, fused fingers, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","European","period costume","three-quarter view","neutral background"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor, fine facial features. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and proportions; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crystal slipper, gown embroidery, hairstyle, bare foot). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"柔和略带气声的年轻女声，温润清亮","pitch":"中高","pace":"从容舒缓，重逢戏里微微发颤","accent":"旧欧洲宫廷的雅致口音，尾音轻扬","emotion":"平静中藏着隐忍与一丝哀愁","referenceHint":"像一个在压迫中仍保持优雅、说话轻声却字字清楚的少女","prompt":"A young female voice, around eighteen. Soft, warm, slightly breathy soprano. Gentle pace, refined diction with a faint old-European court lilt. Calm but with underlying melancholy."}},{"name":"王子","aliases":["王子殿下"],"importance":"protagonist","oneLiner":"在舞会上被灰姑娘彻底征服的年轻王子，因思念成疾而早逝。","persona":{"gender":"男","ageRange":"约二十二岁","identity":"王国继承人","appearance":"身形挺拔高贵，柔黑短发，眼神诚挚温热。盛装时着带肩饰与绶带的王室军礼服。","personality":["温柔","诚挚","深情","单纯"],"temperament":"眼中藏不住倾慕，待人宽厚，却也天真易陷。","motivation":"找到舞会上那个无名少女，立她为妃。","arc":"偶遇倾心到思念成疾而亡，始终未再见她一面。","relationships":[{"name":"辛德瑞拉","relation":"舞会上倾心、临终仍念念不忘的少女"},{"name":"国王","relation":"父子"}],"evidence":["王子走上前去，眼中是无法抹去的温柔与倾慕","美丽的女孩，我能邀请你跳一支舞吗？","王子殿下因为过度思念那个在舞会上偶遇的少女，已经思念成疾，于三天前去世了"]},"image":{"prompt":"Character design sheet of a young European prince from a fairy-tale kingdom era, around twenty-two, tall and noble. He wears a royal military dress uniform with epaulettes and a ceremonial sash, a slender sword at his side. Soft dark hair, earnest warm eyes. Visible design: prince regalia, sash, dress uniform. Neutral studio background.","promptLocal":"角色设定图：约二十二岁的欧洲童话国度年轻王室男性，身形挺拔高贵。着带肩饰与绶带的军礼服，腰侧佩细剑。柔黑短发，眼神诚挚温热。可见设计：王室礼服、绶带、佩剑。","negativePrompt":"extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","European","royal uniform","three-quarter view","neutral background"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing uniform silhouette and posture; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (sash, epaulette, sword hilt, boot). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"温润清朗的年轻男声，带贵族教养","pitch":"中","pace":"舒缓而恳切","accent":"王室典雅口音","emotion":"温柔倾慕、真诚","referenceHint":"像一个从小被礼数浸润、说话低柔却让人安心的年轻王子","prompt":"A young male voice, around twenty-two. Warm clear tenor with noble breeding. Moderate pace, earnest and gentle. Refined royal diction."}},{"name":"后母","aliases":[],"importance":"supporting","oneLiner":"长期压迫辛德瑞拉、见其命运反转便满眼嫉妒的家长。","persona":{"gender":"女","ageRange":"约四十五岁","identity":"宅邸的女主人","appearance":"衣着暗色高领长裙，发髻紧绾，面容刻薄，唇线紧抿。","personality":["刻薄","控制","嫉妒","冷硬"],"temperament":"永远绷着脸，对辛德瑞拉的胜利难以释怀。","motivation":"压住继女的风头，维系自家女儿的出路。","arc":"从掌控全局的压迫者，到眼睁睁看继女登上马车、满心不甘。","relationships":[{"name":"辛德瑞拉","relation":"被她长期压迫的继女"},{"name":"大姐","relation":"亲生女儿"},{"name":"二姐","relation":"亲生女儿"}],"evidence":["后母和两位姐姐走后"]},"image":{"prompt":"Character design sheet of a middle-aged European woman, stern matron of a household, around forty-five. She wears a dark high-necked gown with a rigid corseted silhouette, hair pinned in a tight severe bun. Sharp features, thin pressed lips, cold eyes. Visible design: dark austere gown, tight bun, perpetual frown. Neutral studio background.","promptLocal":"角色设定图：约四十五岁的欧洲中年贵妇，神情严厉。穿暗色高领紧身长裙，发髻紧绾，唇线抿紧，眼神冷硬。可见设计：暗色肃穆长裙、紧发髻、惯常的蹙眉。","negativePrompt":"extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","European","period gown","three-quarter view","neutral background"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (bun, gown collar, ring, shoes). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"低沉干涩的中年女声","pitch":"中低","pace":"慢而带着命令感","accent":"旧欧洲家母口音","emotion":"冷淡、不耐","referenceHint":"像一个习惯发号施令、从不肯软下声气的女主人","prompt":"A middle-aged female voice, around forty-five. Low dry contralto, commanding. Slow pace, crisp cold diction."}},{"name":"大姐","aliases":["姐姐"],"importance":"supporting","oneLiner":"争穿水晶鞋落败、满心嫉妒的姐姐之一。","persona":{"gender":"女","ageRange":"约二十岁","identity":"后母的长女","appearance":"穿繁复珠宝色长裙，发卷夸张，嘴角因不服而绷着。身量略高。","personality":["虚荣","争强","善妒"],"temperament":"争宠时抢在前头，落败后写满不甘。","motivation":"抢先穿上水晶鞋、嫁给王子。","arc":"争穿失败，垂头丧气离场，目送继妹登车。","relationships":[{"name":"后母","relation":"母女"},{"name":"辛德瑞拉","relation":"嫉妒的继妹"}],"evidence":["看着两个姐姐争先恐后地试穿水晶鞋","在两个姐姐嫉妒的目光下"]},"image":{"prompt":"Character design sheet of a young European woman of a noble household, around twenty, vain and competitive, slightly taller. She wears an ornate jewel-toned gown with excessive frills, elaborate curled hair, a jealous set to the mouth. Visible design: ostentatious gown, heavy curls. Neutral studio background.","promptLocal":"角色设定图：约二十岁的欧洲贵族少女，虚荣好胜、身量略高。穿繁复珠宝色长裙缀过多荷叶边，发卷夸张，嘴角因不服而绷着。可见设计：张扬长裙、厚重卷发。","negativePrompt":"extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","European","period gown","three-quarter view","neutral background"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (curls, gown frill, necklace, shoe). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"尖细略快年轻女声","pitch":"高","pace":"快、抢话","accent":"旧欧洲贵族口音","emotion":"得意转不甘","referenceHint":"像一个抢着出风头、落了下风就绷着嘴的千金","prompt":"A young female voice, around twenty. Bright thin fast soprano, eager to seize the spotlight. Shifts from pleased to sullen."}},{"name":"二姐","aliases":["姐姐"],"importance":"supporting","oneLiner":"与大姐一同争穿水晶鞋落败的妹妹。","persona":{"gender":"女","ageRange":"约十八岁","identity":"后母的次女","appearance":"衣着同样华丽但身形略圆，发饰更细碎，神情更慌。","personality":["虚荣","善妒","慌张"],"temperament":"附和姐姐争宠，失败后更显无措。","motivation":"同姐姐一般想穿上水晶鞋。","arc":"争穿失败，随姐姐垂头离场。","relationships":[{"name":"后母","relation":"母女"},{"name":"辛德瑞拉","relation":"嫉妒的继妹"}],"evidence":["看着两个姐姐争先恐后地试穿水晶鞋","在两个姐姐嫉妒的目光下"]},"image":{"prompt":"Character design sheet of a young European woman of a noble household, around eighteen, vain and competitive, slightly rounder build. She wears an ornate gown with finer scattered ornaments, fussy small hairpins, a flustered look. Visible design: fussy gown, small hairpins. Neutral studio background.","promptLocal":"角色设定图：约十八岁的欧洲贵族少女，虚荣好胜、身形略圆。穿华丽长裙缀细碎小饰，发间别细簪，神情慌张。可见设计：细碎发饰、繁复小裙。","negativePrompt":"extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","European","period gown","three-quarter view","neutral background"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (hairpin, gown trim, bracelet, shoe). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"细弱急促年轻女声","pitch":"高","pace":"急促","accent":"旧欧洲贵族口音","emotion":"慌张、不甘","referenceHint":"像总跟在姐姐身后、遇事就慌神的妹妹","prompt":"A young female voice, around eighteen. Thin hurried soprano. Flustered, follows her sister's lead."}},{"name":"仙女","aliases":[],"importance":"supporting","oneLiner":"赐下华服、水晶鞋与南瓜马车，开启入宫前提的魔法助力者。","persona":{"gender":"女","ageRange":"不老不死之感","identity":"魔法教母","appearance":"身披层叠半透淡色织物，泛着细微星光，柔银长发，眼含慈光，手持发光的细杖。","personality":["慈爱","神秘","从容"],"temperament":"言语轻缓，出手即是转折。","motivation":"助被压迫的少女一朝惊艳。","arc":"以魔法铺好入宫之路，此后不再现身。","relationships":[{"name":"辛德瑞拉","relation":"受她眷顾的少女"}],"evidence":["辛德瑞拉穿上仙女给予她的美丽衣裙","踏着水晶鞋，乘坐着南瓜马车"]},"image":{"prompt":"Character design sheet of an ethereal European woman, a fairy benefactor, ageless. She wears a gown of layered translucent pale fabric with faint starlight shimmer, soft silver hair, kind luminous eyes, carrying a slender wand with a glowing tip. Visible design: diaphanous starlit gown, wand, silver hair. Neutral studio background with soft glow.","promptLocal":"角色设定图：不老不死的欧洲神话女性，蒙受神恩的施助者。披层叠半透淡色织物泛细微星光，柔银长发，眼含慈光，手持发光细杖。可见设计：星光纱裙、魔杖、银发。","negativePrompt":"extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","ethereal","magical","three-quarter view","soft glow"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing gown silhouette and wand; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (wand tip glow, gown shimmer, silver hair, hem). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"空灵轻柔的年长女声","pitch":"中","pace":"缓、字句轻盈","accent":"无地域的飘渺口音","emotion":"慈爱、安然","referenceHint":"像一个说话带薄光的、从不慌张的引路人","prompt":"A female voice, ageless. Ethereal soft contralto with a faint reverberant hush. Slow, gentle, benevolent."}},{"name":"大臣","aliases":[],"importance":"minor","oneLiner":"奉命携水晶鞋全城寻主、将少女引入殉葬大殿的宫廷官员。","persona":{"gender":"男","ageRange":"约五十岁","identity":"宫廷大臣","appearance":"着高领深色朝服配绶带勋章，短须整齐，神情持重。","personality":["持重","顺从","克制"],"temperament":"公事公办，话到嘴边又咽下。","motivation":"执行国王寻人与殉葬的旨意。","arc":"从寻鞋的恭敬，到宣旨时欲言又止，终将少女引入绝境。","relationships":[{"name":"国王","relation":"君臣"},{"name":"辛德瑞拉","relation":"奉命寻来又引入大殿的少女"}],"evidence":["大臣戴着两个托着天鹅绒垫的侍卫敲开了辛德瑞拉家的大门","大臣将辛德瑞拉带进一个宫殿，然后告退"]},"image":{"prompt":"Character design sheet of a middle-aged European royal court official, around fifty, composed and formally dressed. He wears a dark formal court coat with a high collar and a medal sash, carrying a pair of velvet cushions. Neat short beard, neutral authoritative expression. Visible design: court coat, medal sash, velvet cushions. Neutral studio background.","promptLocal":"角色设定图：约五十岁的欧洲朝臣，持重方正。穿高领深色朝服配绶带勋章，短须整齐，手托一对天鹅绒垫。可见设计：朝服、勋章绶带、天鹅绒垫。","negativePrompt":"extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","European","court coat","three-quarter view","neutral background"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing coat silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (medal sash, cushion, cuff, shoe). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"平稳持重的中年男声","pitch":"中","pace":"稳、字斟句酌","accent":"宫廷官话","emotion":"克制、欲言又止","referenceHint":"像一个把圣旨念得四平八稳、又藏住不安的朝臣","prompt":"A male voice, around fifty. Steady measured baritone, courtly. Careful measured diction, faint reluctance."}},{"name":"国王","aliases":["国王陛下"],"importance":"minor","oneLiner":"下令全城寻鞋、为亡子举行殉葬之礼的垂暮君王。","persona":{"gender":"男","ageRange":"约六十岁","identity":"王国君主","appearance":"着厚重貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。","personality":["威严","固执","暮气"],"temperament":"一言决人生死，不见悲喜。","motivation":"为逝去的王子寻回那个少女，依礼殉葬。","arc":"未见其人，只以旨意推动结局。","relationships":[{"name":"王子","relation":"父子"},{"name":"大臣","relation":"君臣"}],"evidence":["按照国王的指示，我等在全城内搜寻鞋子的主人","国王陛下让我们一定要找到那个女孩子"]},"image":{"prompt":"Character design sheet of an elderly European king, around sixty, seated-authority bearing. He wears heavy royal robes with ermine trim and a jeweled crown, a long beard of silver. Weary but regal eyes. Visible design: ermine-trimmed robe, crown, silver beard. Neutral studio background.","promptLocal":"角色设定图：约六十岁的欧洲年迈男性君王，仪态威重。穿貂皮镶边王袍、戴宝石王冠，银白长须，眼神疲惫而威严。可见设计：貂皮王袍、王冠、银须。","negativePrompt":"extra fingers, deformed hands, multiple faces, inconsistent face, helmet hair, plastic skin, watermark, text, low quality","tags":["character sheet","fairy tale","European","royal robe","three-quarter view","neutral background"],"sheet":"Single character model sheet on ONE 16:9 landscape canvas, thin dividing lines. LEFT ZONE ~34%: one large bust portrait, face as design anchor. RIGHT-TOP ZONE: three full-body views (front, side, back) showing robe silhouette; face matches left zone. RIGHT-BOTTOM ZONE: four small close-up studies (crown, ermine trim, scepter, shoe). Details extend toward right edge; figure never compressed."},"voice":{"timbre":"低沉苍老的年长男声","pitch":"低","pace":"缓、字字沉重","accent":"王室威严口音","emotion":"疲惫而不可违逆","referenceHint":"像一个说一不二、连丧子之痛都压在冠冕下的老国王","prompt":"An elderly male voice, around sixty. Deep grave bass, weary but absolute. Slow, weighty diction."}}]}</script>
+
+<script>
+const L = {"copied":"已复制","failed":"复制失败"};
+
+// 导出：报告自己就带着完整的 cast.json，下载的是它原样
+document.querySelector('.expo').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const url = URL.createObjectURL(
+    new Blob([document.getElementById('cast-data').textContent], { type: 'application/json' }),
+  );
+  const a = Object.assign(document.createElement('a'), { href: url, download: btn.dataset.name });
+  a.click();
+  // 别在 click 之后立刻回收——Safari 上会抢在下载读完之前把 blob 撤掉，存出来是空文件
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+});
+
+// 左栏切换：一次只显示一个角色
+document.querySelector('.roster').addEventListener('click', (e) => {
+  const btn = e.target.closest('.rost');
+  if (!btn) return;
+  document.querySelectorAll('.rost').forEach((b) => b.classList.toggle('on', b === btn));
+  document.querySelectorAll('.char').forEach((a) => a.classList.toggle('on', a.id === btn.dataset.target));
+  showGraph(false);
+  document.querySelector('.main').scrollIntoView({ block: 'start', behavior: 'smooth' });
+});
+
+// 关系图谱：一张全景视图，跟角色详情互斥
+const gv = document.querySelector('.graph');
+const gbtn = document.querySelector('.gtoggle');
+function showGraph(on) {
+  gv.classList.toggle('on', on);
+  gbtn.classList.toggle('on', on);
+  document.querySelector('.main').classList.toggle('gmode', on);
+}
+gbtn.addEventListener('click', () => {
+  showGraph(true);
+  document.querySelector('.main').scrollIntoView({ block: 'start', behavior: 'smooth' });
+});
+{
+  // 弦和弦上的文字共用 data-a/data-b，高亮逻辑完全一样，放一个数组里
+  const edges = [...gv.querySelectorAll('.gedge, .glabel')];
+  const nodes = [...gv.querySelectorAll('.gnode')];
+  const rows = [...gv.querySelectorAll('.grow')];
+  const clear = () => [...edges, ...nodes, ...rows].forEach((el) => el.classList.remove('hot', 'dim'));
+
+  // 悬停一个人：他的关系线亮起来，没关系的压到背景里
+  const byNode = (name) => {
+    const near = new Set([name]);
+    for (const e of edges) {
+      if (e.dataset.a === name) near.add(e.dataset.b);
+      if (e.dataset.b === name) near.add(e.dataset.a);
+    }
+    for (const e of edges) {
+      const hot = e.dataset.a === name || e.dataset.b === name;
+      e.classList.toggle('hot', hot);
+      e.classList.toggle('dim', !hot);
+    }
+    for (const nd of nodes) {
+      nd.classList.toggle('hot', nd.dataset.node === name);
+      nd.classList.toggle('dim', !near.has(nd.dataset.node));
+    }
+    for (const r of rows) {
+      const hot = r.dataset.a === name || r.dataset.b === name;
+      r.classList.toggle('hot', hot);
+      r.classList.toggle('dim', !hot);
+    }
+  };
+
+  // 悬停关系表的一行：只亮那一条弦
+  const byEdge = (a, b) => {
+    for (const e of edges) {
+      const hot = e.dataset.a === a && e.dataset.b === b;
+      e.classList.toggle('hot', hot);
+      e.classList.toggle('dim', !hot);
+    }
+    for (const nd of nodes) {
+      const hot = nd.dataset.node === a || nd.dataset.node === b;
+      nd.classList.toggle('hot', hot);
+      nd.classList.toggle('dim', !hot);
+    }
+    for (const r of rows) {
+      const hot = r.dataset.a === a && r.dataset.b === b;
+      r.classList.toggle('hot', hot);
+      r.classList.toggle('dim', !hot);
+    }
+  };
+
+  const jump = (el) => {
+    const item = document.querySelector('.rost[data-target="' + el.dataset.target + '"]');
+    if (item) item.click();
+  };
+
+  // 关系文字的总开关：人多的时候标签会盖住图，一键收起
+  const glab = gv.querySelector('.glabtoggle');
+  glab.addEventListener('click', () => {
+    const on = !gv.classList.contains('labels');
+    gv.classList.toggle('labels', on);
+    glab.classList.toggle('on', on);
+    glab.setAttribute('aria-pressed', String(on));
+  });
+
+  gv.addEventListener('mouseover', (e) => {
+    const nd = e.target.closest('.gnode');
+    const row = e.target.closest('.grow');
+    if (nd) byNode(nd.dataset.node);
+    else if (row) byEdge(row.dataset.a, row.dataset.b);
+    else clear();
+  });
+  gv.addEventListener('mouseleave', clear);
+  gv.addEventListener('focusin', (e) => {
+    const nd = e.target.closest('.gnode');
+    if (nd) byNode(nd.dataset.node);
+  });
+  gv.addEventListener('click', (e) => {
+    const hit = e.target.closest('.gnode, .grow');
+    if (hit) jump(hit);
+  });
+  // SVG 的 <g> 不是原生按钮，回车/空格要自己接
+  gv.addEventListener('keydown', (e) => {
+    const nd = e.target.closest('.gnode');
+    if (!nd || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
+    jump(nd);
+  });
+}
+
+// 搜索：过滤左栏；结果只剩一个就直接切过去
+document.getElementById('q').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  let hits = [];
+  document.querySelectorAll('.rost').forEach((b) => {
+    const hit = !q || b.dataset.hay.toLowerCase().includes(q);
+    b.style.display = hit ? '' : 'none';
+    if (hit) hits.push(b);
+  });
+  document.querySelector('.nomatch').classList.toggle('on', hits.length === 0);
+  if (q && hits.length === 1) hits[0].click();
+});
+
+// 摘要默认三行，点一下展开全部；短到不需要折叠的就直接去掉折叠态
+const syn = document.querySelector('.synopsis');
+if (syn) {
+  const body = syn.querySelector('p');
+  if (body.scrollHeight <= body.clientHeight + 1) syn.classList.remove('syn-clamp');
+  syn.addEventListener('click', () => syn.classList.remove('syn-clamp'));
+}
+
+// 图片弹层
+const lb = document.querySelector('.lightbox');
+const lbImg = lb.querySelector('img');
+function closeLb() { lb.classList.remove('on'); lbImg.removeAttribute('src'); }
+document.addEventListener('click', (e) => {
+  const z = e.target.closest('.zoom');
+  if (z) { lbImg.src = z.dataset.src; lb.classList.add('on'); return; }
+  if (e.target.closest('.lightbox')) closeLb();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLb(); });
+
+// 复制图片本身到剪贴板（不是路径）
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy-img');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const label = btn.textContent;
+  try {
+    const blob = await (await fetch(btn.dataset.img)).blob();
+    // Safari 只认 image/png，其它格式先过一遍 canvas
+    let png = blob;
+    if (blob.type !== 'image/png') {
+      const bmp = await createImageBitmap(blob);
+      const cv = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+      cv.getContext('2d').drawImage(bmp, 0, 0);
+      png = await new Promise((r) => cv.toBlob(r, 'image/png'));
+    }
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    btn.textContent = L.copied;
+    btn.dataset.done = '1';
+  } catch {
+    btn.textContent = L.failed;
+  }
+  setTimeout(() => { btn.textContent = label; delete btn.dataset.done; }, 1600);
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy');
+  if (!btn) return;
+  e.preventDefault();
+  const label = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(btn.dataset.copy);
+    btn.textContent = L.copied;
+    btn.dataset.done = '1';
+  } catch {
+    btn.textContent = L.failed;
+  }
+  setTimeout(() => { btn.textContent = label; delete btn.dataset.done; }, 1600);
+});
+</script>
+</body></html>

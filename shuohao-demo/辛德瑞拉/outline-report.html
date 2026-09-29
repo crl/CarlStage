@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="zh"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>灰姑娘·殉葬 · 短剧改编大纲</title>
+<style>
+:root{
+  --paper:#eceded; --panel:#f5f6f5; --side:#e4e6e3; --ink:#191d21; --ink-2:#5b636a; --ink-3:#8c9298;
+  --rule:#d2d5d0; --rule-2:#c2c6bf; --seal:#8a3324; --seal-2:#c56a4e; --seal-3:#e0a98c; --seal-soft:#8a332412; --ok:#3d6b4f;
+  --serif:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC",Georgia,serif;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
+.page{max-width:1600px;margin:0 auto;padding:24px 32px 90px}
+h1,h2,h3{margin:0;font-weight:400}
+
+.hd{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:12px}
+.hd h1{font:400 28px/1.1 var(--serif);letter-spacing:.06em}
+.hd .sub{font-size:13px;color:var(--ink-2)}
+.hd .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.gatepill{display:inline-flex;align-items:center;gap:6px;font:500 12px/1 var(--sans);border-radius:99px;padding:6px 12px}
+.gatepill.pass{color:var(--ok);border:1px solid var(--ok)}
+.gatepill.fail{color:var(--seal);border:1px solid var(--seal);background:var(--seal-soft)}
+.expo{font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--panel);
+  border:1px solid var(--rule-2);border-radius:2px;padding:7px 11px;cursor:pointer;transition:.15s}
+.expo:hover{border-color:var(--seal);color:var(--seal)}
+.expo:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:18px 0 6px}
+@media(max-width:980px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:11px 14px 9px}
+.kpi .l{font:500 10px/1 var(--sans);letter-spacing:.18em;color:var(--ink-3)}
+.kpi .v{font:400 28px/1.15 var(--serif);margin-top:5px}
+.kpi .v small{font:400 14px var(--serif);color:var(--ink-2)}
+.kpi .v.mode{font-size:21px;padding-top:5px}
+.kpi .d{font-size:11px;color:var(--ink-2);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi.accent{border-top:2px solid var(--seal)}
+
+.galert{margin:14px 0 0;border:1px solid var(--seal);background:var(--seal-soft);border-radius:2px;
+  padding:10px 14px;font-size:13px}
+.galert b{color:var(--seal)}
+.galert span{display:block;font-size:12px;color:var(--ink-2)}
+
+section{margin-top:34px}
+.sec-h{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--rule-2);padding-bottom:8px;margin-bottom:16px}
+.sec-h .no{font:500 12px/1 var(--mono);color:var(--seal)}
+.sec-h h2{font:400 20px/1.2 var(--serif);letter-spacing:.05em}
+.sec-h .note{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+/* beat-rhythm chart/table tabs */
+.tabs{display:flex;width:max-content;margin-bottom:12px;border:1px solid var(--rule-2);
+  border-radius:2px;overflow:hidden}
+.tab{font:500 12px/1 var(--sans);letter-spacing:.06em;padding:7px 16px;background:var(--panel);
+  border:0;cursor:pointer;color:var(--ink-2);transition:.15s}
+.tab + .tab{border-left:1px solid var(--rule-2)}
+.tab.on{background:var(--seal);color:#fff}
+.tab:focus-visible{outline:2px solid var(--seal);outline-offset:-2px}
+.tabpane{display:none}
+.tabpane.on{display:block}
+
+/* episode overview: first three cards, fade-out + expand */
+.epswrap{position:relative}
+.eps{position:relative}
+.epswrap.clip .eps .ep:nth-child(n+4){display:none}
+.epswrap.clip .eps::after{content:'';position:absolute;left:0;right:0;bottom:0;height:90px;
+  background:linear-gradient(180deg,transparent,var(--paper));pointer-events:none}
+.epsmore{display:block;margin:10px auto 0;font:500 12px/1 var(--sans);letter-spacing:.06em;
+  color:var(--ink-2);background:var(--panel);border:1px solid var(--rule-2);border-radius:2px;
+  padding:8px 18px;cursor:pointer;transition:.15s}
+.epsmore:hover{border-color:var(--seal);color:var(--seal)}
+.epsmore:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+
+/* key decisions: the three sign-off items */
+.dec3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:start}
+@media(max-width:1080px){.dec3{grid-template-columns:1fr}}
+.dcol{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:4px 18px 14px}
+.dhead{margin:8px 0 0;font-size:12.5px;color:var(--ink-2)}
+.dlist{list-style:none;margin:8px 0 0;padding:0}
+.dlist li{padding:7px 0;border-top:1px solid var(--rule)}
+.dlist li:first-child{border-top:0}
+.dlist b{display:block;font:400 13.5px/1.6 var(--serif)}
+.dlist small{display:block;font-size:11.5px;color:var(--ink-2);line-height:1.6}
+.dnote{margin:10px 0 0;font-size:12px;color:var(--ink-2);line-height:1.7}
+.dnote.seal{color:var(--seal);background:var(--seal-soft);padding:7px 10px;border-radius:2px}
+.dmaj{list-style:none;margin:8px 0 0;padding:0}
+.dmaj li{display:flex;gap:9px;align-items:baseline;padding:5.5px 0;border-top:1px solid var(--rule);font-size:12.5px}
+.dmaj li:first-child{border-top:0}
+.dmaj i{flex:none;font:500 11px/1 var(--mono);color:var(--seal);font-style:normal;min-width:38px}
+.dmaj b{font:400 12.5px var(--serif)}
+.dmaj span{min-width:0}
+.dmaj em{flex:none;margin-left:auto;font:500 10px/1 var(--sans);letter-spacing:.1em;font-style:normal;
+  color:var(--seal);border:1px solid var(--seal);border-radius:99px;padding:2px 7px}
+
+/* beat-rhythm timeline */
+.chart{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:16px 20px 10px}
+.chart .legend{display:flex;gap:18px;font-size:12px;color:var(--ink-2);margin-bottom:2px}
+.chart .legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.dotk{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--seal-2)}
+.dotk.major{width:12px;height:12px;background:var(--seal)}
+.rhythm svg{display:block;width:100%;height:auto}
+.rhythm .axis{stroke:var(--rule-2);stroke-width:1.5}
+.rhythm .tick{font:400 10.5px var(--mono);fill:var(--ink-3);paint-order:stroke;stroke:var(--panel);stroke-width:3px}
+.rhythm .stem{stroke:var(--seal-2);stroke-width:1.5}
+.rhythm .stem.major{stroke:var(--seal)}
+.rhythm .bdot{fill:var(--seal-2);stroke:var(--panel);stroke-width:2}
+.rhythm .bdot.major{fill:var(--seal)}
+.rhythm .blabel{font:500 12px var(--sans);fill:var(--ink)}
+.rhythm .bsub{font:400 10.5px var(--sans);fill:var(--ink-2)}
+.rhythm .gapnote{font:400 10.5px var(--sans);fill:var(--ink-3)}
+.rhythm .gapnote.bad{fill:var(--seal);font-weight:500}
+
+/* beat detail table + generic tables */
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--rule);font-size:13px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th{font:500 11px/1 var(--sans);letter-spacing:.1em;color:var(--ink-3);background:var(--side)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--mono);font-size:12px;color:var(--ink-2);white-space:nowrap}
+q{quotes:"「" "」";font-family:var(--serif);border-left:2px solid var(--seal);padding-left:8px;display:inline-block}
+
+/* episode cards */
+.eps{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:13px}
+.ep{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px 16px 12px;position:relative}
+.ep .num{position:absolute;top:10px;right:14px;font:400 30px/1 var(--serif);color:var(--rule-2)}
+.ep header{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-right:44px;flex-wrap:wrap}
+.ep header b{font:500 15px var(--serif);letter-spacing:.04em}
+.bt{font-style:normal;font-size:11px;padding:2px 8px;border:1px solid var(--seal);border-radius:99px;color:var(--seal)}
+.bt.major{background:var(--seal);color:#fff}
+.ep .syn{margin:0 0 8px;font-size:13px;line-height:1.75}
+.hk{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px;font-size:12.5px;padding:6px 0;border-top:1px solid var(--rule)}
+.hk b{font:500 11px/1.8 var(--sans);letter-spacing:.14em;color:var(--seal);white-space:nowrap}
+:root[lang="en"] .hk b,html[lang="en"] .hk b{letter-spacing:.06em}
+.ep .meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.ep .meta i{font-style:normal;font:400 10.5px/1.5 var(--mono);border:1px solid var(--rule-2);
+  border-radius:2px;padding:0 5px;background:var(--paper);color:var(--ink-2)}
+.ep .meta .warn{border-color:var(--seal);color:var(--seal);background:var(--seal-soft)}
+
+/* dispatch matrix */
+.matrix{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:16px 18px;overflow-x:auto}
+.matrix table{border-collapse:separate;border-spacing:3px;font-size:12px;background:none;border:0;width:auto}
+.matrix th,.matrix td{border:0;padding:0}
+.matrix th{font:500 10px/1 var(--sans);letter-spacing:.1em;color:var(--ink-3);background:none;
+  text-align:left;padding:0 8px 5px 0;white-space:nowrap}
+.matrix th.ep-h{text-align:center;padding:0 0 5px;font-family:var(--mono)}
+.matrix td.name{padding-right:10px;white-space:nowrap;font-family:var(--serif);font-size:13px}
+.matrix td.tier{padding-right:10px;color:var(--ink-3);font-size:11px;white-space:nowrap}
+.matrix td.mc{width:var(--cw,26px);min-width:var(--cw,26px);height:22px;border-radius:2px;
+  background:var(--paper);border:1px solid var(--rule)}
+.matrix td.mc.on{background:var(--seal);border-color:var(--seal)}
+.matrix td.mc.on.sc{background:var(--seal-2);border-color:var(--seal-2)}
+.matrix td.mc.on.pp{background:var(--seal-3);border-color:var(--seal-3)}
+.matrix td.n{padding-left:10px;font-family:var(--mono);font-size:11px;color:var(--ink-2);white-space:nowrap}
+.matrix tr.div td{padding:8px 0 3px;font:500 10px/1 var(--sans);letter-spacing:.18em;color:var(--ink-3)}
+.matrix .mnote{font-size:11px;color:var(--ink-3);margin:10px 0 0}
+
+/* scene overview cards: full-width multi-column grid */
+.scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:13px;align-items:start}
+.scard{position:relative;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px 16px}
+.snum{position:absolute;top:10px;right:16px;font:400 26px/1 var(--serif);color:var(--rule-2);letter-spacing:.04em}
+.scard h3{font:400 16px/1.3 var(--serif);letter-spacing:.03em;display:flex;align-items:center;gap:8px;
+  padding-right:90px;flex-wrap:wrap}
+.scard h3 .id{font:400 10.5px var(--mono);color:var(--ink-3)}
+.badge{font:500 10.5px/1 var(--sans);padding:2px 8px;border-radius:99px;border:1px solid var(--seal);color:var(--seal)}
+.badge.once{border-color:var(--seal-2);color:var(--seal-2)}
+.strip{display:flex;flex-wrap:wrap;gap:3px;margin:7px 0 6px}
+.strip i{width:16px;height:10px;border-radius:2px;background:var(--paper);border:1px solid var(--rule)}
+.strip i.on{background:var(--seal);border-color:var(--seal)}
+.strip i.on.lt{background:var(--seal-2);border-color:var(--seal-2)}
+.srow{font-size:11.5px;color:var(--ink-2);display:flex;gap:6px;flex-wrap:wrap;align-items:baseline;margin-top:3px}
+.srow b{font:500 10px/1.8 var(--sans);letter-spacing:.12em;color:var(--ink-3);flex:none}
+.srow i{font-style:normal;font:400 10.5px/1.5 var(--mono);border:1px solid var(--rule-2);
+  border-radius:2px;padding:0 5px;background:var(--paper)}
+.srow .reuse{color:var(--seal)}
+
+/* asset conversion */
+.plan{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:16px 18px}
+.plan table{background:none;border:0}
+.plan th{background:none;padding-left:0}
+.plan td{padding-left:0;border-top:1px solid var(--rule);border-bottom:0}
+.plan tr:first-child td{border-top:0}
+.plan td:first-child{font-family:var(--serif);font-size:13px;color:var(--ink)}
+
+/* adaptation notes */
+.core{font:400 17px/1.9 var(--serif);margin:0 0 6px}
+h3.sub{font:500 12px/1 var(--sans);letter-spacing:.18em;color:var(--seal);margin:20px 0 8px}
+
+/* quality gates */
+.gate{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 28px}
+@media(max-width:900px){.gate{grid-template-columns:1fr}}
+.gate li{display:flex;gap:8px;padding:5px 0;font-size:12.5px;line-height:1.55}
+.gate .m{flex:none;font-weight:700}
+.gate .ok .m,.gate li.ok .m{color:var(--ok)}
+.gate li.bad .m{color:var(--seal)}
+.gate li.bad{background:var(--seal-soft);border-radius:2px;padding-left:6px}
+.gate small{display:block;color:var(--ink-3)}
+.gsum{margin:10px 0 0;font-size:12px;color:var(--ink-2)}
+.gsum b{color:var(--seal)}
+
+.foot{margin-top:40px;font-size:11px;color:var(--ink-3);border-top:1px solid var(--rule);padding-top:14px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* print: expand everything — both tab panes, all episode cards */
+@media print{
+  .expo,.tabs,.epsmore{display:none!important}
+  .tabpane{display:block!important;margin-bottom:14px}
+  .epswrap.clip .eps .ep{display:block!important}
+  .epswrap.clip .eps::after{display:none}
+  .page{max-width:none;padding:0}
+  section,.ep,.scard{page-break-inside:avoid}
+  body{background:#fff}
+}
+</style></head><body>
+<div class="page">
+
+<header class="hd">
+  <h1>灰姑娘·殉葬</h1>
+  <span class="sub">短剧改编大纲 · 6 集 × 2 分钟 · 女频暗黑反转/悬疑 · 抽核改编</span>
+  <span class="right">
+    <span class="gatepill pass">✓ 质量门 14 / 14</span>
+    <button class="expo" data-name="灰姑娘·殉葬-outline.json">导出 JSON</button>
+  </span>
+</header>
+
+<div class="kpis">
+  <div class="kpi accent"><div class="l">总集数</div><div class="v">6 <small>× 2 分钟</small></div><div class="d">正片约 12 分钟</div></div>
+  <div class="kpi"><div class="l">爽点</div><div class="v">6</div><div class="d">2 大爆点 · 最大间隔 1 集</div></div>
+  <div class="kpi"><div class="l">角色</div><div class="v">8</div><div class="d">主角 2 · 配角 4 · 功能 2</div></div>
+  <div class="kpi"><div class="l">主场景</div><div class="v">4</div><div class="d">一次性场景 1，需复用方案</div></div>
+  <div class="kpi"><div class="l">生成难点</div><div class="v">4</div><div class="d">火焰与烟效生成 ×2（第 4、6 集） · 手部…</div></div>
+  <div class="kpi"><div class="l">改编幅度</div><div class="v mode">抽核</div><div class="d">砍 1 线 · 合 0 组</div></div>
+</div>
+
+
+<section id="sec-rhythm">
+  <div class="sec-h"><span class="no">01</span><h2>爽点节奏</h2></div>
+  <div class="tabs" role="tablist">
+    <button class="tab on" data-pane="pane-timeline">时间轴</button>
+    <button class="tab" data-pane="pane-table">明细表</button>
+  </div>
+  <div class="tabpane on" id="pane-timeline"><div class="chart rhythm">
+  <div class="legend">
+    <i><span class="dotk major"></span>大爆点</i>
+    <i><span class="dotk"></span>常规爽点</i>
+  </div>
+  <svg viewBox="0 0 1520 176" role="img" aria-label="爽点节奏">
+    <line class="axis" x1="30" y1="92" x2="1490" y2="92"/>
+    <line class="axis" x1="151.7" y1="88" x2="151.7" y2="96"/>
+    <line class="axis" x1="395" y1="88" x2="395" y2="96"/>
+    <line class="axis" x1="638.3" y1="88" x2="638.3" y2="96"/>
+    <line class="axis" x1="881.7" y1="88" x2="881.7" y2="96"/>
+    <line class="axis" x1="1125" y1="88" x2="1125" y2="96"/>
+    <line class="axis" x1="1368.3" y1="88" x2="1368.3" y2="96"/>
+    <line class="stem" x1="151.7" y1="92" x2="151.7" y2="62"/>
+    <circle class="bdot" cx="151.7" cy="56" r="6"><title>B01 惊艳登场｜辛德瑞拉借仙女魔法以天仙之姿现身舞会 → 全场目光与王子倾心，奠定王子妃人选</title></circle>
+    <text class="blabel" x="151.7" y="34" text-anchor="middle">惊艳登场</text>
+    <text class="bsub" x="151.7" y="20" text-anchor="middle">辛德瑞拉借仙女魔法以天仙之姿…</text>
+    <line class="stem major" x1="395" y1="92" x2="395" y2="127"/>
+    <circle class="bdot major" cx="395" cy="136" r="9"><title>B02 试鞋打脸｜姐姐们争相试穿水晶鞋均不合脚 → 辛德瑞拉轻巧穿上分毫不差，打脸两位姐姐</title></circle>
+    <text class="blabel" x="395" y="158" text-anchor="middle">试鞋打脸</text>
+    <text class="bsub" x="395" y="172" text-anchor="middle">姐姐们争相试穿水晶鞋均不合脚</text>
+    <line class="stem" x1="638.3" y1="92" x2="638.3" y2="62"/>
+    <circle class="bdot" cx="638.3" cy="56" r="6"><title>B03 入宫期待｜辛德瑞拉随大臣入宫憧憬重逢 → 独留空殿，期待与异样声响形成落差</title></circle>
+    <text class="blabel" x="638.3" y="34" text-anchor="middle">入宫期待</text>
+    <text class="bsub" x="638.3" y="20" text-anchor="middle">辛德瑞拉随大臣入宫憧憬重逢</text>
+    <line class="stem major" x1="881.7" y1="92" x2="881.7" y2="127"/>
+    <circle class="bdot major" cx="881.7" cy="136" r="9"><title>B04 真相反转｜殿外宣告王子已死、国王下令寻她 → 婚礼开始与火焰烟味揭示殉葬真相，巨大反转</title></circle>
+    <text class="blabel" x="881.7" y="158" text-anchor="middle">真相反转</text>
+    <text class="bsub" x="881.7" y="172" text-anchor="middle">殿外宣告王子已死、国王下令寻…</text>
+    <line class="stem" x1="1125" y1="92" x2="1125" y2="62"/>
+    <circle class="bdot" cx="1125" cy="56" r="6"><title>B05 锁门绝境｜辛德瑞拉醒悟将被殉葬奔向殿门 → 殿门从外锁死，困入将燃之殿</title></circle>
+    <text class="blabel" x="1125" y="34" text-anchor="middle">锁门绝境</text>
+    <text class="bsub" x="1125" y="20" text-anchor="middle">辛德瑞拉醒悟将被殉葬奔向殿门</text>
+    <line class="stem" x1="1368.3" y1="92" x2="1368.3" y2="122"/>
+    <circle class="bdot" cx="1368.3" cy="128" r="6"><title>B06 求生无门｜殿门紧锁烟味渐浓她敲打呼喊 → 再无回应，命运留白悬于一线</title></circle>
+    <text class="blabel" x="1368.3" y="150" text-anchor="middle">求生无门</text>
+    <text class="bsub" x="1368.3" y="164" text-anchor="middle">殿门紧锁烟味渐浓她敲打呼喊</text>
+    <text class="tick" x="151.7" y="112" text-anchor="middle">1</text>
+    <text class="tick" x="395" y="112" text-anchor="middle">2</text>
+    <text class="tick" x="638.3" y="112" text-anchor="middle">3</text>
+    <text class="tick" x="881.7" y="112" text-anchor="middle">4</text>
+    <text class="tick" x="1125" y="112" text-anchor="middle">5</text>
+    <text class="tick" x="1368.3" y="112" text-anchor="middle">6</text>
+  </svg>
+</div></div>
+  <div class="tabpane" id="pane-table">
+  <table><thead><tr><th>ID</th><th>类型</th><th>量级</th><th>集</th><th>铺垫</th><th>兑现</th></tr></thead>
+<tbody><tr><td>B01</td><td>惊艳登场</td><td>常规</td><td>1</td><td>辛德瑞拉借仙女魔法以天仙之姿现身舞会</td><td>全场目光与王子倾心，奠定王子妃人选</td></tr>
+<tr><td>B02</td><td>试鞋打脸</td><td>大爆点</td><td>2</td><td>姐姐们争相试穿水晶鞋均不合脚</td><td>辛德瑞拉轻巧穿上分毫不差，打脸两位姐姐</td></tr>
+<tr><td>B03</td><td>入宫期待</td><td>常规</td><td>3</td><td>辛德瑞拉随大臣入宫憧憬重逢</td><td>独留空殿，期待与异样声响形成落差</td></tr>
+<tr><td>B04</td><td>真相反转</td><td>大爆点</td><td>4</td><td>殿外宣告王子已死、国王下令寻她</td><td>婚礼开始与火焰烟味揭示殉葬真相，巨大反转</td></tr>
+<tr><td>B05</td><td>锁门绝境</td><td>常规</td><td>5</td><td>辛德瑞拉醒悟将被殉葬奔向殿门</td><td>殿门从外锁死，困入将燃之殿</td></tr>
+<tr><td>B06</td><td>求生无门</td><td>常规</td><td>6</td><td>殿门紧锁烟味渐浓她敲打呼喊</td><td>再无回应，命运留白悬于一线</td></tr></tbody></table>
+  </div>
+</section>
+
+<section id="sec-episodes">
+  <div class="sec-h"><span class="no">02</span><h2>分集概览</h2><span class="note">核心交付 · 每集三栏齐全</span></div>
+  <div class="epswrap clip">
+    <div class="eps">
+<article class="ep" id="ep-1">
+  <span class="num">1</span>
+  <header><b>第 1 集</b><i class="bt">惊艳登场</i></header>
+  <p class="syn">后母与两位姐姐离去后，仙女赐下华服、水晶鞋与南瓜马车，辛德瑞拉焕然一新奔赴王宫。舞会之上，她天仙般的身影吸引了全场目光，王子上前邀舞，被她的优雅彻底征服，心中已定她为王子妃。</p>
+  <div class="hk"><b>钩子</b><span>一个平日被使唤的灰姑娘，竟成了舞会中央被所有人仰望的身影。</span></div>
+  <div class="hk"><b>悬念</b><span>钟声将敲十二下，她为何骤然脸色一变匆匆离去？</span></div>
+  <div class="meta"><i>S02</i><i>S01</i><i>S03</i><i>C01</i><i>C02</i><i>C03</i><i>C04</i><i>C05</i><i>C06</i><i class="warn" title="家与舞会两场：家一场（后母姐妹离去、仙女赐装），舞会一场（辛德瑞拉与王子），分场拍无复杂同框。">同框拆解 ✓</i></div>
+</article>
+<article class="ep" id="ep-2">
+  <span class="num">2</span>
+  <header><b>第 2 集</b><i class="bt major">试鞋打脸</i></header>
+  <p class="syn">一月后，大臣率侍卫携水晶鞋寻主，两位姐姐争相试穿却无一合脚，辛德瑞拉从容上前，轻巧穿上，分毫不差。在姐姐们嫉妒的目光中，她随大臣登车前往王宫。</p>
+  <div class="hk"><b>钩子</b><span>那只谁都穿不上的鞋，偏偏在她脚上严丝合缝。</span></div>
+  <div class="hk"><b>悬念</b><span>王宫近在眼前，可为何迟迟不见王子的身影？</span></div>
+  <div class="meta"><i>S02</i><i>S03</i><i>C01</i><i>C04</i><i>C05</i><i>C07</i><i class="warn" title="姐姐们与辛德瑞拉同处一室试鞋，分先后镜头，大臣站侧记录，无复杂同框。">同框拆解 ✓</i></div>
+</article>
+<article class="ep" id="ep-3">
+  <span class="num">3</span>
+  <header><b>第 3 集</b><i class="bt">入宫期待</i></header>
+  <p class="syn">辛德瑞拉乘马车入宫，憧憬与王子重逢。大臣将她引入一座空旷大殿，请她等候后告退，独留她在殿中。</p>
+  <div class="hk"><b>钩子</b><span>幸福近在咫尺，她却只等来一片空殿与静默。</span></div>
+  <div class="hk"><b>悬念</b><span>王子为何始终不现身？殿外隐约有异样声响。</span></div>
+  <div class="meta"><i>S03</i><i>S04</i><i>C01</i><i>C07</i></div>
+</article>
+<article class="ep" id="ep-4">
+  <span class="num">4</span>
+  <header><b>第 4 集</b><i class="bt major">真相反转</i></header>
+  <p class="syn">殿中独处的辛德瑞拉尚未想好重逢的话，殿外传来宣告：王子因思念成疾已于三日前离世，临终仍念着舞会上的少女，国王命人寻她而来。紧接着一声高呼婚礼开始，她嗅到火焰的烟味。</p>
+  <div class="hk"><b>钩子</b><span>盼来的不是重逢，而是王子已死的噩耗。</span></div>
+  <div class="hk"><b>悬念</b><span>这场婚礼究竟要为谁举行？</span></div>
+  <div class="meta"><i>S04</i><i>C01</i><i>C07</i><i>C08</i><i class="warn">火焰与烟效生成</i><i class="warn" title="辛德瑞拉在殿内，大臣与宣告者在殿门外宣示，分内外两场拍，无同框。">同框拆解 ✓</i></div>
+</article>
+<article class="ep" id="ep-5">
+  <span class="num">5</span>
+  <header><b>第 5 集</b><i class="bt">锁门绝境</i></header>
+  <p class="syn">辛德瑞拉骤然醒悟自己将被殉葬，狂奔至殿门拼命拍打，然而殿门已从外锁死，她被困于将燃的殉葬殿中。</p>
+  <div class="hk"><b>钩子</b><span>她终于看清——所谓召见，是要她为死去的王子陪葬。</span></div>
+  <div class="hk"><b>悬念</b><span>门外的火，会不会真的烧进来？</span></div>
+  <div class="meta"><i>S04</i><i>C01</i><i class="warn">手部特写：拍打殿门</i><i class="warn">火焰与密闭空间</i></div>
+</article>
+<article class="ep" id="ep-6">
+  <span class="num">6</span>
+  <header><b>第 6 集</b><i class="bt">求生无门</i></header>
+  <p class="syn">殿门紧锁，火焰的烟味渐浓，辛德瑞拉在绝境中敲打、呼喊，却再无回应。故事在此留白，她的命运悬于一线。</p>
+  <div class="hk"><b>钩子</b><span>曾经离幸福只差一步的女孩，如今被反锁在焚烧的殿里。</span></div>
+  <div class="hk"><b>悬念</b><span>那扇门，会不会有人来开？（留白）</span></div>
+  <div class="meta"><i>S04</i><i>C01</i><i class="warn">火焰与烟效生成</i></div>
+</article>
+    </div>
+    <button class="epsmore">▾ 展开全部 6 集</button>
+  </div>
+</section>
+
+<section id="sec-scenes">
+  <div class="sec-h"><span class="no">03</span><h2>场景概览</h2><span class="note">右上 = 出现集</span></div>
+  <div class="scenes">
+<article class="scard">
+  <span class="snum">1</span>
+  <h3><span class="id">S01</span>王宫舞会大厅<span class="badge">主场景</span></h3>
+  <div class="strip"><i class="on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i></div>
+  <div class="srow"><b>承载爽点</b><span>惊艳登场</span></div>
+  <div class="srow"><b>复用方案</b><span class="reuse">复用 S03 王宫门厅外景，换盛装宾客与灯火调度区分舞会与入宫两场</span></div>
+</article>
+<article class="scard">
+  <span class="snum">1–2</span>
+  <h3><span class="id">S02</span>辛德瑞拉家<span class="badge">主场景</span></h3>
+  <div class="strip"><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i></div>
+  <div class="srow"><b>承载爽点</b><span>惊艳登场 · 试鞋打脸</span></div>
+  <div class="srow"><b>出场角色</b><i>C01</i><i>C02</i><i>C03</i><i>C04</i><i>C05</i><i>C06</i><i>C07</i></div>
+</article>
+<article class="scard">
+  <span class="snum">1–3</span>
+  <h3><span class="id">S03</span>南瓜马车与长路<span class="badge">主场景</span></h3>
+  <div class="strip"><i class="on"></i><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i><i class=""></i></div>
+  <div class="srow"><b>承载爽点</b><span>惊艳登场 · 试鞋打脸 · 入宫期待</span></div>
+  <div class="srow"><b>出场角色</b><i>C01</i><i>C02</i><i>C03</i><i>C04</i><i>C05</i><i>C06</i><i>C07</i></div>
+</article>
+<article class="scard">
+  <span class="snum">3–6</span>
+  <h3><span class="id">S04</span>殉葬大殿<span class="badge">主场景</span></h3>
+  <div class="strip"><i class=""></i><i class=""></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+  <div class="srow"><b>承载爽点</b><span>入宫期待 · 真相反转 · 锁门绝境 · 求生无门</span></div>
+  <div class="srow"><b>出场角色</b><i>C01</i><i>C07</i><i>C08</i></div>
+</article>
+  </div>
+</section>
+
+<section id="sec-decisions">
+  <div class="sec-h"><span class="no">04</span><h2>关键决策</h2><span class="note">拍板过的三件事，落进纸面</span></div>
+  <div class="dec3">
+  <div class="dcol">
+    <h3 class="sub">砍了哪条线</h3>
+    <ul class="dlist"><li><b>原著后段大团圆结局</b><small>改为殉葬绝境的反转结尾，制造最大爆点</small></li></ul>
+    <p class="dnote seal">这意味着：全剧终点是殉葬绝境而非大团圆，原著后段基本不用。</p>
+  </div>
+  <div class="dcol">
+    <h3 class="sub">合了哪些人</h3>
+    <p class="dhead">8 个角色位（主角组 2 · 重要配角 4 · 功能性 2）</p>
+    <p class="dhead">主角组：辛德瑞拉、王子</p>
+    
+    
+  </div>
+  <div class="dcol">
+    <h3 class="sub">大爆点落在第几集</h3>
+    <ul class="dmaj"><li><i>ep2</i><span><b>试鞋打脸</b> 辛德瑞拉轻巧穿上分毫不差，打脸两位姐姐</span><em>首个</em></li><li><i>ep4</i><span><b>真相反转</b> 婚礼开始与火焰烟味揭示殉葬真相，巨大反转</span><em>终局</em></li></ul>
+  </div>
+</div>
+</section>
+
+<section id="sec-matrix">
+  <div class="sec-h"><span class="no">05</span><h2>每集调度矩阵</h2><span class="note">一列 = 这一集要谁、在哪拍</span></div>
+  <div class="matrix" style="--cw:26px">
+  <table>
+    <tr><th>角色 / 场景 / 道具</th><th>层级</th><th class="ep-h">1</th><th class="ep-h">2</th><th class="ep-h">3</th><th class="ep-h">4</th><th class="ep-h">5</th><th class="ep-h">6</th><th>合计</th></tr>
+    <tr><td class="name">辛德瑞拉</td><td class="tier">主角组</td><td class="mc on"></td><td class="mc on"></td><td class="mc on"></td><td class="mc on"></td><td class="mc on"></td><td class="mc on"></td><td class="n">6</td></tr>
+<tr><td class="name">王子</td><td class="tier">主角组</td><td class="mc on"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">1</td></tr>
+<tr><td class="name">后母</td><td class="tier">重要配角</td><td class="mc on"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">1</td></tr>
+<tr><td class="name">大姐</td><td class="tier">重要配角</td><td class="mc on"></td><td class="mc on"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">2</td></tr>
+<tr><td class="name">二姐</td><td class="tier">重要配角</td><td class="mc on"></td><td class="mc on"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">2</td></tr>
+<tr><td class="name">仙女</td><td class="tier">重要配角</td><td class="mc on"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">1</td></tr>
+<tr><td class="name">大臣</td><td class="tier">功能性角色</td><td class="mc"></td><td class="mc on"></td><td class="mc on"></td><td class="mc on"></td><td class="mc"></td><td class="mc"></td><td class="n">3</td></tr>
+<tr><td class="name">国王</td><td class="tier">功能性角色</td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc on"></td><td class="mc"></td><td class="mc"></td><td class="n">1</td></tr>
+<tr class="div"><td colspan="9">场　景</td></tr>
+<tr><td class="name">王宫舞会大厅</td><td class="tier">主场景</td><td class="mc on sc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">1 ⚠</td></tr>
+<tr><td class="name">辛德瑞拉家</td><td class="tier">主场景</td><td class="mc on sc"></td><td class="mc on sc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">2</td></tr>
+<tr><td class="name">南瓜马车与长路</td><td class="tier">主场景</td><td class="mc on sc"></td><td class="mc on sc"></td><td class="mc on sc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">3</td></tr>
+<tr><td class="name">殉葬大殿</td><td class="tier">主场景</td><td class="mc"></td><td class="mc"></td><td class="mc on sc"></td><td class="mc on sc"></td><td class="mc on sc"></td><td class="mc on sc"></td><td class="n">4</td></tr>
+<tr class="div"><td colspan="9">道　具</td></tr>
+<tr><td class="name">水晶鞋</td><td class="tier">B02、B04</td><td class="mc on pp"></td><td class="mc on pp"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">2</td></tr>
+<tr><td class="name">南瓜马车</td><td class="tier">B01</td><td class="mc on pp"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">1</td></tr>
+<tr><td class="name">仙女礼裙</td><td class="tier">B01</td><td class="mc on pp"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">1</td></tr>
+<tr><td class="name">天鹅绒垫</td><td class="tier">B02</td><td class="mc"></td><td class="mc on pp"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="mc"></td><td class="n">1</td></tr>
+  </table>
+  <p class="mnote">⚠ 王宫舞会大厅 · 复用方案：复用 S03 王宫门厅外景，换盛装宾客与灯火调度区分舞会与入宫两场</p>
+</div>
+</section>
+
+<section id="sec-plan">
+  <div class="sec-h"><span class="no">06</span><h2>资产量折算</h2><span class="note">按档自动折算 · 不让模型写</span></div>
+  <div class="plan">
+  <table><thead><tr><th>层级</th><th>人数</th><th>角色</th><th>资产量</th></tr></thead>
+<tbody><tr><td>主角组</td><td>2</td><td>辛德瑞拉、王子</td><td>全套角色设定图 + 逐镜一致性核对</td></tr>
+<tr><td>重要配角</td><td>4</td><td>后母、大姐、二姐、仙女</td><td>半身参考图，关键戏核对</td></tr>
+<tr><td>功能性角色</td><td>2</td><td>大臣、国王</td><td>提示词直出，松散一致即可</td></tr>
+<tr><td>场景环境</td><td>4+1</td><td>王宫舞会大厅、辛德瑞拉家、南瓜马车与长路、殉葬大殿（+王宫舞会大厅复用）</td><td>主场景各一套环境参考 + 光照基调</td></tr>
+<tr><td>叙事道具</td><td>4</td><td>水晶鞋、南瓜马车、仙女礼裙、天鹅绒垫</td><td>每件一套白底设定图 + 状态变体，跨集要长一样</td></tr>
+<tr><td>生成难点</td><td>4</td><td>火焰与烟效生成 ×2（第 4、6 集） · 手部特写：拍打殿门 ×1（第 5 集） · 火焰与密闭空间 ×1（第 5 集）</td><td>拍摄前逐条过预警清单</td></tr></tbody></table>
+  </div>
+</section>
+
+<section id="sec-characters">
+  <div class="sec-h"><span class="no">07</span><h2>人物表</h2></div>
+  <table><thead><tr><th>ID</th><th>角色</th><th>层级</th><th>定位</th><th>人物弧</th><th>← 改动记录</th></tr></thead>
+<tbody><tr><td>C01</td><td>辛德瑞拉</td><td>主角组</td><td>女主/被殉葬者</td><td>从寄人篱下的灰姑娘到以为迎来幸福，最终识破殉葬真相、困于绝境</td><td>原著灰姑娘</td></tr>
+<tr><td>C02</td><td>王子</td><td>主角组</td><td>男主/已故倾慕者</td><td>舞会偶遇倾心，思念成疾而亡</td><td>原著王子</td></tr>
+<tr><td>C03</td><td>后母</td><td>重要配角</td><td>主反派/长期压迫者</td><td>长期压迫辛德瑞拉，嫉妒其命运反转</td><td>原著后母</td></tr>
+<tr><td>C04</td><td>大姐</td><td>重要配角</td><td>争宠姐姐</td><td>试鞋落败，嫉妒离场</td><td>原著姐姐</td></tr>
+<tr><td>C05</td><td>二姐</td><td>重要配角</td><td>争宠姐姐</td><td>试鞋落败，嫉妒离场</td><td>原著姐姐</td></tr>
+<tr><td>C06</td><td>仙女</td><td>重要配角</td><td>魔法助力者</td><td>赐衣裙水晶鞋马车，开启入宫前提</td><td>原著仙女教母</td></tr>
+<tr><td>C07</td><td>大臣</td><td>功能性角色</td><td>寻鞋宣旨者</td><td>—</td><td>原创剧情功能</td></tr>
+<tr><td>C08</td><td>国王</td><td>功能性角色</td><td>下令殉葬者</td><td>—</td><td>原创剧情功能</td></tr></tbody></table>
+</section>
+
+<section id="sec-adaptation">
+  <div class="sec-h"><span class="no">08</span><h2>改编说明</h2><span class="note">为什么这么改 · 附原文依据</span></div>
+  <p class="core">灰姑娘童话的暗黑反转：水晶鞋不是幸福的开始，而是殉葬的请柬。</p>
+  <h3 class="sub">保留</h3><table><thead><tr><th>内容</th><th>理由</th><th>原文依据</th></tr></thead>
+<tbody><tr><td>舞会惊艳与王子倾心</td><td>核心浪漫前提，反转才更有落差</td><td><q>王子走上前去……已经成了他心中王子妃的不二人选</q></td></tr>
+<tr><td>试鞋认主</td><td>逆袭打脸的高潮支点</td><td><q>轻轻一套，就穿上了水晶鞋，不大不小，不胖不瘦</q></td></tr></tbody></table>
+  <h3 class="sub">砍掉</h3><table><thead><tr><th>内容</th><th>理由</th></tr></thead>
+<tbody><tr><td>原著后段大团圆结局</td><td>改为殉葬绝境的反转结尾，制造最大爆点</td></tr></tbody></table>
+  
+  <h3 class="sub">风险与对策</h3><table><thead><tr><th>内容</th><th>对策</th></tr></thead>
+<tbody><tr><td>黑暗结局可能弱化爽感</td><td>用试鞋打脸保留逆袭爽点，殉葬真相做全场最大反转</td></tr></tbody></table>
+</section>
+
+<section id="sec-gates">
+  <div class="sec-h"><span class="no">09</span><h2>质量门</h2></div>
+  <ul class="gate">
+  <li class="ok"><span class="m">✓</span><span>主角组 1–5 人</span></li>
+  <li class="ok"><span class="m">✓</span><span>重要配角 ≤ 10 人</span></li>
+  <li class="ok"><span class="m">✓</span><span>功能性角色 ≤ 10 人</span></li>
+  <li class="ok"><span class="m">✓</span><span>主场景 ≤ 5</span></li>
+  <li class="ok"><span class="m">✓</span><span>叙事道具 ≤ 8 件</span></li>
+  <li class="ok"><span class="m">✓</span><span>一次性场景已标注规避方案</span></li>
+  <li class="ok"><span class="m">✓</span><span>爽点间隔 ≤ 3 集，无真空区</span></li>
+  <li class="ok"><span class="m">✓</span><span>第 1 集有钩子</span></li>
+  <li class="ok"><span class="m">✓</span><span>大爆点不在最后一集才首次出现</span></li>
+  <li class="ok"><span class="m">✓</span><span>每集梗概三栏齐全（含【钩子】【悬念】）</span></li>
+  <li class="ok"><span class="m">✓</span><span>三人以上同框已标注拆解方案</span></li>
+  <li class="ok"><span class="m">✓</span><span>生成难点已进预警清单</span></li>
+  <li class="ok"><span class="m">✓</span><span>场景/角色/道具引用完整，无失业角色、无空转场景、无零集道具</span></li>
+  <li class="ok"><span class="m">✓</span><span>梗概是叙述体，无引号对白</span></li>
+</ul>
+  <p class="gsum">全部通过</p>
+</section>
+
+<p class="foot">大纲由模型依据原文生成，质量门由脚本确定性检查。</p>
+</div>
+
+<script type="application/json" id="outline-data">{"source":"灰姑娘·殉葬","lang":"zh","params":{"episodes":6,"minutesPerEpisode":2,"genre":"女频暗黑反转/悬疑","adaptMode":"抽核","preferences":[]},"adaptation":{"core":"灰姑娘童话的暗黑反转：水晶鞋不是幸福的开始，而是殉葬的请柬。","keep":[{"what":"舞会惊艳与王子倾心","why":"核心浪漫前提，反转才更有落差","evidence":"王子走上前去……已经成了他心中王子妃的不二人选"},{"what":"试鞋认主","why":"逆袭打脸的高潮支点","evidence":"轻轻一套，就穿上了水晶鞋，不大不小，不胖不瘦"}],"cut":[{"what":"原著后段大团圆结局","why":"改为殉葬绝境的反转结尾，制造最大爆点","evidence":"殉葬！辛德瑞拉恍然明白过来自己的处境"}],"merge":[],"risks":[{"what":"黑暗结局可能弱化爽感","plan":"用试鞋打脸保留逆袭爽点，殉葬真相做全场最大反转"}],"cutNote":"这意味着：全剧终点是殉葬绝境而非大团圆，原著后段基本不用。"},"characters":[{"id":"C01","name":"辛德瑞拉","role":"女主/被殉葬者","tier":"lead","arc":"从寄人篱下的灰姑娘到以为迎来幸福，最终识破殉葬真相、困于绝境","from":["原著灰姑娘"]},{"id":"C02","name":"王子","role":"男主/已故倾慕者","tier":"lead","arc":"舞会偶遇倾心，思念成疾而亡","from":["原著王子"]},{"id":"C03","name":"后母","role":"主反派/长期压迫者","tier":"support","arc":"长期压迫辛德瑞拉，嫉妒其命运反转","from":["原著后母"]},{"id":"C04","name":"大姐","role":"争宠姐姐","tier":"support","arc":"试鞋落败，嫉妒离场","from":["原著姐姐"]},{"id":"C05","name":"二姐","role":"争宠姐姐","tier":"support","arc":"试鞋落败，嫉妒离场","from":["原著姐姐"]},{"id":"C06","name":"仙女","role":"魔法助力者","tier":"support","arc":"赐衣裙水晶鞋马车，开启入宫前提","from":["原著仙女教母"]},{"id":"C07","name":"大臣","role":"寻鞋宣旨者","tier":"functional","from":["原创剧情功能"]},{"id":"C08","name":"国王","role":"下令殉葬者","tier":"functional","from":["原创剧情功能"]}],"scenes":[{"id":"S01","name":"王宫舞会大厅","primary":true,"reusePlan":"复用 S03 王宫门厅外景，换盛装宾客与灯火调度区分舞会与入宫两场"},{"id":"S02","name":"辛德瑞拉家","primary":true},{"id":"S03","name":"南瓜马车与长路","primary":true},{"id":"S04","name":"殉葬大殿","primary":true}],"props":[{"id":"P01","name":"水晶鞋","function":"试鞋认主与殉葬导火索：谁穿上即王子遗命之妻，亦是锁门殉葬的引线","beatIds":["B02","B04"]},{"id":"P02","name":"南瓜马车","function":"辛德瑞拉入宫的变身象征与交通工具","beatIds":["B01"]},{"id":"P03","name":"仙女礼裙","function":"灰姑娘到天仙的视觉转变锚点","beatIds":["B01"]},{"id":"P04","name":"天鹅绒垫","function":"托载水晶鞋的仪式感道具，凸显寻主之郑重","beatIds":["B02"]}],"beats":[{"id":"B01","type":"惊艳登场","weight":"minor","episode":1,"setup":"辛德瑞拉借仙女魔法以天仙之姿现身舞会","payoff":"全场目光与王子倾心，奠定王子妃人选"},{"id":"B02","type":"试鞋打脸","weight":"major","episode":2,"setup":"姐姐们争相试穿水晶鞋均不合脚","payoff":"辛德瑞拉轻巧穿上分毫不差，打脸两位姐姐"},{"id":"B03","type":"入宫期待","weight":"minor","episode":3,"setup":"辛德瑞拉随大臣入宫憧憬重逢","payoff":"独留空殿，期待与异样声响形成落差"},{"id":"B04","type":"真相反转","weight":"major","episode":4,"setup":"殿外宣告王子已死、国王下令寻她","payoff":"婚礼开始与火焰烟味揭示殉葬真相，巨大反转"},{"id":"B05","type":"锁门绝境","weight":"minor","episode":5,"setup":"辛德瑞拉醒悟将被殉葬奔向殿门","payoff":"殿门从外锁死，困入将燃之殿"},{"id":"B06","type":"求生无门","weight":"minor","episode":6,"setup":"殿门紧锁烟味渐浓她敲打呼喊","payoff":"再无回应，命运留白悬于一线"}],"episodes":[{"ep":1,"synopsis":"后母与两位姐姐离去后，仙女赐下华服、水晶鞋与南瓜马车，辛德瑞拉焕然一新奔赴王宫。舞会之上，她天仙般的身影吸引了全场目光，王子上前邀舞，被她的优雅彻底征服，心中已定她为王子妃。","hook":"一个平日被使唤的灰姑娘，竟成了舞会中央被所有人仰望的身影。","suspense":"钟声将敲十二下，她为何骤然脸色一变匆匆离去？","sceneIds":["S02","S01","S03"],"characterIds":["C01","C02","C03","C04","C05","C06"],"propIds":["P03","P02","P01"],"crowdPlan":"家与舞会两场：家一场（后母姐妹离去、仙女赐装），舞会一场（辛德瑞拉与王子），分场拍无复杂同框。","warnings":[]},{"ep":2,"synopsis":"一月后，大臣率侍卫携水晶鞋寻主，两位姐姐争相试穿却无一合脚，辛德瑞拉从容上前，轻巧穿上，分毫不差。在姐姐们嫉妒的目光中，她随大臣登车前往王宫。","hook":"那只谁都穿不上的鞋，偏偏在她脚上严丝合缝。","suspense":"王宫近在眼前，可为何迟迟不见王子的身影？","sceneIds":["S02","S03"],"characterIds":["C01","C04","C05","C07"],"propIds":["P01","P04"],"crowdPlan":"姐姐们与辛德瑞拉同处一室试鞋，分先后镜头，大臣站侧记录，无复杂同框。","warnings":[]},{"ep":3,"synopsis":"辛德瑞拉乘马车入宫，憧憬与王子重逢。大臣将她引入一座空旷大殿，请她等候后告退，独留她在殿中。","hook":"幸福近在咫尺，她却只等来一片空殿与静默。","suspense":"王子为何始终不现身？殿外隐约有异样声响。","sceneIds":["S03","S04"],"characterIds":["C01","C07"],"warnings":[]},{"ep":4,"synopsis":"殿中独处的辛德瑞拉尚未想好重逢的话，殿外传来宣告：王子因思念成疾已于三日前离世，临终仍念着舞会上的少女，国王命人寻她而来。紧接着一声高呼婚礼开始，她嗅到火焰的烟味。","hook":"盼来的不是重逢，而是王子已死的噩耗。","suspense":"这场婚礼究竟要为谁举行？","sceneIds":["S04"],"characterIds":["C01","C07","C08"],"crowdPlan":"辛德瑞拉在殿内，大臣与宣告者在殿门外宣示，分内外两场拍，无同框。","warnings":["火焰与烟效生成"]},{"ep":5,"synopsis":"辛德瑞拉骤然醒悟自己将被殉葬，狂奔至殿门拼命拍打，然而殿门已从外锁死，她被困于将燃的殉葬殿中。","hook":"她终于看清——所谓召见，是要她为死去的王子陪葬。","suspense":"门外的火，会不会真的烧进来？","sceneIds":["S04"],"characterIds":["C01"],"warnings":["手部特写：拍打殿门","火焰与密闭空间"]},{"ep":6,"synopsis":"殿门紧锁，火焰的烟味渐浓，辛德瑞拉在绝境中敲打、呼喊，却再无回应。故事在此留白，她的命运悬于一线。","hook":"曾经离幸福只差一步的女孩，如今被反锁在焚烧的殿里。","suspense":"那扇门，会不会有人来开？（留白）","sceneIds":["S04"],"characterIds":["C01"],"warnings":["火焰与烟效生成"]}]}</script>
+<script>
+// beat rhythm: chart / table toggle
+document.querySelectorAll('.tab').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('on', b === btn));
+    document.querySelectorAll('.tabpane').forEach((p) => p.classList.toggle('on', p.id === btn.dataset.pane));
+  });
+});
+
+// episode overview: first three by default, one click expands for good
+const epsMore = document.querySelector('.epsmore');
+if (epsMore) {
+  epsMore.addEventListener('click', () => {
+    document.querySelector('.epswrap').classList.remove('clip');
+    epsMore.remove();
+  });
+}
+
+// export: the report carries outline.json verbatim; the download is byte-identical
+document.querySelector('.expo').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const url = URL.createObjectURL(
+    new Blob([document.getElementById('outline-data').textContent], { type: 'application/json' }),
+  );
+  const a = Object.assign(document.createElement('a'), { href: url, download: btn.dataset.name });
+  a.click();
+  // don't revoke immediately — Safari may kill the blob before the download finishes reading
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+});
+</script>
+</body></html>

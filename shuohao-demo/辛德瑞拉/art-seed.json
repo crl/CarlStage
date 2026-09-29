@@ -1,0 +1,206 @@
+{
+  "source": "灰姑娘·殉葬",
+  "scenes": [
+    {
+      "id": "S01",
+      "name": "王宫舞会大厅",
+      "primary": true,
+      "summary": "",
+      "anchors": [],
+      "lighting": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "seedNote": "outline 的复用方案：复用 S03 王宫门厅外景，换盛装宾客与灯火调度区分舞会与入宫两场——考虑做成某个主场景的变体（variantOf + changes）",
+      "usage": {
+        "episodes": [
+          1
+        ],
+        "beats": [
+          "惊艳登场"
+        ]
+      }
+    },
+    {
+      "id": "S02",
+      "name": "辛德瑞拉家",
+      "primary": true,
+      "summary": "",
+      "anchors": [],
+      "lighting": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "usage": {
+        "episodes": [
+          1,
+          2
+        ],
+        "beats": [
+          "惊艳登场",
+          "试鞋打脸"
+        ]
+      }
+    },
+    {
+      "id": "S03",
+      "name": "南瓜马车与长路",
+      "primary": true,
+      "summary": "",
+      "anchors": [],
+      "lighting": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "usage": {
+        "episodes": [
+          1,
+          2,
+          3
+        ],
+        "beats": [
+          "惊艳登场",
+          "试鞋打脸",
+          "入宫期待"
+        ]
+      }
+    },
+    {
+      "id": "S04",
+      "name": "殉葬大殿",
+      "primary": true,
+      "summary": "",
+      "anchors": [],
+      "lighting": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "usage": {
+        "episodes": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "beats": [
+          "入宫期待",
+          "真相反转",
+          "锁门绝境",
+          "求生无门"
+        ]
+      }
+    }
+  ],
+  "props": [
+    {
+      "id": "P01",
+      "name": "水晶鞋",
+      "summary": "试鞋认主与殉葬导火索：谁穿上即王子遗命之妻，亦是锁门殉葬的引线",
+      "scale": "",
+      "anchors": [],
+      "states": [],
+      "relatedScenes": [],
+      "carriedBy": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "usage": {
+        "episodes": [
+          1,
+          2
+        ],
+        "beats": [
+          "试鞋打脸",
+          "真相反转"
+        ]
+      }
+    },
+    {
+      "id": "P02",
+      "name": "南瓜马车",
+      "summary": "辛德瑞拉入宫的变身象征与交通工具",
+      "scale": "",
+      "anchors": [],
+      "states": [],
+      "relatedScenes": [],
+      "carriedBy": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "usage": {
+        "episodes": [
+          1
+        ],
+        "beats": [
+          "惊艳登场"
+        ]
+      }
+    },
+    {
+      "id": "P03",
+      "name": "仙女礼裙",
+      "summary": "灰姑娘到天仙的视觉转变锚点",
+      "scale": "",
+      "anchors": [],
+      "states": [],
+      "relatedScenes": [],
+      "carriedBy": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "usage": {
+        "episodes": [
+          1
+        ],
+        "beats": [
+          "惊艳登场"
+        ]
+      }
+    },
+    {
+      "id": "P04",
+      "name": "天鹅绒垫",
+      "summary": "托载水晶鞋的仪式感道具，凸显寻主之郑重",
+      "scale": "",
+      "anchors": [],
+      "states": [],
+      "relatedScenes": [],
+      "carriedBy": [],
+      "image": {
+        "prompt": "",
+        "negativePrompt": "",
+        "sheet": "",
+        "tags": []
+      },
+      "usage": {
+        "episodes": [
+          2
+        ],
+        "beats": [
+          "试鞋打脸"
+        ]
+      }
+    }
+  ]
+}

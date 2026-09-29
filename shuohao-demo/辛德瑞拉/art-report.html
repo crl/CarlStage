@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="zh"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>灰姑娘·殉葬 · 美术设定集</title>
+<style>
+:root{
+  --paper:#eceded; --panel:#f5f6f5; --side:#e4e6e3; --ink:#191d21; --ink-2:#5b636a; --ink-3:#8c9298;
+  --rule:#d2d5d0; --rule-2:#c2c6bf; --seal:#8a3324; --seal-2:#c56a4e; --seal-soft:#8a332412; --ok:#3d6b4f;
+  --serif:"Songti SC","STSong","Source Han Serif SC","Noto Serif CJK SC",Georgia,serif;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
+.page{max-width:1600px;margin:0 auto;padding:24px 32px 90px}
+h1,h2,h3,h4{margin:0;font-weight:400}
+
+.hd{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:12px}
+.hd h1{font:400 28px/1.1 var(--serif);letter-spacing:.06em}
+.hd .sub{font-size:13px;color:var(--ink-2)}
+.hd .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.gatepill{display:inline-flex;align-items:center;gap:6px;font:500 12px/1 var(--sans);border-radius:99px;padding:6px 12px}
+.gatepill.pass{color:var(--ok);border:1px solid var(--ok)}
+.gatepill.fail{color:var(--seal);border:1px solid var(--seal);background:var(--seal-soft)}
+.expo{font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--panel);
+  border:1px solid var(--rule-2);border-radius:2px;padding:7px 11px;cursor:pointer;transition:.15s}
+.expo:hover{border-color:var(--seal);color:var(--seal)}
+.expo:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0 6px}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:11px 14px 9px}
+.kpi .l{font:500 10px/1 var(--sans);letter-spacing:.18em;color:var(--ink-3)}
+.kpi .v{font:400 28px/1.15 var(--serif);margin-top:5px}
+.kpi .d{font-size:11px;color:var(--ink-2);margin-top:1px}
+.kpi.accent{border-top:2px solid var(--seal)}
+.galert{margin:14px 0 0;border:1px solid var(--seal);background:var(--seal-soft);border-radius:2px;
+  padding:10px 14px;font-size:13px}
+.galert b{color:var(--seal)}
+.galert span{display:block;font-size:12px;color:var(--ink-2)}
+
+section.top-sec{margin-top:34px}
+.sec-h{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--rule-2);padding-bottom:8px;margin-bottom:16px}
+.sec-h .no{font:500 12px/1 var(--mono);color:var(--seal)}
+.sec-h h2{font:400 20px/1.2 var(--serif);letter-spacing:.05em}
+.sec-h .note{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--rule);font-size:13px}
+th,td{padding:8px 12px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th{font:500 11px/1 var(--sans);letter-spacing:.1em;color:var(--ink-3);background:var(--side)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--mono);font-size:12px;color:var(--ink-2);white-space:nowrap}
+.mono{font:400 11.5px/1.7 var(--mono);color:var(--ink-2);word-break:break-word}
+
+/* 场景设定卡：一排两张（方便截图宣传），卡内纵排、设定图占满卡宽 */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media(max-width:1100px){.cards{grid-template-columns:1fr}}
+.scene{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px 20px}
+.sc-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--rule-2);padding-bottom:10px}
+.sc-id{font:500 12px/1 var(--mono);color:var(--seal)}
+.sc-h h3{font:400 20px/1.2 var(--serif);letter-spacing:.04em}
+.badge{font:500 10.5px/1 var(--sans);padding:2px 8px;border-radius:99px;border:1px solid var(--seal);color:var(--seal)}
+.badge.once{border-color:var(--seal-2);color:var(--seal-2)}
+.sc-use{margin-left:auto;font-size:12px;color:var(--ink-2)}
+.sc-sum{margin:10px 0 12px;font:400 14.5px/1.9 var(--serif)}
+.scene .blk{margin-top:16px}
+.scene .pgroup{margin-top:16px}
+
+.plate{margin:0;background:#fff;border:1px solid var(--rule-2);border-radius:2px;overflow:hidden}
+.plate .zoom{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
+.plate .zoom:focus-visible{outline:2px solid var(--seal);outline-offset:-2px}
+.plate img{display:block;width:100%;height:auto}
+/* 图片弹层 */
+.lightbox{position:fixed;inset:0;z-index:50;display:none;place-items:center;
+  background:#191d21e6;padding:32px;cursor:zoom-out}
+.lightbox.on{display:grid}
+.lightbox img{max-width:100%;max-height:100%;background:#fff;border-radius:2px;
+  box-shadow:0 8px 40px #0006}
+.lightbox-x{position:absolute;top:18px;right:22px;font:500 13px/1 var(--sans);color:#fff;
+  background:none;border:1px solid #fff6;border-radius:3px;padding:8px 12px;cursor:pointer}
+.lightbox-x:hover{border-color:#fff}
+.plate figcaption{font-size:11px;letter-spacing:.08em;color:var(--ink-3);padding:6px 10px;border-top:1px solid var(--rule)}
+.plate-empty{display:grid;place-items:center;min-height:180px;text-align:center;
+  border:1px dashed var(--rule-2);background:var(--paper);color:var(--ink-3);font-size:13px}
+.plate-empty em{font-style:normal;font-size:12px;opacity:.8}
+.variant{margin:10px 0 0;font-size:12.5px;color:var(--seal);background:var(--seal-soft);padding:7px 10px;border-radius:2px}
+.variant b{font-family:var(--mono);font-weight:500}
+
+.blk{margin-bottom:16px}
+.blk h4{font:500 11px/1.6 var(--sans);letter-spacing:.18em;color:var(--seal);margin-bottom:8px}
+.blk h4 small{display:block;letter-spacing:0;font-weight:400;color:var(--ink-3);font-size:11px}
+.anchors{margin:0;padding:0 0 0 2px;list-style:none;counter-reset:an}
+/* ::before 序号也是网格项，desc 必须显式钉在第二列，否则会掉进 22px 窄列一字一行 */
+.anchors li{counter-increment:an;display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:8px;
+  padding:6px 0;border-top:1px solid var(--rule);font-size:13px}
+.anchors li:first-child{border-top:0}
+.anchors li::before{content:counter(an,decimal-leading-zero);grid-column:1;grid-row:1;
+  font:500 11px/1.9 var(--mono);color:var(--seal)}
+.anchors b{grid-column:2;font-weight:500}
+.anchors span{grid-column:2;display:block;font-size:12px;color:var(--ink-2)}
+.lights{display:flex;flex-direction:column;gap:6px}
+.light{display:flex;align-items:baseline;gap:10px;background:var(--paper);border:1px solid var(--rule);
+  border-radius:2px;padding:7px 10px}
+.light i{flex:none;font-style:normal;font:500 12px/1.6 var(--sans);color:var(--ink)}
+.light .mono{flex:1;min-width:0}
+
+.pgroup{border:1px solid var(--rule);border-radius:2px;background:var(--paper);padding:4px 12px 8px;margin-top:12px}
+.pr{border-bottom:1px solid var(--rule)}
+.pgroup .pr:last-of-type{border-bottom:0}
+.pr summary{display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;list-style:none;
+  font:500 12px/1 var(--sans);letter-spacing:.04em}
+.pr summary::-webkit-details-marker{display:none}
+.pr summary::before{content:"▸";color:var(--seal);font-size:11px;transition:transform .15s}
+.pr[open] summary::before{transform:rotate(90deg)}
+.pr summary span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr p{margin:0 0 10px;padding:10px 12px;background:var(--panel);border:1px solid var(--rule);
+  border-radius:2px;font:400 12px/1.75 var(--mono);white-space:pre-wrap;word-break:break-word}
+.pgroup-f{padding:10px 0 4px}
+.copy{flex:none;font:500 11px/1 var(--sans);color:var(--ink-2);background:var(--panel);
+  border:1px solid var(--rule-2);border-radius:2px;padding:4px 10px;cursor:pointer;transition:.15s}
+.copy:hover{border-color:var(--seal);color:var(--seal)}
+.copy:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.copy[data-done]{border-color:var(--seal);color:var(--seal)}
+.copy.wide{width:100%;padding:9px}
+.copy.mini{padding:2px 7px;font-size:10.5px}
+
+.gate{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 28px}
+@media(max-width:900px){.gate{grid-template-columns:1fr}}
+.gate li{display:flex;gap:8px;padding:5px 0;font-size:12.5px;line-height:1.55}
+.gate .m{flex:none;font-weight:700}
+.gate li.ok .m{color:var(--ok)}
+.gate li.bad .m{color:var(--seal)}
+.gate li.bad{background:var(--seal-soft);border-radius:2px;padding-left:6px}
+.gate small{display:block;color:var(--ink-3)}
+.gsum{margin:10px 0 0;font-size:12px;color:var(--ink-2)}
+.gsum b{color:var(--seal)}
+
+.foot{margin-top:40px;font-size:11px;color:var(--ink-3);border-top:1px solid var(--rule);padding-top:14px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{
+  .expo,.copy{display:none!important}
+  .pr p{display:block!important}
+  .pr summary::before{content:""}
+  .page{max-width:none;padding:0}
+  section.top-sec,.scene{page-break-inside:avoid}
+  body{background:#fff}
+}
+</style></head><body>
+<div class="page">
+
+<header class="hd">
+  <h1>灰姑娘·殉葬</h1>
+  <span class="sub">美术设定集</span>
+  <span class="right">
+    <span class="gatepill pass">✓ 质量门 10 / 10</span>
+    <button class="expo" data-name="灰姑娘-殉葬-art.json">导出 JSON</button>
+  </span>
+</header>
+
+<div class="kpis">
+  <div class="kpi accent"><div class="l">场景</div><div class="v">4</div><div class="d">主场景 4</div></div>
+  <div class="kpi"><div class="l">叙事道具</div><div class="v">4</div><div class="d">5 个状态变体</div></div>
+  <div class="kpi"><div class="l">一致性锚点</div><div class="v">27</div><div class="d">生成镜头的核对表（场景 + 道具）</div></div>
+  <div class="kpi"><div class="l">光照状态</div><div class="v">8</div><div class="d">换时段 = 重新生成</div></div>
+</div>
+
+
+<section class="top-sec" id="sec-list">
+  <div class="sec-h"><span class="no">01</span><h2>场景清单</h2></div>
+  <table><thead><tr><th>ID</th><th>场景</th><th>类型</th><th>出现集</th><th>锚点</th><th>光照</th><th>变体</th></tr></thead>
+<tbody><tr><td>S01</td><td>王宫舞会大厅</td><td>主场景</td><td>1</td><td>4</td><td>烛光晚宴、晓光空厅</td><td>—</td></tr>
+<tr><td>S02</td><td>辛德瑞拉家</td><td>主场景</td><td>1、2</td><td>4</td><td>日间阴光、烛影夜</td><td>—</td></tr>
+<tr><td>S03</td><td>南瓜马车与长路</td><td>主场景</td><td>1、2、3</td><td>3</td><td>月夜启程、黎明归途</td><td>—</td></tr>
+<tr><td>S04</td><td>殉葬大殿</td><td>主场景</td><td>3、4、5、6</td><td>4</td><td>殿内幽光、火光渐近</td><td>—</td></tr></tbody></table>
+</section>
+
+<section class="top-sec" id="sec-cards">
+  <div class="sec-h"><span class="no">02</span><h2>场景设定卡</h2></div>
+  <div class="cards">
+<article class="scene" id="sc-S01">
+  <header class="sc-h">
+    <span class="sc-id">S01</span>
+    <h3>王宫舞会大厅</h3>
+    <span class="badge">主场景</span>
+    <span class="sc-use">出现集 1　承载爽点 惊艳登场</span>
+  </header>
+  <p class="sc-sum">设计意图：璀璨盛大的王室舞会空间，金烛与镜墙铺满，辛德瑞拉在此以天仙之姿惊艳全场；气质是华美、浪漫、万众瞩目，一切为「被看见」服务。</p>
+  <div class="plate plate-empty"><span>王宫舞会大厅 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>水晶吊灯</b><span>穹顶垂下的多层水晶吊灯，烛光折射星点光斑</span></li><li><b>描金立柱</b><span>环厅描金大理石立柱，柱身浅刻玫瑰藤纹</span></li><li><b>镜墙</b><span>西侧整面落地镜墙，映出舞者与灯火</span></li><li><b>红毯主阶</b><span>厅心通向高台的红丝绒主阶，阶沿包金</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>光照与时段</h4>
+    <div class="lights"><div class="light"><i>烛光晚宴</i><span class="mono">grand European fairy-tale palace ballroom at night, warm candlelight pouring from a towering crystal chandelier, golden glow on gilded marble columns with rose-vine carvings, a full-length mirror wall reflecting the empty hall, red velvet central staircase, polished checkered floor, opulent romantic atmosphere, cinematic wide shot, ultra-detailed</span><button class="copy mini" data-copy="grand European fairy-tale palace ballroom at night, warm candlelight pouring from a towering crystal chandelier, golden glow on gilded marble columns with rose-vine carvings, a full-length mirror wall reflecting the empty hall, red velvet central staircase, polished checkered floor, opulent romantic atmosphere, cinematic wide shot, ultra-detailed">复制</button></div><div class="light"><i>晓光空厅</i><span class="mono">the same empty ballroom in pale early-morning light, chandelier unlit, cold blue shafts through tall windows, dust motes drifting, melancholic and abandoned, cinematic wide shot</span><button class="copy mini" data-copy="the same empty ballroom in pale early-morning light, chandelier unlit, cold blue shafts through tall windows, dust motes drifting, melancholic and abandoned, cinematic wide shot">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="Establishing wide shot of a grand European fairy-tale palace ballroom, completely empty of people, warm candlelight from a towering crystal chandelier, gilded marble columns with rose-vine carvings, a full-length mirror wall on the west side, red velvet central staircase, polished checkered stone floor, opulent romantic atmosphere, cinematic, ultra-detailed, no people, empty scene">复制</button></summary>
+  <p>Establishing wide shot of a grand European fairy-tale palace ballroom, completely empty of people, warm candlelight from a towering crystal chandelier, gilded marble columns with rose-vine carvings, a full-length mirror wall on the west side, red velvet central staircase, polished checkered stone floor, opulent romantic atmosphere, cinematic, ultra-detailed, no people, empty scene</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Environment concept sheet of a grand European fairy-tale palace ballroom. Show the towering crystal chandelier, gilded marble columns with rose-vine carvings, the west mirror wall and the red velvet central staircase as fixed landmarks. Consistent architectural language across every view. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows">复制</button></summary>
+  <p>Environment concept sheet of a grand European fairy-tale palace ballroom. Show the towering crystal chandelier, gilded marble columns with rose-vine carvings, the west mirror wall and the red velvet central staircase as fixed landmarks. Consistent architectural language across every view. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated">复制</button></summary>
+  <p>people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;S01&quot;,
+  &quot;name&quot;: &quot;王宫舞会大厅&quot;,
+  &quot;primary&quot;: true,
+  &quot;summary&quot;: &quot;设计意图：璀璨盛大的王室舞会空间，金烛与镜墙铺满，辛德瑞拉在此以天仙之姿惊艳全场；气质是华美、浪漫、万众瞩目，一切为「被看见」服务。&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;水晶吊灯&quot;,
+      &quot;desc&quot;: &quot;穹顶垂下的多层水晶吊灯，烛光折射星点光斑&quot;
+    },
+    {
+      &quot;name&quot;: &quot;描金立柱&quot;,
+      &quot;desc&quot;: &quot;环厅描金大理石立柱，柱身浅刻玫瑰藤纹&quot;
+    },
+    {
+      &quot;name&quot;: &quot;镜墙&quot;,
+      &quot;desc&quot;: &quot;西侧整面落地镜墙，映出舞者与灯火&quot;
+    },
+    {
+      &quot;name&quot;: &quot;红毯主阶&quot;,
+      &quot;desc&quot;: &quot;厅心通向高台的红丝绒主阶，阶沿包金&quot;
+    }
+  ],
+  &quot;lighting&quot;: [
+    {
+      &quot;state&quot;: &quot;烛光晚宴&quot;,
+      &quot;prompt&quot;: &quot;grand European fairy-tale palace ballroom at night, warm candlelight pouring from a towering crystal chandelier, golden glow on gilded marble columns with rose-vine carvings, a full-length mirror wall reflecting the empty hall, red velvet central staircase, polished checkered floor, opulent romantic atmosphere, cinematic wide shot, ultra-detailed&quot;
+    },
+    {
+      &quot;state&quot;: &quot;晓光空厅&quot;,
+      &quot;prompt&quot;: &quot;the same empty ballroom in pale early-morning light, chandelier unlit, cold blue shafts through tall windows, dust motes drifting, melancholic and abandoned, cinematic wide shot&quot;
+    }
+  ],
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Establishing wide shot of a grand European fairy-tale palace ballroom, completely empty of people, warm candlelight from a towering crystal chandelier, gilded marble columns with rose-vine carvings, a full-length mirror wall on the west side, red velvet central staircase, polished checkered stone floor, opulent romantic atmosphere, cinematic, ultra-detailed, no people, empty scene&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated&quot;,
+    &quot;sheet&quot;: &quot;Environment concept sheet of a grand European fairy-tale palace ballroom. Show the towering crystal chandelier, gilded marble columns with rose-vine carvings, the west mirror wall and the red velvet central staircase as fixed landmarks. Consistent architectural language across every view. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows&quot;,
+    &quot;tags&quot;: [
+      &quot;environment sheet&quot;,
+      &quot;palace ballroom&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;warm candlelight&quot;,
+      &quot;cinematic&quot;
+    ]
+  },
+  &quot;seedNote&quot;: &quot;outline 的复用方案：复用 S03 王宫门厅外景，换盛装宾客与灯火调度区分舞会与入宫两场——考虑做成某个主场景的变体（variantOf + changes）&quot;,
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      1
+    ],
+    &quot;beats&quot;: [
+      &quot;惊艳登场&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+<article class="scene" id="sc-S02">
+  <header class="sc-h">
+    <span class="sc-id">S02</span>
+    <h3>辛德瑞拉家</h3>
+    <span class="badge">主场景</span>
+    <span class="sc-use">出现集 1、2　承载爽点 惊艳登场 · 试鞋打脸</span>
+  </header>
+  <p class="sc-sum">设计意图：逼仄昏暗的居家空间，灶台与柴堆是辛德瑞拉的日常，后母与姐姐们的高傲衬出她的卑微；气质是陈旧、压抑、被人使唤。</p>
+  <div class="plate plate-empty"><span>辛德瑞拉家 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>冷灶铁锅</b><span>墙角冷灶上架一口熏黑铁锅，锅沿补过锡</span></li><li><b>柴堆角落</b><span>门后斜堆的柴火，麻绳捆束松散</span></li><li><b>破木矮凳</b><span>厅中一只腿歪的破木矮凳，是她的活计座</span></li><li><b>漏光木窗</b><span>北墙小木窗，窗纸破了角，透进灰白天光</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>光照与时段</h4>
+    <div class="lights"><div class="light"><i>日间阴光</i><span class="mono">humble European fairy-tale cottage interior by dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, oppressive and shabby, cinematic, ultra-detailed</span><button class="copy mini" data-copy="humble European fairy-tale cottage interior by dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, oppressive and shabby, cinematic, ultra-detailed">复制</button></div><div class="light"><i>烛影夜</i><span class="mono">the same cottage at night by a single guttering candle, long shadows on soot-stained walls, cold hearth, lonely and bleak, cinematic</span><button class="copy mini" data-copy="the same cottage at night by a single guttering candle, long shadows on soot-stained walls, cold hearth, lonely and bleak, cinematic">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="Establishing shot of a humble European fairy-tale cottage interior, completely empty of people, dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, shabby and oppressive atmosphere, cinematic, ultra-detailed, no people, empty scene">复制</button></summary>
+  <p>Establishing shot of a humble European fairy-tale cottage interior, completely empty of people, dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, shabby and oppressive atmosphere, cinematic, ultra-detailed, no people, empty scene</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Environment concept sheet of a humble European fairy-tale cottage interior. Fix the cold hearth with soot-blackened iron pot, the corner firewood stack and the wobbly low stool as landmarks. Consistent worn timber and plaster language across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows">复制</button></summary>
+  <p>Environment concept sheet of a humble European fairy-tale cottage interior. Fix the cold hearth with soot-blackened iron pot, the corner firewood stack and the wobbly low stool as landmarks. Consistent worn timber and plaster language across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated">复制</button></summary>
+  <p>people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;S02&quot;,
+  &quot;name&quot;: &quot;辛德瑞拉家&quot;,
+  &quot;primary&quot;: true,
+  &quot;summary&quot;: &quot;设计意图：逼仄昏暗的居家空间，灶台与柴堆是辛德瑞拉的日常，后母与姐姐们的高傲衬出她的卑微；气质是陈旧、压抑、被人使唤。&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;冷灶铁锅&quot;,
+      &quot;desc&quot;: &quot;墙角冷灶上架一口熏黑铁锅，锅沿补过锡&quot;
+    },
+    {
+      &quot;name&quot;: &quot;柴堆角落&quot;,
+      &quot;desc&quot;: &quot;门后斜堆的柴火，麻绳捆束松散&quot;
+    },
+    {
+      &quot;name&quot;: &quot;破木矮凳&quot;,
+      &quot;desc&quot;: &quot;厅中一只腿歪的破木矮凳，是她的活计座&quot;
+    },
+    {
+      &quot;name&quot;: &quot;漏光木窗&quot;,
+      &quot;desc&quot;: &quot;北墙小木窗，窗纸破了角，透进灰白天光&quot;
+    }
+  ],
+  &quot;lighting&quot;: [
+    {
+      &quot;state&quot;: &quot;日间阴光&quot;,
+      &quot;prompt&quot;: &quot;humble European fairy-tale cottage interior by dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, oppressive and shabby, cinematic, ultra-detailed&quot;
+    },
+    {
+      &quot;state&quot;: &quot;烛影夜&quot;,
+      &quot;prompt&quot;: &quot;the same cottage at night by a single guttering candle, long shadows on soot-stained walls, cold hearth, lonely and bleak, cinematic&quot;
+    }
+  ],
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Establishing shot of a humble European fairy-tale cottage interior, completely empty of people, dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, shabby and oppressive atmosphere, cinematic, ultra-detailed, no people, empty scene&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated&quot;,
+    &quot;sheet&quot;: &quot;Environment concept sheet of a humble European fairy-tale cottage interior. Fix the cold hearth with soot-blackened iron pot, the corner firewood stack and the wobbly low stool as landmarks. Consistent worn timber and plaster language across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows&quot;,
+    &quot;tags&quot;: [
+      &quot;environment sheet&quot;,
+      &quot;cottage interior&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;dim daylight&quot;,
+      &quot;cinematic&quot;
+    ]
+  },
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      1,
+      2
+    ],
+    &quot;beats&quot;: [
+      &quot;惊艳登场&quot;,
+      &quot;试鞋打脸&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+<article class="scene" id="sc-S03">
+  <header class="sc-h">
+    <span class="sc-id">S03</span>
+    <h3>南瓜马车与长路</h3>
+    <span class="badge">主场景</span>
+    <span class="sc-use">出现集 1、2、3　承载爽点 惊艳登场 · 试鞋打脸 · 入宫期待</span>
+  </header>
+  <p class="sc-sum">设计意图：夜行赴宴的露天段落，南瓜马车与月下长路是「变身启程」的视觉载体；气质是梦幻、轻快、夜色微光。</p>
+  <div class="plate plate-empty"><span>南瓜马车与长路 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>南瓜马车</b><span>橙金南瓜雕成的车厢，四轮嵌铜，拉车的是两匹白马</span></li><li><b>月下长路</b><span>蜿蜒出城的石板长路，两侧枯柳，月光铺白</span></li><li><b>镀金车灯</b><span>车辕前一对镀金小灯，灯火摇曳</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>光照与时段</h4>
+    <div class="lights"><div class="light"><i>月夜启程</i><span class="mono">a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, a winding stone road flanked by bare willows, silver moonlight on the path, dreamy and magical, cinematic, ultra-detailed</span><button class="copy mini" data-copy="a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, a winding stone road flanked by bare willows, silver moonlight on the path, dreamy and magical, cinematic, ultra-detailed">复制</button></div><div class="light"><i>黎明归途</i><span class="mono">the same road at cold dawn, pale sky, empty carriage tracks in dust, melancholic, cinematic</span><button class="copy mini" data-copy="the same road at cold dawn, pale sky, empty carriage tracks in dust, melancholic, cinematic">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="Establishing wide shot of a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, winding stone road flanked by bare willows, silver moonlight, completely empty of people, dreamy magical atmosphere, cinematic, ultra-detailed, no people, empty scene">复制</button></summary>
+  <p>Establishing wide shot of a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, winding stone road flanked by bare willows, silver moonlight, completely empty of people, dreamy magical atmosphere, cinematic, ultra-detailed, no people, empty scene</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Environment concept sheet of a moonlit European fairy-tale country road with an ornate pumpkin carriage. Fix the copper-rimmed pumpkin carriage, the bare willows and the winding stone road as landmarks. Consistent night sky and moonlight across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows">复制</button></summary>
+  <p>Environment concept sheet of a moonlit European fairy-tale country road with an ornate pumpkin carriage. Fix the copper-rimmed pumpkin carriage, the bare willows and the winding stone road as landmarks. Consistent night sky and moonlight across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated">复制</button></summary>
+  <p>people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;S03&quot;,
+  &quot;name&quot;: &quot;南瓜马车与长路&quot;,
+  &quot;primary&quot;: true,
+  &quot;summary&quot;: &quot;设计意图：夜行赴宴的露天段落，南瓜马车与月下长路是「变身启程」的视觉载体；气质是梦幻、轻快、夜色微光。&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;南瓜马车&quot;,
+      &quot;desc&quot;: &quot;橙金南瓜雕成的车厢，四轮嵌铜，拉车的是两匹白马&quot;
+    },
+    {
+      &quot;name&quot;: &quot;月下长路&quot;,
+      &quot;desc&quot;: &quot;蜿蜒出城的石板长路，两侧枯柳，月光铺白&quot;
+    },
+    {
+      &quot;name&quot;: &quot;镀金车灯&quot;,
+      &quot;desc&quot;: &quot;车辕前一对镀金小灯，灯火摇曳&quot;
+    }
+  ],
+  &quot;lighting&quot;: [
+    {
+      &quot;state&quot;: &quot;月夜启程&quot;,
+      &quot;prompt&quot;: &quot;a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, a winding stone road flanked by bare willows, silver moonlight on the path, dreamy and magical, cinematic, ultra-detailed&quot;
+    },
+    {
+      &quot;state&quot;: &quot;黎明归途&quot;,
+      &quot;prompt&quot;: &quot;the same road at cold dawn, pale sky, empty carriage tracks in dust, melancholic, cinematic&quot;
+    }
+  ],
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Establishing wide shot of a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, winding stone road flanked by bare willows, silver moonlight, completely empty of people, dreamy magical atmosphere, cinematic, ultra-detailed, no people, empty scene&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated&quot;,
+    &quot;sheet&quot;: &quot;Environment concept sheet of a moonlit European fairy-tale country road with an ornate pumpkin carriage. Fix the copper-rimmed pumpkin carriage, the bare willows and the winding stone road as landmarks. Consistent night sky and moonlight across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows&quot;,
+    &quot;tags&quot;: [
+      &quot;environment sheet&quot;,
+      &quot;moonlit road&quot;,
+      &quot;pumpkin carriage&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;cinematic&quot;
+    ]
+  },
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      1,
+      2,
+      3
+    ],
+    &quot;beats&quot;: [
+      &quot;惊艳登场&quot;,
+      &quot;试鞋打脸&quot;,
+      &quot;入宫期待&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+<article class="scene" id="sc-S04">
+  <header class="sc-h">
+    <span class="sc-id">S04</span>
+    <h3>殉葬大殿</h3>
+    <span class="badge">主场景</span>
+    <span class="sc-use">出现集 3、4、5、6　承载爽点 入宫期待 · 真相反转 · 锁门绝境 · 求生无门</span>
+  </header>
+  <p class="sc-sum">设计意图：空旷森冷的王室大殿，辛德瑞拉在此被独留、被锁、被推向殉葬；气质是庄严、孤绝、火光将至的压迫。</p>
+  <div class="plate plate-empty"><span>殉葬大殿 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>高拱石顶</b><span>穹顶高拱的石殿，肋拱交叠，回声空洞</span></li><li><b>青铜火盆</b><span>四角青铜火盆，盆沿铸兽首，此时尚冷</span></li><li><b>双扇巨门</b><span>殿尾一对包铁巨门，是她拍打求生的唯一出口</span></li><li><b>王座石台</b><span>殿心一方覆黑绒的王座石台，暗示葬礼</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>光照与时段</h4>
+    <div class="lights"><div class="light"><i>殿内幽光</i><span class="mono">vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais at center, twin iron-bound giant doors at the far end, dim cold light, solemn and oppressive, cinematic, ultra-detailed</span><button class="copy mini" data-copy="vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais at center, twin iron-bound giant doors at the far end, dim cold light, solemn and oppressive, cinematic, ultra-detailed">复制</button></div><div class="light"><i>火光渐近</i><span class="mono">the same hall as orange firelight begins to creep from the door seams, long hot shafts on stone, dread and heat, cinematic</span><button class="copy mini" data-copy="the same hall as orange firelight begins to creep from the door seams, long hot shafts on stone, dread and heat, cinematic">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="Establishing wide shot of a vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais, twin iron-bound giant doors at the far end, completely empty of people, dim cold solemn atmosphere, cinematic, ultra-detailed, no people, empty scene">复制</button></summary>
+  <p>Establishing wide shot of a vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais, twin iron-bound giant doors at the far end, completely empty of people, dim cold solemn atmosphere, cinematic, ultra-detailed, no people, empty scene</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Environment concept sheet of a vast European fairy-tale stone burial hall. Fix the high ribbed vault, the four beast-head bronze braziers and the twin iron-bound giant doors as landmarks. Consistent cold stone and vaulting across views. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows">复制</button></summary>
+  <p>Environment concept sheet of a vast European fairy-tale stone burial hall. Fix the high ribbed vault, the four beast-head bronze braziers and the twin iron-bound giant doors as landmarks. Consistent cold stone and vaulting across views. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated">复制</button></summary>
+  <p>people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;S04&quot;,
+  &quot;name&quot;: &quot;殉葬大殿&quot;,
+  &quot;primary&quot;: true,
+  &quot;summary&quot;: &quot;设计意图：空旷森冷的王室大殿，辛德瑞拉在此被独留、被锁、被推向殉葬；气质是庄严、孤绝、火光将至的压迫。&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;高拱石顶&quot;,
+      &quot;desc&quot;: &quot;穹顶高拱的石殿，肋拱交叠，回声空洞&quot;
+    },
+    {
+      &quot;name&quot;: &quot;青铜火盆&quot;,
+      &quot;desc&quot;: &quot;四角青铜火盆，盆沿铸兽首，此时尚冷&quot;
+    },
+    {
+      &quot;name&quot;: &quot;双扇巨门&quot;,
+      &quot;desc&quot;: &quot;殿尾一对包铁巨门，是她拍打求生的唯一出口&quot;
+    },
+    {
+      &quot;name&quot;: &quot;王座石台&quot;,
+      &quot;desc&quot;: &quot;殿心一方覆黑绒的王座石台，暗示葬礼&quot;
+    }
+  ],
+  &quot;lighting&quot;: [
+    {
+      &quot;state&quot;: &quot;殿内幽光&quot;,
+      &quot;prompt&quot;: &quot;vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais at center, twin iron-bound giant doors at the far end, dim cold light, solemn and oppressive, cinematic, ultra-detailed&quot;
+    },
+    {
+      &quot;state&quot;: &quot;火光渐近&quot;,
+      &quot;prompt&quot;: &quot;the same hall as orange firelight begins to creep from the door seams, long hot shafts on stone, dread and heat, cinematic&quot;
+    }
+  ],
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;Establishing wide shot of a vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais, twin iron-bound giant doors at the far end, completely empty of people, dim cold solemn atmosphere, cinematic, ultra-detailed, no people, empty scene&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated&quot;,
+    &quot;sheet&quot;: &quot;Environment concept sheet of a vast European fairy-tale stone burial hall. Fix the high ribbed vault, the four beast-head bronze braziers and the twin iron-bound giant doors as landmarks. Consistent cold stone and vaulting across views. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows&quot;,
+    &quot;tags&quot;: [
+      &quot;environment sheet&quot;,
+      &quot;stone hall&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;cold solemn&quot;,
+      &quot;cinematic&quot;
+    ]
+  },
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      3,
+      4,
+      5,
+      6
+    ],
+    &quot;beats&quot;: [
+      &quot;入宫期待&quot;,
+      &quot;真相反转&quot;,
+      &quot;锁门绝境&quot;,
+      &quot;求生无门&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+  </div>
+</section>
+
+<section class="top-sec" id="sec-prop-list">
+  <div class="sec-h"><span class="no">03</span><h2>道具清单</h2></div>
+  <table><thead><tr><th>ID</th><th>道具</th><th>尺度</th><th>状态</th><th>关联场景</th><th>出现集</th><th>锚点</th></tr></thead>
+<tbody><tr><td>P01</td><td>水晶鞋</td><td>手持级</td><td>单只遗落、穿于足上</td><td>S01、S02</td><td>1、2</td><td>3</td></tr>
+<tr><td>P02</td><td>南瓜马车</td><td>家具级</td><td>完整车厢</td><td>S03</td><td>1</td><td>3</td></tr>
+<tr><td>P03</td><td>仙女礼裙</td><td>桌面级</td><td>盛装全裙</td><td>S02</td><td>1</td><td>3</td></tr>
+<tr><td>P04</td><td>天鹅绒垫</td><td>手持级</td><td>托鞋展示</td><td>S02</td><td>2</td><td>3</td></tr></tbody></table>
+</section>
+
+<section class="top-sec" id="sec-prop-cards">
+  <div class="sec-h"><span class="no">04</span><h2>道具设定卡</h2></div>
+  <div class="cards">
+<article class="scene" id="pr-P01">
+  <header class="sc-h">
+    <span class="sc-id">P01</span>
+    <h3>水晶鞋</h3>
+    <span class="badge">手持级</span>
+    <span class="sc-use">出现集 1、2　承载爽点 试鞋打脸 · 真相反转</span>
+  </header>
+  <p class="sc-sum">试鞋认主与殉葬导火索：谁穿上即王子遗命之妻，亦是锁门殉葬的引线</p>
+  <div class="plate plate-empty"><span>水晶鞋 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  <p class="variant">关联场景：<b>S01、S02</b>　关联角色：辛德瑞拉（遗落）/ 大臣（寻回）</p>
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>透明晶跟</b><span>鞋跟为整块透明晶体，内里有一缕螺旋光丝</span></li><li><b>银线鞋面</b><span>鞋面银线绣星芒纹，针脚极细</span></li><li><b>蝴蝶结扣</b><span>鞋口一只小水晶蝴蝶结，光下泛虹彩</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>状态变体</h4>
+    <div class="lights"><div class="light"><i>单只遗落</i><span class="mono">a single translucent crystal glass slipper on pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, ultra-detailed</span><button class="copy mini" data-copy="a single translucent crystal glass slipper on pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, ultra-detailed">复制</button></div><div class="light"><i>穿于足上</i><span class="mono">the same crystal slipper worn on a bare foot, same clear crystal heel and silver star embroidery, pure white background, handheld scale, ultra-detailed</span><button class="copy mini" data-copy="the same crystal slipper worn on a bare foot, same clear crystal heel and silver star embroidery, pure white background, handheld scale, ultra-detailed">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="A single translucent crystal glass slipper, pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, no people, no hands, ultra-detailed">复制</button></summary>
+  <p>A single translucent crystal glass slipper, pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, no people, no hands, ultra-detailed</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Product concept sheet of a single translucent crystal glass slipper on pure white background. Front, side and three-quarter views, fixing the clear crystal heel with inner spiral light filament, the silver star-thread vamp and the iridescent bow. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.">复制</button></summary>
+  <p>Product concept sheet of a single translucent crystal glass slipper on pure white background. Front, side and three-quarter views, fixing the clear crystal heel with inner spiral light filament, the silver star-thread vamp and the iridescent bow. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background">复制</button></summary>
+  <p>people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;P01&quot;,
+  &quot;name&quot;: &quot;水晶鞋&quot;,
+  &quot;scale&quot;: &quot;手持级&quot;,
+  &quot;summary&quot;: &quot;试鞋认主与殉葬导火索：谁穿上即王子遗命之妻，亦是锁门殉葬的引线&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;透明晶跟&quot;,
+      &quot;desc&quot;: &quot;鞋跟为整块透明晶体，内里有一缕螺旋光丝&quot;
+    },
+    {
+      &quot;name&quot;: &quot;银线鞋面&quot;,
+      &quot;desc&quot;: &quot;鞋面银线绣星芒纹，针脚极细&quot;
+    },
+    {
+      &quot;name&quot;: &quot;蝴蝶结扣&quot;,
+      &quot;desc&quot;: &quot;鞋口一只小水晶蝴蝶结，光下泛虹彩&quot;
+    }
+  ],
+  &quot;states&quot;: [
+    {
+      &quot;state&quot;: &quot;单只遗落&quot;,
+      &quot;prompt&quot;: &quot;a single translucent crystal glass slipper on pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, ultra-detailed&quot;
+    },
+    {
+      &quot;state&quot;: &quot;穿于足上&quot;,
+      &quot;prompt&quot;: &quot;the same crystal slipper worn on a bare foot, same clear crystal heel and silver star embroidery, pure white background, handheld scale, ultra-detailed&quot;
+    }
+  ],
+  &quot;relatedScenes&quot;: [
+    &quot;S01&quot;,
+    &quot;S02&quot;
+  ],
+  &quot;carriedBy&quot;: &quot;辛德瑞拉（遗落）/ 大臣（寻回）&quot;,
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;A single translucent crystal glass slipper, pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, no people, no hands, ultra-detailed&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background&quot;,
+    &quot;sheet&quot;: &quot;Product concept sheet of a single translucent crystal glass slipper on pure white background. Front, side and three-quarter views, fixing the clear crystal heel with inner spiral light filament, the silver star-thread vamp and the iridescent bow. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.&quot;,
+    &quot;tags&quot;: [
+      &quot;prop sheet&quot;,
+      &quot;crystal slipper&quot;,
+      &quot;handheld scale&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;product photography&quot;
+    ]
+  },
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      1,
+      2
+    ],
+    &quot;beats&quot;: [
+      &quot;试鞋打脸&quot;,
+      &quot;真相反转&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+<article class="scene" id="pr-P02">
+  <header class="sc-h">
+    <span class="sc-id">P02</span>
+    <h3>南瓜马车</h3>
+    <span class="badge">家具级</span>
+    <span class="sc-use">出现集 1　承载爽点 惊艳登场</span>
+  </header>
+  <p class="sc-sum">辛德瑞拉入宫的变身象征与交通工具</p>
+  <div class="plate plate-empty"><span>南瓜马车 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  <p class="variant">关联场景：<b>S03</b>　关联角色：辛德瑞拉（乘坐）</p>
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>橙金瓜身</b><span>车厢为整只橙金南瓜雕空，棱沟清晰</span></li><li><b>铜镶轮</b><span>四只车轮镶铜箍，辐条雕卷草</span></li><li><b>镀金车灯</b><span>车辕前一对镀金小灯</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>状态变体</h4>
+    <div class="lights"><div class="light"><i>完整车厢</i><span class="mono">an ornate pumpkin carriage on pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, ultra-detailed</span><button class="copy mini" data-copy="an ornate pumpkin carriage on pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, ultra-detailed">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="An ornate pumpkin carriage, pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, no people, no hands, ultra-detailed">复制</button></summary>
+  <p>An ornate pumpkin carriage, pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, no people, no hands, ultra-detailed</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Product concept sheet of an ornate pumpkin carriage on pure white background, front, side and three-quarter views, fixing the ribbed orange-gold pumpkin body, the copper-rimmed wheels and the gilded shaft lamps. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at furniture scale. Rendered on pure white background.">复制</button></summary>
+  <p>Product concept sheet of an ornate pumpkin carriage on pure white background, front, side and three-quarter views, fixing the ribbed orange-gold pumpkin body, the copper-rimmed wheels and the gilded shaft lamps. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at furniture scale. Rendered on pure white background.</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, hands, fingers, horse, character, watermark, text, low quality, blurry, oversaturated, colored background">复制</button></summary>
+  <p>people, person, human figure, hands, fingers, horse, character, watermark, text, low quality, blurry, oversaturated, colored background</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;P02&quot;,
+  &quot;name&quot;: &quot;南瓜马车&quot;,
+  &quot;scale&quot;: &quot;家具级&quot;,
+  &quot;summary&quot;: &quot;辛德瑞拉入宫的变身象征与交通工具&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;橙金瓜身&quot;,
+      &quot;desc&quot;: &quot;车厢为整只橙金南瓜雕空，棱沟清晰&quot;
+    },
+    {
+      &quot;name&quot;: &quot;铜镶轮&quot;,
+      &quot;desc&quot;: &quot;四只车轮镶铜箍，辐条雕卷草&quot;
+    },
+    {
+      &quot;name&quot;: &quot;镀金车灯&quot;,
+      &quot;desc&quot;: &quot;车辕前一对镀金小灯&quot;
+    }
+  ],
+  &quot;states&quot;: [
+    {
+      &quot;state&quot;: &quot;完整车厢&quot;,
+      &quot;prompt&quot;: &quot;an ornate pumpkin carriage on pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, ultra-detailed&quot;
+    }
+  ],
+  &quot;relatedScenes&quot;: [
+    &quot;S03&quot;
+  ],
+  &quot;carriedBy&quot;: &quot;辛德瑞拉（乘坐）&quot;,
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;An ornate pumpkin carriage, pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, no people, no hands, ultra-detailed&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, hands, fingers, horse, character, watermark, text, low quality, blurry, oversaturated, colored background&quot;,
+    &quot;sheet&quot;: &quot;Product concept sheet of an ornate pumpkin carriage on pure white background, front, side and three-quarter views, fixing the ribbed orange-gold pumpkin body, the copper-rimmed wheels and the gilded shaft lamps. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at furniture scale. Rendered on pure white background.&quot;,
+    &quot;tags&quot;: [
+      &quot;prop sheet&quot;,
+      &quot;pumpkin carriage&quot;,
+      &quot;furniture scale&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;product photography&quot;
+    ]
+  },
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      1
+    ],
+    &quot;beats&quot;: [
+      &quot;惊艳登场&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+<article class="scene" id="pr-P03">
+  <header class="sc-h">
+    <span class="sc-id">P03</span>
+    <h3>仙女礼裙</h3>
+    <span class="badge">桌面级</span>
+    <span class="sc-use">出现集 1　承载爽点 惊艳登场</span>
+  </header>
+  <p class="sc-sum">灰姑娘到天仙的视觉转变锚点</p>
+  <div class="plate plate-empty"><span>仙女礼裙 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  <p class="variant">关联场景：<b>S02</b>　关联角色：辛德瑞拉</p>
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>银线星纹</b><span>裙身银线绣星芒，转身时流光</span></li><li><b>水晶腰链</b><span>腰间一圈细水晶链，垂一粒泪滴坠</span></li><li><b>鲸骨裙撑</b><span>裙撑呈钟形，下摆缀小银铃</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>状态变体</h4>
+    <div class="lights"><div class="light"><i>盛装全裙</i><span class="mono">a pale-blue ball gown on a dress form on pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, ultra-detailed</span><button class="copy mini" data-copy="a pale-blue ball gown on a dress form on pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, ultra-detailed">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="A pale-blue ball gown on a dress form, pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, no people, no hands, ultra-detailed">复制</button></summary>
+  <p>A pale-blue ball gown on a dress form, pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, no people, no hands, ultra-detailed</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Product concept sheet of a pale-blue ball gown on pure white background, front and back views, fixing the silver star-thread skirt, the crystal waist chain and the bell-shaped hoop with silver bells. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at tabletop scale. Rendered on pure white background.">复制</button></summary>
+  <p>Product concept sheet of a pale-blue ball gown on pure white background, front and back views, fixing the silver star-thread skirt, the crystal waist chain and the bell-shaped hoop with silver bells. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at tabletop scale. Rendered on pure white background.</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, hands, fingers, character, face, watermark, text, low quality, blurry, oversaturated, colored background">复制</button></summary>
+  <p>people, person, human figure, hands, fingers, character, face, watermark, text, low quality, blurry, oversaturated, colored background</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;P03&quot;,
+  &quot;name&quot;: &quot;仙女礼裙&quot;,
+  &quot;scale&quot;: &quot;桌面级&quot;,
+  &quot;summary&quot;: &quot;灰姑娘到天仙的视觉转变锚点&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;银线星纹&quot;,
+      &quot;desc&quot;: &quot;裙身银线绣星芒，转身时流光&quot;
+    },
+    {
+      &quot;name&quot;: &quot;水晶腰链&quot;,
+      &quot;desc&quot;: &quot;腰间一圈细水晶链，垂一粒泪滴坠&quot;
+    },
+    {
+      &quot;name&quot;: &quot;鲸骨裙撑&quot;,
+      &quot;desc&quot;: &quot;裙撑呈钟形，下摆缀小银铃&quot;
+    }
+  ],
+  &quot;states&quot;: [
+    {
+      &quot;state&quot;: &quot;盛装全裙&quot;,
+      &quot;prompt&quot;: &quot;a pale-blue ball gown on a dress form on pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, ultra-detailed&quot;
+    }
+  ],
+  &quot;relatedScenes&quot;: [
+    &quot;S02&quot;
+  ],
+  &quot;carriedBy&quot;: &quot;辛德瑞拉&quot;,
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;A pale-blue ball gown on a dress form, pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, no people, no hands, ultra-detailed&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, hands, fingers, character, face, watermark, text, low quality, blurry, oversaturated, colored background&quot;,
+    &quot;sheet&quot;: &quot;Product concept sheet of a pale-blue ball gown on pure white background, front and back views, fixing the silver star-thread skirt, the crystal waist chain and the bell-shaped hoop with silver bells. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at tabletop scale. Rendered on pure white background.&quot;,
+    &quot;tags&quot;: [
+      &quot;prop sheet&quot;,
+      &quot;ball gown&quot;,
+      &quot;tabletop scale&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;product photography&quot;
+    ]
+  },
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      1
+    ],
+    &quot;beats&quot;: [
+      &quot;惊艳登场&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+<article class="scene" id="pr-P04">
+  <header class="sc-h">
+    <span class="sc-id">P04</span>
+    <h3>天鹅绒垫</h3>
+    <span class="badge">手持级</span>
+    <span class="sc-use">出现集 2　承载爽点 试鞋打脸</span>
+  </header>
+  <p class="sc-sum">托载水晶鞋的仪式感道具，凸显寻主之郑重</p>
+  <div class="plate plate-empty"><span>天鹅绒垫 · 尚未出图<br><em>用下方提示词生成</em></span></div>
+  <p class="variant">关联场景：<b>S02</b>　关联角色：侍卫（托鞋）</p>
+  <section class="blk">
+    <h4>一致性锚点<small>每次生成都必须出现的特征——认场景靠它，QC 也靠它</small></h4>
+    <ol class="anchors"><li><b>深红绒面</b><span>垫为深红天鹅绒，绒面压暗金卷草</span></li><li><b>金线锁边</b><span>垫沿金线锁边，四角缀小金珠</span></li><li><b>中央凹托</b><span>垫心一圆形凹托，恰好承一只鞋</span></li></ol>
+  </section>
+  <section class="blk">
+    <h4>状态变体</h4>
+    <div class="lights"><div class="light"><i>托鞋展示</i><span class="mono">a pair of deep-red velvet cushions on pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, ultra-detailed</span><button class="copy mini" data-copy="a pair of deep-red velvet cushions on pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, ultra-detailed">复制</button></div></div>
+  </section>
+  <div class="pgroup">
+    <details class="pr">
+  <summary><span>主视角 EN</span><button class="copy" data-copy="A pair of deep-red velvet cushions, pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, no people, no hands, ultra-detailed">复制</button></summary>
+  <p>A pair of deep-red velvet cushions, pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, no people, no hands, ultra-detailed</p>
+</details>
+    <details class="pr">
+  <summary><span>设定图 EN</span><button class="copy" data-copy="Product concept sheet of a pair of deep-red velvet cushions on pure white background, top view, fixing the gold-thread scroll border, the corner gold beads and the central circular shoe cradle. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.">复制</button></summary>
+  <p>Product concept sheet of a pair of deep-red velvet cushions on pure white background, top view, fixing the gold-thread scroll border, the corner gold beads and the central circular shoe cradle. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.</p>
+</details>
+    <details class="pr">
+  <summary><span>反向提示词</span><button class="copy" data-copy="people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background">复制</button></summary>
+  <p>people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background</p>
+</details>
+    <div class="pgroup-f"><button class="copy wide" data-copy="{
+  &quot;id&quot;: &quot;P04&quot;,
+  &quot;name&quot;: &quot;天鹅绒垫&quot;,
+  &quot;scale&quot;: &quot;手持级&quot;,
+  &quot;summary&quot;: &quot;托载水晶鞋的仪式感道具，凸显寻主之郑重&quot;,
+  &quot;anchors&quot;: [
+    {
+      &quot;name&quot;: &quot;深红绒面&quot;,
+      &quot;desc&quot;: &quot;垫为深红天鹅绒，绒面压暗金卷草&quot;
+    },
+    {
+      &quot;name&quot;: &quot;金线锁边&quot;,
+      &quot;desc&quot;: &quot;垫沿金线锁边，四角缀小金珠&quot;
+    },
+    {
+      &quot;name&quot;: &quot;中央凹托&quot;,
+      &quot;desc&quot;: &quot;垫心一圆形凹托，恰好承一只鞋&quot;
+    }
+  ],
+  &quot;states&quot;: [
+    {
+      &quot;state&quot;: &quot;托鞋展示&quot;,
+      &quot;prompt&quot;: &quot;a pair of deep-red velvet cushions on pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, ultra-detailed&quot;
+    }
+  ],
+  &quot;relatedScenes&quot;: [
+    &quot;S02&quot;
+  ],
+  &quot;carriedBy&quot;: &quot;侍卫（托鞋）&quot;,
+  &quot;image&quot;: {
+    &quot;prompt&quot;: &quot;A pair of deep-red velvet cushions, pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, no people, no hands, ultra-detailed&quot;,
+    &quot;negativePrompt&quot;: &quot;people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background&quot;,
+    &quot;sheet&quot;: &quot;Product concept sheet of a pair of deep-red velvet cushions on pure white background, top view, fixing the gold-thread scroll border, the corner gold beads and the central circular shoe cradle. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.&quot;,
+    &quot;tags&quot;: [
+      &quot;prop sheet&quot;,
+      &quot;velvet cushion&quot;,
+      &quot;handheld scale&quot;,
+      &quot;European fairy tale&quot;,
+      &quot;product photography&quot;
+    ]
+  },
+  &quot;usage&quot;: {
+    &quot;episodes&quot;: [
+      2
+    ],
+    &quot;beats&quot;: [
+      &quot;试鞋打脸&quot;
+    ]
+  }
+}">复制整个场景 JSON</button></div>
+  </div>
+</article>
+  </div>
+</section>
+
+<section class="top-sec" id="sec-gates">
+  <div class="sec-h"><span class="no">05</span><h2>质量门</h2></div>
+  <ul class="gate">
+  <li class="ok"><span class="m">✓</span><span>一致性锚点 3–5 个</span></li>
+  <li class="ok"><span class="m">✓</span><span>光照状态至少 1 个且落成提示词</span></li>
+  <li class="ok"><span class="m">✓</span><span>参考图无人：反向提示词禁人（场景与道具都查）</span></li>
+  <li class="ok"><span class="m">✓</span><span>出图提示词全部英文</span></li>
+  <li class="ok"><span class="m">✓</span><span>提示词不含角色名<small>未提供 cast.json，本门跳过（视为通过）</small></span></li>
+  <li class="ok"><span class="m">✓</span><span>变体引用完整（variantOf 存在且带 changes）</span></li>
+  <li class="ok"><span class="m">✓</span><span>道具状态至少 1 个且落成提示词</span></li>
+  <li class="ok"><span class="m">✓</span><span>道具尺度参照写进提示词</span></li>
+  <li class="ok"><span class="m">✓</span><span>道具参考图无手：反向提示词禁手</span></li>
+  <li class="ok"><span class="m">✓</span><span>道具设定图纯白背景可抠</span></li>
+</ul>
+  <p class="gsum">全部通过</p>
+</section>
+
+<p class="foot">设定与提示词由模型依据大纲/原文生成，质量门由脚本确定性检查。参考图一律无人——人是另一层资产；道具参考图另加无手、纯白背景。</p>
+</div>
+
+<div class="lightbox" role="dialog" aria-modal="true">
+  <button class="lightbox-x" aria-label="关闭">关闭</button>
+  <img alt="">
+</div>
+
+<script type="application/json" id="art-data">{"source":"灰姑娘·殉葬","dynasty":"中世纪欧洲","scenes":[{"id":"S01","name":"王宫舞会大厅","primary":true,"summary":"设计意图：璀璨盛大的王室舞会空间，金烛与镜墙铺满，辛德瑞拉在此以天仙之姿惊艳全场；气质是华美、浪漫、万众瞩目，一切为「被看见」服务。","anchors":[{"name":"水晶吊灯","desc":"穹顶垂下的多层水晶吊灯，烛光折射星点光斑"},{"name":"描金立柱","desc":"环厅描金大理石立柱，柱身浅刻玫瑰藤纹"},{"name":"镜墙","desc":"西侧整面落地镜墙，映出舞者与灯火"},{"name":"红毯主阶","desc":"厅心通向高台的红丝绒主阶，阶沿包金"}],"lighting":[{"state":"烛光晚宴","prompt":"grand European fairy-tale palace ballroom at night, warm candlelight pouring from a towering crystal chandelier, golden glow on gilded marble columns with rose-vine carvings, a full-length mirror wall reflecting the empty hall, red velvet central staircase, polished checkered floor, opulent romantic atmosphere, cinematic wide shot, ultra-detailed"},{"state":"晓光空厅","prompt":"the same empty ballroom in pale early-morning light, chandelier unlit, cold blue shafts through tall windows, dust motes drifting, melancholic and abandoned, cinematic wide shot"}],"image":{"prompt":"Establishing wide shot of a grand European fairy-tale palace ballroom, completely empty of people, warm candlelight from a towering crystal chandelier, gilded marble columns with rose-vine carvings, a full-length mirror wall on the west side, red velvet central staircase, polished checkered stone floor, opulent romantic atmosphere, cinematic, ultra-detailed, no people, empty scene","negativePrompt":"people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated","sheet":"Environment concept sheet of a grand European fairy-tale palace ballroom. Show the towering crystal chandelier, gilded marble columns with rose-vine carvings, the west mirror wall and the red velvet central staircase as fixed landmarks. Consistent architectural language across every view. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows","tags":["environment sheet","palace ballroom","European fairy tale","warm candlelight","cinematic"]},"seedNote":"outline 的复用方案：复用 S03 王宫门厅外景，换盛装宾客与灯火调度区分舞会与入宫两场——考虑做成某个主场景的变体（variantOf + changes）","usage":{"episodes":[1],"beats":["惊艳登场"]}},{"id":"S02","name":"辛德瑞拉家","primary":true,"summary":"设计意图：逼仄昏暗的居家空间，灶台与柴堆是辛德瑞拉的日常，后母与姐姐们的高傲衬出她的卑微；气质是陈旧、压抑、被人使唤。","anchors":[{"name":"冷灶铁锅","desc":"墙角冷灶上架一口熏黑铁锅，锅沿补过锡"},{"name":"柴堆角落","desc":"门后斜堆的柴火，麻绳捆束松散"},{"name":"破木矮凳","desc":"厅中一只腿歪的破木矮凳，是她的活计座"},{"name":"漏光木窗","desc":"北墙小木窗，窗纸破了角，透进灰白天光"}],"lighting":[{"state":"日间阴光","prompt":"humble European fairy-tale cottage interior by dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, oppressive and shabby, cinematic, ultra-detailed"},{"state":"烛影夜","prompt":"the same cottage at night by a single guttering candle, long shadows on soot-stained walls, cold hearth, lonely and bleak, cinematic"}],"image":{"prompt":"Establishing shot of a humble European fairy-tale cottage interior, completely empty of people, dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, shabby and oppressive atmosphere, cinematic, ultra-detailed, no people, empty scene","negativePrompt":"people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated","sheet":"Environment concept sheet of a humble European fairy-tale cottage interior. Fix the cold hearth with soot-blackened iron pot, the corner firewood stack and the wobbly low stool as landmarks. Consistent worn timber and plaster language across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows","tags":["environment sheet","cottage interior","European fairy tale","dim daylight","cinematic"]},"usage":{"episodes":[1,2],"beats":["惊艳登场","试鞋打脸"]}},{"id":"S03","name":"南瓜马车与长路","primary":true,"summary":"设计意图：夜行赴宴的露天段落，南瓜马车与月下长路是「变身启程」的视觉载体；气质是梦幻、轻快、夜色微光。","anchors":[{"name":"南瓜马车","desc":"橙金南瓜雕成的车厢，四轮嵌铜，拉车的是两匹白马"},{"name":"月下长路","desc":"蜿蜒出城的石板长路，两侧枯柳，月光铺白"},{"name":"镀金车灯","desc":"车辕前一对镀金小灯，灯火摇曳"}],"lighting":[{"state":"月夜启程","prompt":"a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, a winding stone road flanked by bare willows, silver moonlight on the path, dreamy and magical, cinematic, ultra-detailed"},{"state":"黎明归途","prompt":"the same road at cold dawn, pale sky, empty carriage tracks in dust, melancholic, cinematic"}],"image":{"prompt":"Establishing wide shot of a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, winding stone road flanked by bare willows, silver moonlight, completely empty of people, dreamy magical atmosphere, cinematic, ultra-detailed, no people, empty scene","negativePrompt":"people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated","sheet":"Environment concept sheet of a moonlit European fairy-tale country road with an ornate pumpkin carriage. Fix the copper-rimmed pumpkin carriage, the bare willows and the winding stone road as landmarks. Consistent night sky and moonlight across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows","tags":["environment sheet","moonlit road","pumpkin carriage","European fairy tale","cinematic"]},"usage":{"episodes":[1,2,3],"beats":["惊艳登场","试鞋打脸","入宫期待"]}},{"id":"S04","name":"殉葬大殿","primary":true,"summary":"设计意图：空旷森冷的王室大殿，辛德瑞拉在此被独留、被锁、被推向殉葬；气质是庄严、孤绝、火光将至的压迫。","anchors":[{"name":"高拱石顶","desc":"穹顶高拱的石殿，肋拱交叠，回声空洞"},{"name":"青铜火盆","desc":"四角青铜火盆，盆沿铸兽首，此时尚冷"},{"name":"双扇巨门","desc":"殿尾一对包铁巨门，是她拍打求生的唯一出口"},{"name":"王座石台","desc":"殿心一方覆黑绒的王座石台，暗示葬礼"}],"lighting":[{"state":"殿内幽光","prompt":"vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais at center, twin iron-bound giant doors at the far end, dim cold light, solemn and oppressive, cinematic, ultra-detailed"},{"state":"火光渐近","prompt":"the same hall as orange firelight begins to creep from the door seams, long hot shafts on stone, dread and heat, cinematic"}],"image":{"prompt":"Establishing wide shot of a vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais, twin iron-bound giant doors at the far end, completely empty of people, dim cold solemn atmosphere, cinematic, ultra-detailed, no people, empty scene","negativePrompt":"people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated","sheet":"Environment concept sheet of a vast European fairy-tale stone burial hall. Fix the high ribbed vault, the four beast-head bronze braziers and the twin iron-bound giant doors as landmarks. Consistent cold stone and vaulting across views. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows","tags":["environment sheet","stone hall","European fairy tale","cold solemn","cinematic"]},"usage":{"episodes":[3,4,5,6],"beats":["入宫期待","真相反转","锁门绝境","求生无门"]}}],"props":[{"id":"P01","name":"水晶鞋","scale":"手持级","summary":"试鞋认主与殉葬导火索：谁穿上即王子遗命之妻，亦是锁门殉葬的引线","anchors":[{"name":"透明晶跟","desc":"鞋跟为整块透明晶体，内里有一缕螺旋光丝"},{"name":"银线鞋面","desc":"鞋面银线绣星芒纹，针脚极细"},{"name":"蝴蝶结扣","desc":"鞋口一只小水晶蝴蝶结，光下泛虹彩"}],"states":[{"state":"单只遗落","prompt":"a single translucent crystal glass slipper on pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, ultra-detailed"},{"state":"穿于足上","prompt":"the same crystal slipper worn on a bare foot, same clear crystal heel and silver star embroidery, pure white background, handheld scale, ultra-detailed"}],"relatedScenes":["S01","S02"],"carriedBy":"辛德瑞拉（遗落）/ 大臣（寻回）","image":{"prompt":"A single translucent crystal glass slipper, pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, no people, no hands, ultra-detailed","negativePrompt":"people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background","sheet":"Product concept sheet of a single translucent crystal glass slipper on pure white background. Front, side and three-quarter views, fixing the clear crystal heel with inner spiral light filament, the silver star-thread vamp and the iridescent bow. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.","tags":["prop sheet","crystal slipper","handheld scale","European fairy tale","product photography"]},"usage":{"episodes":[1,2],"beats":["试鞋打脸","真相反转"]}},{"id":"P02","name":"南瓜马车","scale":"家具级","summary":"辛德瑞拉入宫的变身象征与交通工具","anchors":[{"name":"橙金瓜身","desc":"车厢为整只橙金南瓜雕空，棱沟清晰"},{"name":"铜镶轮","desc":"四只车轮镶铜箍，辐条雕卷草"},{"name":"镀金车灯","desc":"车辕前一对镀金小灯"}],"states":[{"state":"完整车厢","prompt":"an ornate pumpkin carriage on pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, ultra-detailed"}],"relatedScenes":["S03"],"carriedBy":"辛德瑞拉（乘坐）","image":{"prompt":"An ornate pumpkin carriage, pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, no people, no hands, ultra-detailed","negativePrompt":"people, person, human figure, hands, fingers, horse, character, watermark, text, low quality, blurry, oversaturated, colored background","sheet":"Product concept sheet of an ornate pumpkin carriage on pure white background, front, side and three-quarter views, fixing the ribbed orange-gold pumpkin body, the copper-rimmed wheels and the gilded shaft lamps. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at furniture scale. Rendered on pure white background.","tags":["prop sheet","pumpkin carriage","furniture scale","European fairy tale","product photography"]},"usage":{"episodes":[1],"beats":["惊艳登场"]}},{"id":"P03","name":"仙女礼裙","scale":"桌面级","summary":"灰姑娘到天仙的视觉转变锚点","anchors":[{"name":"银线星纹","desc":"裙身银线绣星芒，转身时流光"},{"name":"水晶腰链","desc":"腰间一圈细水晶链，垂一粒泪滴坠"},{"name":"鲸骨裙撑","desc":"裙撑呈钟形，下摆缀小银铃"}],"states":[{"state":"盛装全裙","prompt":"a pale-blue ball gown on a dress form on pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, ultra-detailed"}],"relatedScenes":["S02"],"carriedBy":"辛德瑞拉","image":{"prompt":"A pale-blue ball gown on a dress form, pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, no people, no hands, ultra-detailed","negativePrompt":"people, person, human figure, hands, fingers, character, face, watermark, text, low quality, blurry, oversaturated, colored background","sheet":"Product concept sheet of a pale-blue ball gown on pure white background, front and back views, fixing the silver star-thread skirt, the crystal waist chain and the bell-shaped hoop with silver bells. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at tabletop scale. Rendered on pure white background.","tags":["prop sheet","ball gown","tabletop scale","European fairy tale","product photography"]},"usage":{"episodes":[1],"beats":["惊艳登场"]}},{"id":"P04","name":"天鹅绒垫","scale":"手持级","summary":"托载水晶鞋的仪式感道具，凸显寻主之郑重","anchors":[{"name":"深红绒面","desc":"垫为深红天鹅绒，绒面压暗金卷草"},{"name":"金线锁边","desc":"垫沿金线锁边，四角缀小金珠"},{"name":"中央凹托","desc":"垫心一圆形凹托，恰好承一只鞋"}],"states":[{"state":"托鞋展示","prompt":"a pair of deep-red velvet cushions on pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, ultra-detailed"}],"relatedScenes":["S02"],"carriedBy":"侍卫（托鞋）","image":{"prompt":"A pair of deep-red velvet cushions, pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, no people, no hands, ultra-detailed","negativePrompt":"people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background","sheet":"Product concept sheet of a pair of deep-red velvet cushions on pure white background, top view, fixing the gold-thread scroll border, the corner gold beads and the central circular shoe cradle. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.","tags":["prop sheet","velvet cushion","handheld scale","European fairy tale","product photography"]},"usage":{"episodes":[2],"beats":["试鞋打脸"]}}]}</script>
+<script>
+const L = {"copied":"已复制","failed":"复制失败"};
+
+// 图片弹层：点图放大，点背景或 Esc 关闭
+const lb = document.querySelector('.lightbox');
+const lbImg = lb.querySelector('img');
+function closeLb() { lb.classList.remove('on'); lbImg.removeAttribute('src'); }
+document.addEventListener('click', (e) => {
+  const z = e.target.closest('.zoom');
+  if (z) { lbImg.src = z.dataset.src; lb.classList.add('on'); return; }
+  if (e.target.closest('.lightbox')) closeLb();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLb(); });
+
+// 复制按钮
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy');
+  if (!btn) return;
+  e.preventDefault();
+  const label = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(btn.dataset.copy);
+    btn.textContent = L.copied;
+    btn.dataset.done = '1';
+  } catch {
+    btn.textContent = L.failed;
+  }
+  setTimeout(() => { btn.textContent = label; delete btn.dataset.done; }, 1600);
+});
+
+// 导出：报告自己带着完整的 art.json，下载的是它原样
+document.querySelector('.expo').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
+  const url = URL.createObjectURL(
+    new Blob([document.getElementById('art-data').textContent], { type: 'application/json' }),
+  );
+  const a = Object.assign(document.createElement('a'), { href: url, download: btn.dataset.name });
+  a.click();
+  // 别立刻回收——Safari 会抢在下载读完之前撤掉 blob
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+});
+</script>
+</body></html>

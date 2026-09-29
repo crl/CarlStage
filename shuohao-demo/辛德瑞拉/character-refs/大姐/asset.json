@@ -1,0 +1,75 @@
+{
+  "name": "大姐",
+  "source": "灰姑娘·殉葬（暗黑反转）",
+  "lang": "zh",
+  "layers": {
+    "identity": {
+      "age": 20,
+      "gender": "female",
+      "en": "a vain twenty-year-old European noblewoman, slightly taller and competitive",
+      "text": "约二十岁的欧洲贵族少女，虚荣好胜，身量略高",
+      "source": "stated"
+    },
+    "face": {
+      "en": "a pretty face with a jealous set to the mouth",
+      "text": "俏丽面容，嘴角因不服而绷着",
+      "source": "stated"
+    },
+    "hair": {
+      "en": "elaborate curled hair",
+      "text": "发卷夸张",
+      "source": "stated"
+    },
+    "build": {
+      "en": "a slightly taller, slender frame",
+      "text": "身量略高，身形纤细",
+      "source": "stated"
+    }
+  },
+  "outfits": {
+    "default": {
+      "label": "常态",
+      "top": {
+        "en": "an ornate jewel-toned gown with excessive frills",
+        "text": "繁复珠宝色长裙，缀过多荷叶边",
+        "source": "stated"
+      },
+      "bottom": {
+        "en": "the long ornate skirt of the jewel-toned gown",
+        "text": "珠宝色长裙的长摆",
+        "source": "stated"
+      },
+      "details": [
+        {
+          "slot": "hair",
+          "en": "heavy elaborate curls piled high",
+          "text": "夸张的厚重卷发",
+          "source": "stated"
+        },
+        {
+          "slot": "custom",
+          "id": "necklace",
+          "part": "neck",
+          "en": "an ostentatious jeweled necklace",
+          "text": "张扬的珠宝项链",
+          "source": "stated"
+        }
+      ],
+      "overrides": {},
+      "look": {
+        "id": "anime",
+        "label": {
+          "zh": "动漫",
+          "en": "Anime",
+          "ja": "アニメ"
+        },
+        "medium": "drawn",
+        "style": "A clean 2D Japanese anime illustration, like official character art for a TV anime: crisp confident line art of even weight, cel shading with one soft shadow tone and a few sharp highlights, flat clean colors, anime-style eyes with clear highlights, a small simplified nose and mouth, hair drawn in smooth clumps with glossy highlight bands. Fabric folds drawn as simple lines.",
+        "clean": "Plain pure white background, evenly lit, with at most a faint soft shadow under the feet. Exactly one character, empty hands, no props, no text, no watermark.",
+        "neg": "photograph, photorealistic, realistic skin texture, pores, film grain, 3D render, CGI, semi-realistic, painterly, watercolor, sketch, rough lines, messy lines, heavy shading, gradient background, character sheet, multiple views, chibi, super deformed"
+      },
+      "views": {},
+      "upgrades": []
+    }
+  }
+}

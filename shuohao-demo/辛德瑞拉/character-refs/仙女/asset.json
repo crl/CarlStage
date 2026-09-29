@@ -1,0 +1,75 @@
+{
+  "name": "仙女",
+  "source": "灰姑娘·殉葬（暗黑反转）",
+  "lang": "zh",
+  "layers": {
+    "identity": {
+      "age": 28,
+      "gender": "female",
+      "en": "an ageless ethereal European woman, a fairy benefactor touched by grace",
+      "text": "不老不死的欧洲神话女性，蒙受神恩的施助者",
+      "source": "stated"
+    },
+    "face": {
+      "en": "a kind luminous face with soft silver hair and gentle eyes",
+      "text": "眼含慈光，柔银长发，神情慈爱",
+      "source": "stated"
+    },
+    "hair": {
+      "en": "long soft silver hair",
+      "text": "柔银长发",
+      "source": "stated"
+    },
+    "build": {
+      "en": "a willowy, light-bearing figure",
+      "text": "身形苗条，泛着微光",
+      "source": "stated"
+    }
+  },
+  "outfits": {
+    "default": {
+      "label": "常态",
+      "top": {
+        "en": "a gown of layered translucent pale fabric with a faint starlight shimmer",
+        "text": "层叠半透淡色织物，泛细微星光",
+        "source": "stated"
+      },
+      "bottom": {
+        "en": "the long flowing hem of the starlit gown",
+        "text": "星光纱裙的长摆",
+        "source": "stated"
+      },
+      "details": [
+        {
+          "slot": "hair",
+          "en": "soft silver hair drifting as if in a gentle breeze",
+          "text": "柔银长发，如沐微风",
+          "source": "stated"
+        },
+        {
+          "slot": "custom",
+          "id": "wand",
+          "part": "hands",
+          "en": "a slender wand with a glowing tip",
+          "text": "手持发光细杖",
+          "source": "stated"
+        }
+      ],
+      "overrides": {},
+      "look": {
+        "id": "anime",
+        "label": {
+          "zh": "动漫",
+          "en": "Anime",
+          "ja": "アニメ"
+        },
+        "medium": "drawn",
+        "style": "A clean 2D Japanese anime illustration, like official character art for a TV anime: crisp confident line art of even weight, cel shading with one soft shadow tone and a few sharp highlights, flat clean colors, anime-style eyes with clear highlights, a small simplified nose and mouth, hair drawn in smooth clumps with glossy highlight bands. Fabric folds drawn as simple lines.",
+        "clean": "Plain pure white background, evenly lit, with at most a faint soft shadow under the feet. Exactly one character, empty hands, no props, no text, no watermark.",
+        "neg": "photograph, photorealistic, realistic skin texture, pores, film grain, 3D render, CGI, semi-realistic, painterly, watercolor, sketch, rough lines, messy lines, heavy shading, gradient background, character sheet, multiple views, chibi, super deformed"
+      },
+      "views": {},
+      "upgrades": []
+    }
+  }
+}

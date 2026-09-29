@@ -1,0 +1,75 @@
+{
+  "name": "后母",
+  "source": "灰姑娘·殉葬（暗黑反转）",
+  "lang": "zh",
+  "layers": {
+    "identity": {
+      "age": 45,
+      "gender": "female",
+      "en": "a stern forty-five-year-old European matron, the mistress of the household",
+      "text": "约四十五岁的欧洲中年贵妇，宅邸女主人，神情严厉",
+      "source": "stated"
+    },
+    "face": {
+      "en": "a sharp-featured face with thin pressed lips and cold eyes",
+      "text": "五官刻薄，唇线紧抿，眼神冷硬",
+      "source": "stated"
+    },
+    "hair": {
+      "en": "hair pinned in a tight severe bun",
+      "text": "发髻紧绾，一丝不苟",
+      "source": "stated"
+    },
+    "build": {
+      "en": "a rigid, corseted figure of medium build",
+      "text": "身形紧束，体态刻板",
+      "source": "stated"
+    }
+  },
+  "outfits": {
+    "default": {
+      "label": "常态",
+      "top": {
+        "en": "a dark high-necked long gown",
+        "text": "暗色高领长裙",
+        "source": "stated"
+      },
+      "bottom": {
+        "en": "the long skirt of the dark austere gown",
+        "text": "暗色肃穆长裙的下摆",
+        "source": "stated"
+      },
+      "details": [
+        {
+          "slot": "hair",
+          "en": "a tight severe bun with not a strand out of place",
+          "text": "紧绾的发髻，一丝不乱",
+          "source": "stated"
+        },
+        {
+          "slot": "custom",
+          "id": "ring",
+          "part": "hands",
+          "en": "a heavy signet ring on one finger",
+          "text": "手指上一枚厚实印章戒指",
+          "source": "stated"
+        }
+      ],
+      "overrides": {},
+      "look": {
+        "id": "anime",
+        "label": {
+          "zh": "动漫",
+          "en": "Anime",
+          "ja": "アニメ"
+        },
+        "medium": "drawn",
+        "style": "A clean 2D Japanese anime illustration, like official character art for a TV anime: crisp confident line art of even weight, cel shading with one soft shadow tone and a few sharp highlights, flat clean colors, anime-style eyes with clear highlights, a small simplified nose and mouth, hair drawn in smooth clumps with glossy highlight bands. Fabric folds drawn as simple lines.",
+        "clean": "Plain pure white background, evenly lit, with at most a faint soft shadow under the feet. Exactly one character, empty hands, no props, no text, no watermark.",
+        "neg": "photograph, photorealistic, realistic skin texture, pores, film grain, 3D render, CGI, semi-realistic, painterly, watercolor, sketch, rough lines, messy lines, heavy shading, gradient background, character sheet, multiple views, chibi, super deformed"
+      },
+      "views": {},
+      "upgrades": []
+    }
+  }
+}

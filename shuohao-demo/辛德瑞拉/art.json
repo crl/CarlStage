@@ -1,0 +1,193 @@
+{
+  "source": "灰姑娘·殉葬",
+  "dynasty": "中世纪欧洲",
+  "scenes": [
+    {
+      "id": "S01",
+      "name": "王宫舞会大厅",
+      "primary": true,
+      "summary": "设计意图：璀璨盛大的王室舞会空间，金烛与镜墙铺满，辛德瑞拉在此以天仙之姿惊艳全场；气质是华美、浪漫、万众瞩目，一切为「被看见」服务。",
+      "anchors": [
+        { "name": "水晶吊灯", "desc": "穹顶垂下的多层水晶吊灯，烛光折射星点光斑" },
+        { "name": "描金立柱", "desc": "环厅描金大理石立柱，柱身浅刻玫瑰藤纹" },
+        { "name": "镜墙", "desc": "西侧整面落地镜墙，映出舞者与灯火" },
+        { "name": "红毯主阶", "desc": "厅心通向高台的红丝绒主阶，阶沿包金" }
+      ],
+      "lighting": [
+        { "state": "烛光晚宴", "prompt": "grand European fairy-tale palace ballroom at night, warm candlelight pouring from a towering crystal chandelier, golden glow on gilded marble columns with rose-vine carvings, a full-length mirror wall reflecting the empty hall, red velvet central staircase, polished checkered floor, opulent romantic atmosphere, cinematic wide shot, ultra-detailed" },
+        { "state": "晓光空厅", "prompt": "the same empty ballroom in pale early-morning light, chandelier unlit, cold blue shafts through tall windows, dust motes drifting, melancholic and abandoned, cinematic wide shot" }
+      ],
+      "image": {
+        "prompt": "Establishing wide shot of a grand European fairy-tale palace ballroom, completely empty of people, warm candlelight from a towering crystal chandelier, gilded marble columns with rose-vine carvings, a full-length mirror wall on the west side, red velvet central staircase, polished checkered stone floor, opulent romantic atmosphere, cinematic, ultra-detailed, no people, empty scene",
+        "negativePrompt": "people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated",
+        "sheet": "Environment concept sheet of a grand European fairy-tale palace ballroom. Show the towering crystal chandelier, gilded marble columns with rose-vine carvings, the west mirror wall and the red velvet central staircase as fixed landmarks. Consistent architectural language across every view. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows",
+        "tags": ["environment sheet", "palace ballroom", "European fairy tale", "warm candlelight", "cinematic"]
+      },
+      "seedNote": "outline 的复用方案：复用 S03 王宫门厅外景，换盛装宾客与灯火调度区分舞会与入宫两场——考虑做成某个主场景的变体（variantOf + changes）",
+      "usage": { "episodes": [1], "beats": ["惊艳登场"] }
+    },
+    {
+      "id": "S02",
+      "name": "辛德瑞拉家",
+      "primary": true,
+      "summary": "设计意图：逼仄昏暗的居家空间，灶台与柴堆是辛德瑞拉的日常，后母与姐姐们的高傲衬出她的卑微；气质是陈旧、压抑、被人使唤。",
+      "anchors": [
+        { "name": "冷灶铁锅", "desc": "墙角冷灶上架一口熏黑铁锅，锅沿补过锡" },
+        { "name": "柴堆角落", "desc": "门后斜堆的柴火，麻绳捆束松散" },
+        { "name": "破木矮凳", "desc": "厅中一只腿歪的破木矮凳，是她的活计座" },
+        { "name": "漏光木窗", "desc": "北墙小木窗，窗纸破了角，透进灰白天光" }
+      ],
+      "lighting": [
+        { "state": "日间阴光", "prompt": "humble European fairy-tale cottage interior by dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, oppressive and shabby, cinematic, ultra-detailed" },
+        { "state": "烛影夜", "prompt": "the same cottage at night by a single guttering candle, long shadows on soot-stained walls, cold hearth, lonely and bleak, cinematic" }
+      ],
+      "image": {
+        "prompt": "Establishing shot of a humble European fairy-tale cottage interior, completely empty of people, dim grey daylight through a broken paper window, cold hearth with a soot-blackened iron pot, stacked firewood in a corner, a wobbly low wooden stool, worn timber floor, shabby and oppressive atmosphere, cinematic, ultra-detailed, no people, empty scene",
+        "negativePrompt": "people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated",
+        "sheet": "Environment concept sheet of a humble European fairy-tale cottage interior. Fix the cold hearth with soot-blackened iron pot, the corner firewood stack and the wobbly low stool as landmarks. Consistent worn timber and plaster language across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows",
+        "tags": ["environment sheet", "cottage interior", "European fairy tale", "dim daylight", "cinematic"]
+      },
+      "usage": { "episodes": [1, 2], "beats": ["惊艳登场", "试鞋打脸"] }
+    },
+    {
+      "id": "S03",
+      "name": "南瓜马车与长路",
+      "primary": true,
+      "summary": "设计意图：夜行赴宴的露天段落，南瓜马车与月下长路是「变身启程」的视觉载体；气质是梦幻、轻快、夜色微光。",
+      "anchors": [
+        { "name": "南瓜马车", "desc": "橙金南瓜雕成的车厢，四轮嵌铜，拉车的是两匹白马" },
+        { "name": "月下长路", "desc": "蜿蜒出城的石板长路，两侧枯柳，月光铺白" },
+        { "name": "镀金车灯", "desc": "车辕前一对镀金小灯，灯火摇曳" }
+      ],
+      "lighting": [
+        { "state": "月夜启程", "prompt": "a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, a winding stone road flanked by bare willows, silver moonlight on the path, dreamy and magical, cinematic, ultra-detailed" },
+        { "state": "黎明归途", "prompt": "the same road at cold dawn, pale sky, empty carriage tracks in dust, melancholic, cinematic" }
+      ],
+      "image": {
+        "prompt": "Establishing wide shot of a moonlit European fairy-tale country road at night, an ornate pumpkin carriage with copper-rimmed wheels pulled by two white horses, winding stone road flanked by bare willows, silver moonlight, completely empty of people, dreamy magical atmosphere, cinematic, ultra-detailed, no people, empty scene",
+        "negativePrompt": "people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated",
+        "sheet": "Environment concept sheet of a moonlit European fairy-tale country road with an ornate pumpkin carriage. Fix the copper-rimmed pumpkin carriage, the bare willows and the winding stone road as landmarks. Consistent night sky and moonlight across views. Weathered, lived-in materials: chipped paint, water stains, patina on metal, worn wood grain, dust in corners and light shafts; fabric and paper props show creases and age; nothing looks factory-new. Atmospheric depth with haze or volumetric light where the space allows",
+        "tags": ["environment sheet", "moonlit road", "pumpkin carriage", "European fairy tale", "cinematic"]
+      },
+      "usage": { "episodes": [1, 2, 3], "beats": ["惊艳登场", "试鞋打脸", "入宫期待"] }
+    },
+    {
+      "id": "S04",
+      "name": "殉葬大殿",
+      "primary": true,
+      "summary": "设计意图：空旷森冷的王室大殿，辛德瑞拉在此被独留、被锁、被推向殉葬；气质是庄严、孤绝、火光将至的压迫。",
+      "anchors": [
+        { "name": "高拱石顶", "desc": "穹顶高拱的石殿，肋拱交叠，回声空洞" },
+        { "name": "青铜火盆", "desc": "四角青铜火盆，盆沿铸兽首，此时尚冷" },
+        { "name": "双扇巨门", "desc": "殿尾一对包铁巨门，是她拍打求生的唯一出口" },
+        { "name": "王座石台", "desc": "殿心一方覆黑绒的王座石台，暗示葬礼" }
+      ],
+      "lighting": [
+        { "state": "殿内幽光", "prompt": "vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais at center, twin iron-bound giant doors at the far end, dim cold light, solemn and oppressive, cinematic, ultra-detailed" },
+        { "state": "火光渐近", "prompt": "the same hall as orange firelight begins to creep from the door seams, long hot shafts on stone, dread and heat, cinematic" }
+      ],
+      "image": {
+        "prompt": "Establishing wide shot of a vast empty European fairy-tale stone burial hall, high vaulted ribbed ceiling, four cold bronze braziers with beast-head rims, a black-velvet draped stone throne dais, twin iron-bound giant doors at the far end, completely empty of people, dim cold solemn atmosphere, cinematic, ultra-detailed, no people, empty scene",
+        "negativePrompt": "people, person, human figure, character, crowd, silhouette of people, watermark, text, low quality, blurry, oversaturated",
+        "sheet": "Environment concept sheet of a vast European fairy-tale stone burial hall. Fix the high ribbed vault, the four beast-head bronze braziers and the twin iron-bound giant doors as landmarks. Consistent cold stone and vaulting across views. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows",
+        "tags": ["environment sheet", "stone hall", "European fairy tale", "cold solemn", "cinematic"]
+      },
+      "usage": { "episodes": [3, 4, 5, 6], "beats": ["入宫期待", "真相反转", "锁门绝境", "求生无门"] }
+    }
+  ],
+  "props": [
+    {
+      "id": "P01",
+      "name": "水晶鞋",
+      "scale": "手持级",
+      "summary": "试鞋认主与殉葬导火索：谁穿上即王子遗命之妻，亦是锁门殉葬的引线",
+      "anchors": [
+        { "name": "透明晶跟", "desc": "鞋跟为整块透明晶体，内里有一缕螺旋光丝" },
+        { "name": "银线鞋面", "desc": "鞋面银线绣星芒纹，针脚极细" },
+        { "name": "蝴蝶结扣", "desc": "鞋口一只小水晶蝴蝶结，光下泛虹彩" }
+      ],
+      "states": [
+        { "state": "单只遗落", "prompt": "a single translucent crystal glass slipper on pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, ultra-detailed" },
+        { "state": "穿于足上", "prompt": "the same crystal slipper worn on a bare foot, same clear crystal heel and silver star embroidery, pure white background, handheld scale, ultra-detailed" }
+      ],
+      "relatedScenes": ["S01", "S02"],
+      "carriedBy": "辛德瑞拉（遗落）/ 大臣（寻回）",
+      "image": {
+        "prompt": "A single translucent crystal glass slipper, pure white background, slender heel of solid clear crystal with a spiral light filament inside, silver star-thread embroidery on the vamp, a tiny crystalline bow at the opening shimmering iridescent, handheld scale, product photography, no people, no hands, ultra-detailed",
+        "negativePrompt": "people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background",
+        "sheet": "Product concept sheet of a single translucent crystal glass slipper on pure white background. Front, side and three-quarter views, fixing the clear crystal heel with inner spiral light filament, the silver star-thread vamp and the iridescent bow. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.",
+        "tags": ["prop sheet", "crystal slipper", "handheld scale", "European fairy tale", "product photography"]
+      },
+      "usage": { "episodes": [1, 2], "beats": ["试鞋打脸", "真相反转"] }
+    },
+    {
+      "id": "P02",
+      "name": "南瓜马车",
+      "scale": "家具级",
+      "summary": "辛德瑞拉入宫的变身象征与交通工具",
+      "anchors": [
+        { "name": "橙金瓜身", "desc": "车厢为整只橙金南瓜雕空，棱沟清晰" },
+        { "name": "铜镶轮", "desc": "四只车轮镶铜箍，辐条雕卷草" },
+        { "name": "镀金车灯", "desc": "车辕前一对镀金小灯" }
+      ],
+      "states": [
+        { "state": "完整车厢", "prompt": "an ornate pumpkin carriage on pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, ultra-detailed" }
+      ],
+      "relatedScenes": ["S03"],
+      "carriedBy": "辛德瑞拉（乘坐）",
+      "image": {
+        "prompt": "An ornate pumpkin carriage, pure white background, orange-gold carved pumpkin body with clear ribs, copper-rimmed wheels with scroll-spoke, a pair of gilded lamps at the shaft, furniture scale, product photography, no people, no hands, ultra-detailed",
+        "negativePrompt": "people, person, human figure, hands, fingers, horse, character, watermark, text, low quality, blurry, oversaturated, colored background",
+        "sheet": "Product concept sheet of an ornate pumpkin carriage on pure white background, front, side and three-quarter views, fixing the ribbed orange-gold pumpkin body, the copper-rimmed wheels and the gilded shaft lamps. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at furniture scale. Rendered on pure white background.",
+        "tags": ["prop sheet", "pumpkin carriage", "furniture scale", "European fairy tale", "product photography"]
+      },
+      "usage": { "episodes": [1], "beats": ["惊艳登场"] }
+    },
+    {
+      "id": "P03",
+      "name": "仙女礼裙",
+      "scale": "桌面级",
+      "summary": "灰姑娘到天仙的视觉转变锚点",
+      "anchors": [
+        { "name": "银线星纹", "desc": "裙身银线绣星芒，转身时流光" },
+        { "name": "水晶腰链", "desc": "腰间一圈细水晶链，垂一粒泪滴坠" },
+        { "name": "鲸骨裙撑", "desc": "裙撑呈钟形，下摆缀小银铃" }
+      ],
+      "states": [
+        { "state": "盛装全裙", "prompt": "a pale-blue ball gown on a dress form on pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, ultra-detailed" }
+      ],
+      "relatedScenes": ["S02"],
+      "carriedBy": "辛德瑞拉",
+      "image": {
+        "prompt": "A pale-blue ball gown on a dress form, pure white background, silver star-thread embroidery across the skirt, a thin crystal waist chain with a teardrop drop, a bell-shaped hoop with tiny silver bells at the hem, tabletop scale, product photography, no people, no hands, ultra-detailed",
+        "negativePrompt": "people, person, human figure, hands, fingers, character, face, watermark, text, low quality, blurry, oversaturated, colored background",
+        "sheet": "Product concept sheet of a pale-blue ball gown on pure white background, front and back views, fixing the silver star-thread skirt, the crystal waist chain and the bell-shaped hoop with silver bells. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at tabletop scale. Rendered on pure white background.",
+        "tags": ["prop sheet", "ball gown", "tabletop scale", "European fairy tale", "product photography"]
+      },
+      "usage": { "episodes": [1], "beats": ["惊艳登场"] }
+    },
+    {
+      "id": "P04",
+      "name": "天鹅绒垫",
+      "scale": "手持级",
+      "summary": "托载水晶鞋的仪式感道具，凸显寻主之郑重",
+      "anchors": [
+        { "name": "深红绒面", "desc": "垫为深红天鹅绒，绒面压暗金卷草" },
+        { "name": "金线锁边", "desc": "垫沿金线锁边，四角缀小金珠" },
+        { "name": "中央凹托", "desc": "垫心一圆形凹托，恰好承一只鞋" }
+      ],
+      "states": [
+        { "state": "托鞋展示", "prompt": "a pair of deep-red velvet cushions on pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, ultra-detailed" }
+      ],
+      "relatedScenes": ["S02"],
+      "carriedBy": "侍卫（托鞋）",
+      "image": {
+        "prompt": "A pair of deep-red velvet cushions, pure white background, gold-thread scroll border with small gold beads at the corners, a circular central dip cradling a slender shoe, handheld scale, product photography, no people, no hands, ultra-detailed",
+        "negativePrompt": "people, person, human figure, hands, fingers, character, watermark, text, low quality, blurry, oversaturated, colored background",
+        "sheet": "Product concept sheet of a pair of deep-red velvet cushions on pure white background, top view, fixing the gold-thread scroll border, the corner gold beads and the central circular shoe cradle. Well-kept, actively maintained materials: sound lacquer with an even sheen, swept stone and timber, polished metal fittings, tight joinery, no peeling paint and no water staining; wear confined to the traffic a space like this really takes — thresholds, handrails, the stone directly inside a doorway. Atmospheric depth with haze or volumetric light where the space allows. Shown at handheld scale. Rendered on pure white background.",
+        "tags": ["prop sheet", "velvet cushion", "handheld scale", "European fairy tale", "product photography"]
+      },
+      "usage": { "episodes": [2], "beats": ["试鞋打脸"] }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "name": "大臣",
+  "source": "灰姑娘·殉葬（暗黑反转）",
+  "lang": "zh",
+  "layers": {
+    "identity": {
+      "age": 50,
+      "gender": "male",
+      "en": "a composed fifty-year-old European royal court official",
+      "text": "约五十岁的欧洲朝臣，持重方正",
+      "source": "stated"
+    },
+    "face": {
+      "en": "a neutral authoritative face with a neat short beard",
+      "text": "神情持重，短须整齐",
+      "source": "stated"
+    },
+    "hair": {
+      "en": "short neat hair with a trimmed beard",
+      "text": "短发整齐，须发修剪利落",
+      "source": "stated"
+    },
+    "build": {
+      "en": "a sturdy, formal bearing",
+      "text": "体态持重，举止方正",
+      "source": "stated"
+    }
+  },
+  "outfits": {
+    "default": {
+      "label": "常态",
+      "top": {
+        "en": "a dark formal court coat with a high collar",
+        "text": "高领深色朝服",
+        "source": "stated"
+      },
+      "bottom": {
+        "en": "dark formal court trousers worn with a medal sash",
+        "text": "深色朝裤，配勋章绶带",
+        "source": "stated"
+      },
+      "details": [
+        {
+          "slot": "custom",
+          "id": "medal",
+          "part": "body",
+          "en": "a medal sash across the chest",
+          "text": "胸前勋章绶带",
+          "source": "stated"
+        },
+        {
+          "slot": "custom",
+          "id": "cushion",
+          "part": "hands",
+          "en": "a pair of velvet cushions carried in the hands",
+          "text": "手托一对天鹅绒垫",
+          "source": "stated"
+        }
+      ],
+      "overrides": {},
+      "look": {
+        "id": "anime",
+        "label": {
+          "zh": "动漫",
+          "en": "Anime",
+          "ja": "アニメ"
+        },
+        "medium": "drawn",
+        "style": "A clean 2D Japanese anime illustration, like official character art for a TV anime: crisp confident line art of even weight, cel shading with one soft shadow tone and a few sharp highlights, flat clean colors, anime-style eyes with clear highlights, a small simplified nose and mouth, hair drawn in smooth clumps with glossy highlight bands. Fabric folds drawn as simple lines.",
+        "clean": "Plain pure white background, evenly lit, with at most a faint soft shadow under the feet. Exactly one character, empty hands, no props, no text, no watermark.",
+        "neg": "photograph, photorealistic, realistic skin texture, pores, film grain, 3D render, CGI, semi-realistic, painterly, watercolor, sketch, rough lines, messy lines, heavy shading, gradient background, character sheet, multiple views, chibi, super deformed"
+      },
+      "views": {},
+      "upgrades": []
+    }
+  }
+}

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>暗黑反转《辛德瑞拉》· AI 短剧流水线总报告</title>
+<style>
+:root{--bg:#f2f2ef;--ink:#1c1f22;--ink2:#5f666c;--rule:#d4d6d1;--card:#fff;--accent:#7a4fb5;--ok:#2f6b47}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+.layout{display:grid;grid-template-columns:248px 1fr;height:100vh}
+aside{background:#1f2225;color:#e7e8e6;display:flex;flex-direction:column;overflow:auto}
+aside .brand{padding:16px 16px 10px;border-bottom:1px solid #34383c}
+aside .brand h1{font-size:15px;margin:0 0 2px;color:#fff}
+aside .brand p{margin:0;font-size:12px;color:#9ba2a8}
+nav{padding:8px 8px 16px;display:flex;flex-direction:column;gap:2px}
+nav button{font:inherit;font-size:13px;text-align:left;background:transparent;color:#cfd3d6;border:0;padding:9px 12px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+nav button:hover{background:#2a2e32}
+nav button.on{background:var(--accent);color:#fff}
+nav button .n{font-size:11px;color:#9ba2a8}
+nav button.on .n{color:#e9defb}
+nav .grp{font-size:11px;color:#7f868c;padding:14px 12px 4px;text-transform:uppercase;letter-spacing:.06em}
+main{display:flex;flex-direction:column;min-width:0;height:100vh}
+.bar{flex:none;padding:10px 16px;border-bottom:1px solid var(--rule);background:var(--card);font-size:13px;color:var(--ink2);display:flex;gap:10px;align-items:center}
+.bar b{color:var(--ink)}
+.frame-wrap{flex:1;min-height:0;position:relative}
+iframe{width:100%;height:100%;border:0;background:#fff}
+#overview{padding:28px 32px;overflow:auto;height:100%}
+#overview h2{font-size:20px;margin:0 0 4px}
+#overview .lead{color:var(--ink2);margin:0 0 20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:14px 16px}
+.card h3{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:8px}
+.card .ok{color:var(--ok);font-size:12px;font-weight:600}
+.card p{margin:4px 0 0;color:var(--ink2);font-size:12.5px}
+.card code{font-size:11.5px;color:#7a4fb5;background:#f3eefb;padding:1px 5px;border-radius:3px}
+.tbl{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.tbl th,.tbl td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);font-size:13px;vertical-align:top}
+.tbl th{background:#fafafa;color:var(--ink2);font-weight:600}
+.tbl tr:last-child td{border-bottom:0}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:3px;background:#eaf3ee;color:var(--ok);border:1px solid #cfe6d8}
+.note{background:#fff7e6;border:1px solid #f0d28a;color:#7a5a12;padding:10px 14px;border-radius:6px;font-size:12.5px;margin:0 0 20px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">
+      <h1>暗黑反转《辛德瑞拉》</h1>
+      <p>AI 短剧流水线 · 单页总报告</p>
+    </div>
+    <nav id="nav">
+      <button data-k="overview" class="on">总览<span class="n">Overview</span></button>
+      <div class="grp">六道流水线报告</div>
+      <button data-k="outline">① 大纲 Outline<span class="n">outline-report</span></button>
+      <button data-k="cast">② 角色卡 Characters<span class="n">cast-report</span></button>
+      <button data-k="art">③ 美术设定 Art<span class="n">art-report</span></button>
+      <button data-k="script">④ 剧本 Script<span class="n">script-report</span></button>
+      <button data-k="storyboard">⑤ 分镜 Storyboard<span class="n">storyboard-report</span></button>
+      <button data-k="charrefs">⑥ 角色参考图<span class="n">character-refs</span></button>
+      <div class="grp">附加交付</div>
+      <button data-k="prompts">角色提示词方案<span class="n">prompts</span></button>
+    </nav>
+  </aside>
+  <main>
+    <div class="bar" id="bar"><b>总览</b> · 全部 6 道质量门通过</div>
+    <div class="frame-wrap">
+      <div id="overview">
+        <h2>流水线总览</h2>
+        <p class="lead">基于 shuohao-skills（outline → characters → art → script → storyboard）与 character-refs 技能，对暗黑反转版《灰姑娘·殉葬》一键产出全流程报告。</p>
+        <div class="note">⚠ 本环境未配置图像后端（qwen / codex / openai / custom），character-refs 仅交付 <b>asset.json（含造型与画风快照）+ 提示词方案</b>，未实际出图。配置后端后运行 <code>gen &lt;角色&gt;/asset.json</code> 即可出图。</div>
+        <div class="cards">
+          <div class="card"><h3>① 大纲 <span class="tag">PASS</span></h3><p>改编说明、人物表、爽点表、分集梗概、资产清单。校验 14 道质量门。</p><p><code>outline.json / outline-report.html</code></p></div>
+          <div class="card"><h3>② 角色卡 <span class="tag">PASS</span></h3><p>8 个角色画像、形象提示词、音色提示词。</p><p><code>cast.json / cast-report.html</code></p></div>
+          <div class="card"><h3>③ 美术设定 <span class="tag">PASS</span></h3><p>场景设计意图、光照时段变体、叙事道具提示词。</p><p><code>art.json / art-report.html</code></p></div>
+          <div class="card"><h3>④ 剧本 <span class="tag">PASS</span></h3><p>6 集 · 12 场 · 109 句台词，预估 658.9s / 目标 720s。</p><p><code>script.json / script-report.html</code></p></div>
+          <div class="card"><h3>⑤ 分镜 <span class="tag">PASS</span></h3><p>~240 切，H3 视频提示词逐字对账，18 道质量门全过。</p><p><code>storyboard.json / storyboard-report.html</code></p></div>
+          <div class="card"><h3>⑥ 角色参考图 <span class="tag">方案</span></h3><p>8 角色 × 4 视图 asset.json + 提示词方案（未出图）。</p><p><code>character-refs/*/asset.json</code></p></div>
+        </div>
+        <h3 style="font-size:15px;margin:0 0 8px">文件清单</h3>
+        <table class="tbl">
+          <thead><tr><th>阶段</th><th>数据</th><th>报告</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr><td>大纲</td><td>outline.json</td><td>outline-report.html</td><td><span class="tag">PASS</span></td></tr>
+            <tr><td>角色卡</td><td>cast.json</td><td>cast-report.html</td><td><span class="tag">PASS</span></td></tr>
+            <tr><td>美术设定</td><td>art.json</td><td>art-report.html</td><td><span class="tag">PASS</span></td></tr>
+            <tr><td>剧本</td><td>script.json</td><td>script-report.html</td><td><span class="tag">PASS</span></td></tr>
+            <tr><td>分镜</td><td>storyboard.json</td><td>storyboard-report.html</td><td><span class="tag">PASS</span></td></tr>
+            <tr><td>角色参考图</td><td>character-refs/*/asset.json</td><td>character-refs-report.html</td><td><span class="tag">方案</span></td></tr>
+            <tr><td>提示词方案</td><td>—</td><td>character-refs-prompts.html / .md</td><td><span class="tag">方案</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <iframe id="frame" class="hidden" src="about:blank" title="report"></iframe>
+    </div>
+  </main>
+</div>
+<script>
+const REP = {
+  outline:'outline-report.html', cast:'cast-report.html', art:'art-report.html',
+  script:'script-report.html', storyboard:'storyboard-report.html',
+  charrefs:'character-refs-report.html', prompts:'character-refs-prompts.html'
+};
+const TITLES = {
+  overview:'总览', outline:'① 大纲 Outline', cast:'② 角色卡 Characters', art:'③ 美术设定 Art',
+  script:'④ 剧本 Script', storyboard:'⑤ 分镜 Storyboard', charrefs:'⑥ 角色参考图',
+  prompts:'角色提示词方案'
+};
+const nav = document.getElementById('nav');
+const frame = document.getElementById('frame');
+const ov = document.getElementById('overview');
+const bar = document.getElementById('bar');
+nav.addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const k = btn.dataset.k;
+  [...nav.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b === btn));
+  bar.innerHTML = '<b>' + (TITLES[k] || k) + '</b>';
+  if (k === 'overview') { ov.classList.remove('hidden'); frame.classList.add('hidden'); frame.src = 'about:blank'; }
+  else { ov.classList.add('hidden'); frame.classList.remove('hidden'); frame.src = REP[k]; }
+});
+</script>
+</body>
+</html>

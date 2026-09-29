@@ -1,0 +1,75 @@
+{
+  "name": "辛德瑞拉",
+  "source": "灰姑娘·殉葬（暗黑反转）",
+  "lang": "zh",
+  "layers": {
+    "identity": {
+      "age": 18,
+      "gender": "female",
+      "en": "a slender eighteen-year-old European woman from a fairy-tale kingdom, an oppressed stepdaughter who carries herself with quiet grace",
+      "text": "约十八岁的欧洲童话王国少女，受压迫的继女，举止优雅隐忍",
+      "source": "stated"
+    },
+    "face": {
+      "en": "a gentle oval face with large soft golden-brown eyes that hold a faint sorrow, fine delicate features",
+      "text": "柔和鹅蛋脸，大眼温柔带愁，五官精致",
+      "source": "stated"
+    },
+    "hair": {
+      "en": "long soft golden-blonde hair falling in loose waves past the shoulders",
+      "text": "柔金长发，松散波浪垂至肩下",
+      "source": "stated"
+    },
+    "build": {
+      "en": "a slender, graceful figure of medium height",
+      "text": "身形纤细优雅，中等身高",
+      "source": "stated"
+    }
+  },
+  "outfits": {
+    "default": {
+      "label": "常态",
+      "top": {
+        "en": "the fitted pale-blue bodice of a ball gown with delicate silver embroidery and thin shoulder straps",
+        "text": "浅蓝舞会礼裙上身，缀银线刺绣，细肩带",
+        "source": "stated"
+      },
+      "bottom": {
+        "en": "the long flowing pale-blue skirt of the ball gown with a silver-embroidered hem",
+        "text": "浅蓝舞会礼裙长摆，下摆缀银线刺绣",
+        "source": "stated"
+      },
+      "details": [
+        {
+          "slot": "custom",
+          "id": "crystal-shoe",
+          "part": "feet",
+          "en": "a single crystal slipper on one foot while the other foot stays bare",
+          "text": "一只脚穿水晶鞋、另一只赤足",
+          "source": "stated"
+        },
+        {
+          "slot": "hair",
+          "en": "soft golden waves gathered with a small ribbon at the side",
+          "text": "柔金波浪发，侧边缀小缎带",
+          "source": "stated"
+        }
+      ],
+      "overrides": {},
+      "look": {
+        "id": "anime",
+        "label": {
+          "zh": "动漫",
+          "en": "Anime",
+          "ja": "アニメ"
+        },
+        "medium": "drawn",
+        "style": "A clean 2D Japanese anime illustration, like official character art for a TV anime: crisp confident line art of even weight, cel shading with one soft shadow tone and a few sharp highlights, flat clean colors, anime-style eyes with clear highlights, a small simplified nose and mouth, hair drawn in smooth clumps with glossy highlight bands. Fabric folds drawn as simple lines.",
+        "clean": "Plain pure white background, evenly lit, with at most a faint soft shadow under the feet. Exactly one character, empty hands, no props, no text, no watermark.",
+        "neg": "photograph, photorealistic, realistic skin texture, pores, film grain, 3D render, CGI, semi-realistic, painterly, watercolor, sketch, rough lines, messy lines, heavy shading, gradient background, character sheet, multiple views, chibi, super deformed"
+      },
+      "views": {},
+      "upgrades": []
+    }
+  }
+}
