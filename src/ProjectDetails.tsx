@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { beatSeconds, clone } from './model';
+import { beatSeconds, clone, uid } from './model';
 import type { ArtAsset, Asset, Character, DocKey, Project, ScriptBeat, Shot } from './model';
 import { copyText } from './clipboard';
 import { CopyPromptIcon } from './CopyPromptIcon';
@@ -54,8 +54,53 @@ function ArtImagePanel({ asset, settingPrompt, media, openImage, addToLibrary, r
   return <section className="panel art-image-panel scene-image-panel"><div className="character-image-panel-head"><div className="character-image-tabs" role="tablist" aria-label={`${label}图片视图`}><button type="button" role="tab" aria-selected={view === 'main'} className={view === 'main' ? 'active' : ''} onClick={() => setView('main')}>主视角</button><button type="button" role="tab" aria-selected={view === 'setting'} className={view === 'setting' ? 'active' : ''} onClick={() => setView('setting')}>设定图</button></div>{media(viewAsset, 'image', true, view, asset.image)}</div>{image ? <img className="art-detail-image" src={image} onClick={() => openImage(image)} alt={`${asset.name}${viewName}`}/> : <div className="character-detail-image-empty">尚未生成{asset.name}{viewName}</div>}<div className="art-detail-image-actions">{addToLibrary && <button className="btn small" disabled={!image} onClick={() => addToLibrary({ id: `${asset.id}-${view}`, type: asset.type, name: `${asset.name} · ${viewName}`, description: asset.description, prompt: viewAsset.prompt || '', image })}>加入资产库</button>}{renderImagePicker?.(image, url => onEdit(view === 'main' ? 'image' : 'settingImage', url))}</div></section>;
 }
 
+function CharacterStatesPanel({ project, character, media, openImage, addToLibrary, renderImagePicker, save }: { project: Project; character: Character; media: Props['media']; openImage: Props['openImage']; addToLibrary?: Props['addToLibrary']; renderImagePicker?: Props['renderImagePicker']; save: Save }) {
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const characterIndex = project.docs.cast.findIndex(item => item.id === character.id);
+  const states = character.states || [];
+  const changeState = (stateIndex: number, change: Partial<NonNullable<Character['states']>[number]>, label: string) => {
+    const next = clone(project.docs.cast);
+    const current = next[characterIndex].states || [];
+    current[stateIndex] = { ...current[stateIndex], ...change };
+    next[characterIndex].states = current;
+    save('cast', next, label);
+  };
+  const updateImage = (stateIndex: number, image: string) => changeState(stateIndex, { image }, `设置${character.name}状态图片`);
+  return <section className="character-detail-section character-states-section">
+    <div className="art-state-section-head"><h2>状态</h2><button type="button" className="btn small art-state-add" title="添加角色状态" aria-label="添加角色状态" onClick={() => { const next = clone(project.docs.cast); next[characterIndex].states ||= []; next[characterIndex].states!.push({ id: uid(), state: '新状态', prompt: '' }); save('cast', next, `添加${character.name}状态`); }}>+</button></div>
+    {states.length ? states.map((state, stateIndex) => {
+      const stateCharacter: Character = { ...character, name: `${character.name} · ${state.state}`, image: state.image, imagePrompt: state.prompt };
+      return <div className="character-state-item panel" key={state.id || `${state.state}-${stateIndex}`}>
+        <div className="character-state-heading"><Editable className="art-state-name" hideLabel label="状态名称" value={state.state} copy={false} onSave={value => changeState(stateIndex, { state: value }, `修改${character.name}状态名称`)}/><button type="button" className="icon-button art-state-remove" title="删除状态" aria-label={`删除${state.state}`} onClick={() => setDeleteIndex(stateIndex)}>×</button></div>
+        <div className="art-state-row character-state-row">
+        <section className="panel art-state-image-panel">
+          <div className="art-state-image-head"><div className="art-state-image-controls">{media(stateCharacter, 'image', true, 'state', character.image, stateIndex)}</div></div>
+          {state.image ? <button type="button" className="art-state-image-preview" onClick={() => openImage(state.image!)} title={`查看${state.state}图片`}><img src={state.image} alt={`${character.name} · ${state.state}`}/></button> : <div className="art-state-image-empty">尚未生成{character.name}{state.state}</div>}
+          <div className="art-state-image-actions"><button className="btn small" disabled={!state.image} onClick={() => addToLibrary?.({ id: `${character.id}-state-${state.id || stateIndex}`, type: 'character', name: `${character.name} · ${state.state}`, description: character.description, prompt: state.prompt, image: state.image })}>加入资产库</button>{renderImagePicker?.(state.image, image => updateImage(stateIndex, image))}</div>
+        </section>
+        <div className="art-state-content"><Editable label="提示词" value={state.prompt} multiline onSave={value => changeState(stateIndex, { prompt: value }, `修改${character.name}${state.state}提示词`)}/></div>
+        </div>
+      </div>;
+    }) : <p className="character-detail-empty">暂无状态设定</p>}
+    {deleteIndex !== null && (
+      <ConfirmDelete
+        title="删除角色状态"
+        label={states[deleteIndex]?.state || '角色状态'}
+        onCancel={() => setDeleteIndex(null)}
+        onConfirm={() => {
+          const next = clone(project.docs.cast);
+          next[characterIndex].states?.splice(deleteIndex, 1);
+          save('cast', next, `删除${character.name}状态`);
+          setDeleteIndex(null);
+        }}
+      />
+    )}
+  </section>;
+}
+
 export function ProjectDetail({ project, tab, detail, go, save, openImage, media, addToLibrary, renderImagePicker }: Props) {
   const root = `/p/${project.id}`;
+  const [stateDeleteIndex, setStateDeleteIndex] = useState<number | null>(null);
   if (tab === 'outline' && detail[0] === 'beats') {
     const beats = project.docs.outline.beats || [];
     return <><div className="eyebrow">大纲 / 爽点表</div><h1>爽点表</h1><section className="panel"><table className="detail-table"><thead><tr><th>ID</th><th>类型</th><th>集</th><th>铺垫</th><th>兑现</th></tr></thead><tbody>{beats.map((beat, i) => <tr key={beat.id || i}><td>{beat.id}</td><td>{beat.type}</td><td>E{beat.episode}</td><td><Editable label="铺垫" value={beat.setup} onSave={v => { const next = clone(project.docs.outline); next.beats![i].setup = v; save('outline', next, '修改爽点铺垫'); }}/></td><td><Editable label="兑现" value={beat.payoff} onSave={v => { const next = clone(project.docs.outline); next.beats![i].payoff = v; save('outline', next, '修改爽点兑现'); }}/></td></tr>)}</tbody></table>{!beats.length && <p className="detail-empty">暂无爽点；重新生成大纲后可获取爽点表。</p>}</section></>;
@@ -96,6 +141,7 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
         <div className="character-detail-main">
           <section className="character-detail-section"><h2>人物画像</h2><div className="character-persona-grid">{([['gender','性别'],['ageRange','年龄'],['identity','身份'],['appearance','外形'],['temperament','性情'],['motivation','动机']] as const).map(([key, label]) => <Editable key={key} label={label} value={persona[key] || ''} multiline onSave={value => editPersona(key, value)}/>)}</div>{!!persona.personality?.length && <div className="character-personality-tags">{persona.personality.map((tag, i) => <span className="chip" key={`${tag}-${i}`}>{tag}</span>)}</div>}{imageTags.length > 0 && <div className="character-image-tags">{imageTags.map((tag, i) => <span className="chip" key={`${tag}-${i}`}>{tag}</span>)}</div>}</section>
           <section className="character-detail-section"><h2>弧光</h2><div className="character-arc-block"><div><span>CAST</span><Editable label="角色弧光" value={character.arc || ''} multiline onSave={value => edit('arc', value)}/></div>{outlineCharacter?.arc && <div><span>OUTLINE</span><p>{outlineCharacter.arc}</p></div>}</div>{outlineCharacter?.arc && character.arc && outlineCharacter.arc !== character.arc && <p className="character-detail-hint">角色卡与大纲中的弧光内容不同，分别保留在各自栏目。</p>}</section>
+          <CharacterStatesPanel project={project} character={character} media={media} openImage={openImage} addToLibrary={addToLibrary} renderImagePicker={renderImagePicker} save={save}/>
           <section className="character-detail-section"><h2>关系</h2>{relations.length ? <div className="character-relations"><table><tbody>{relations.map((relation, i) => <tr key={`${relation.name}-${i}`}><th>{relation.name || '未命名角色'}</th><td>{relation.relation || '—'}</td></tr>)}</tbody></table></div> : <p className="character-detail-empty">暂无关系信息</p>}</section>
           <section className="character-detail-section"><h2>原文佐证</h2>{evidence.length ? <ul className="character-evidence">{evidence.map((quote, i) => <li key={i}>{quote}</li>)}</ul> : <p className="character-detail-empty">暂无原文佐证</p>}</section>
         </div>
@@ -125,7 +171,10 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
         <div className="art-detail-main">
           <section className="art-detail-section"><h2>基本信息</h2><div className="art-detail-fields"><Editable label="名称" value={asset.name} onSave={value => edit('name', value)}/>{kind === 'props' && <Editable label="尺度" value={asset.scale || ''} onSave={value => edit('scale', value)}/>}<Editable label="说明" value={asset.description} multiline onSave={value => edit('description', value)}/></div>{kind === 'scenes' && <div className="art-detail-primary"><span>主场景</span><strong>{asset.primary ? '是' : '否'}</strong></div>}</section>
           <section className="art-detail-section"><h2>一致性锚点</h2>{(asset.anchors || []).length ? (asset.anchors || []).map((anchor, anchorIndex) => <div className="art-anchor-row" key={`${anchor.name}-${anchorIndex}`}><Editable label={anchor.name} value={anchor.desc} multiline onSave={value => { const next = clone(project.docs.art); next[kind][index].anchors![anchorIndex].desc = value; save('art', next, '修改美术锚点'); }}/></div>) : <p className="character-detail-empty">暂无一致性锚点</p>}</section>
-          <section className="art-detail-section"><h2>{kind === 'scenes' ? '光照状态' : '状态'}</h2>{(asset.states || []).length ? (asset.states || []).map((state, stateIndex) => { const stateAsset: ArtAsset = { ...asset, name: `${asset.name} · ${state.state}`, image: state.image, prompt: state.prompt }; return <div className="art-state-row" key={`${state.state}-${stateIndex}`}><section className="panel art-state-image-panel"><div className="art-state-image-head"><strong>{state.state}</strong>{media(stateAsset, 'image', true, 'state', asset.image, stateIndex)}</div>{state.image ? <button type="button" className="art-state-image-preview" onClick={() => openImage(state.image!)} title={`查看${state.state}图片`}><img src={state.image} alt={`${asset.name} · ${state.state}`}/></button> : <div className="art-state-image-empty">尚未生成{asset.name}{state.state}</div>}<div className="art-state-image-actions"><button className="btn small" disabled={!state.image} onClick={() => addToLibrary?.({ id: `${asset.id}-state-${stateIndex}`, type: asset.type, name: `${asset.name} · ${state.state}`, description: asset.description, prompt: state.prompt, image: state.image })}>加入资产库</button>{renderImagePicker?.(state.image, url => { const next = clone(project.docs.art); next[kind][index].states![stateIndex].image = url; save('art', next, `设置${asset.name}${state.state}图片`); })}</div></section><div className="art-state-content"><Editable label="提示词" value={state.prompt} multiline onSave={value => { const next = clone(project.docs.art); next[kind][index].states![stateIndex].prompt = value; save('art', next, `修改${asset.name}状态`); }}/></div></div>; }) : <p className="character-detail-empty">暂无状态设定</p>}</section>
+          <section className="art-detail-section"><div className="art-state-section-head"><h2>{kind === 'scenes' ? '光照状态' : '状态'}</h2>{kind === 'scenes' && <button type="button" className="btn small art-state-add" title="添加光照状态" aria-label="添加光照状态" onClick={() => { const next = clone(project.docs.art); next.scenes[index].states ||= []; next.scenes[index].states!.push({ id: uid(), state: '新光照状态', prompt: '', added: true }); save('art', next, `添加${asset.name}光照状态`); }}>+</button>}</div>{(asset.states || []).length ? (asset.states || []).map((state, stateIndex) => { const stateAsset: ArtAsset = { ...asset, name: `${asset.name} · ${state.state}`, image: state.image, prompt: state.prompt }; const canDeleteState = state.added || state.state === '新光照状态'; return <div className="character-state-item panel" key={state.id || `${state.state}-${stateIndex}`}>
+            <div className="character-state-heading"><Editable className="art-state-name" hideLabel label="状态名称" value={state.state} copy={false} onSave={value => { const next = clone(project.docs.art); next[kind][index].states![stateIndex].state = value; save('art', next, `修改${asset.name}状态名称`); }}/>{canDeleteState && <button type="button" className="icon-button art-state-remove" title="删除新增的状态" aria-label={`删除${state.state}`} onClick={() => setStateDeleteIndex(stateIndex)}>×</button>}</div>
+            <div className="art-state-row character-state-row"><section className="panel art-state-image-panel"><div className="art-state-image-head"><div className="art-state-image-controls">{media(stateAsset, 'image', true, 'state', asset.image, stateIndex)}</div></div>{state.image ? <button type="button" className="art-state-image-preview" onClick={() => openImage(state.image!)} title={`查看${state.state}图片`}><img src={state.image} alt={`${asset.name} · ${state.state}`}/></button> : <div className="art-state-image-empty">尚未生成{asset.name}{state.state}</div>}<div className="art-state-image-actions"><button className="btn small" disabled={!state.image} onClick={() => addToLibrary?.({ id: `${asset.id}-state-${state.id || stateIndex}`, type: asset.type, name: `${asset.name} · ${state.state}`, description: asset.description, prompt: state.prompt, image: state.image })}>加入资产库</button>{renderImagePicker?.(state.image, url => { const next = clone(project.docs.art); next[kind][index].states![stateIndex].image = url; save('art', next, `设置${asset.name}${state.state}图片`); })}</div></section><div className="art-state-content"><Editable label="提示词" value={state.prompt} multiline onSave={value => { const next = clone(project.docs.art); next[kind][index].states![stateIndex].prompt = value; save('art', next, `修改${asset.name}状态`); }}/></div></div>
+          </div>; }) : <p className="character-detail-empty">暂无状态设定</p>}{stateDeleteIndex !== null && <ConfirmDelete title="删除光照状态" label={asset.states?.[stateDeleteIndex]?.state || '新光照状态'} onCancel={() => setStateDeleteIndex(null)} onConfirm={() => { const next = clone(project.docs.art); const states = next[kind][index].states; if (states?.[stateDeleteIndex]) { states.splice(stateDeleteIndex, 1); save('art', next, `删除${asset.name}新增光照状态`); } setStateDeleteIndex(null); }}/>}</section>
         </div>
         <aside className="art-detail-side">
           <ArtImagePanel asset={asset} settingPrompt={settingPrompt} media={media} openImage={openImage} addToLibrary={addToLibrary} renderImagePicker={renderImagePicker} onEdit={edit} label={kind === 'scenes' ? '场景' : '道具'}/>

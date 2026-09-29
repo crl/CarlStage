@@ -312,9 +312,10 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
   const pageDetail = tab === 'script' && !detail.length ? ['1'] : detail;
   const hasDetail = pageDetail.length > 0 && ['outline', 'script', 'cast', 'art', 'storyboard'].includes(tab);
   function renderDetailMedia(target: Character | Asset | Shot, kind: 'image' | 'video', compact = false, slot?: 'appearance' | 'turnaround' | 'main' | 'setting' | 'state', referenceImage?: string, stateIndex?: number) {
-    const historyId = slot === 'turnaround' ? `${target.id}:turnaround` : slot === 'setting' ? `${target.id}:setting` : slot === 'state' ? `${target.id}:state:${stateIndex ?? 0}` : target.id;
-    const prior = project.assets.filter(asset => asset.sourceItemId === historyId && (kind === 'image' ? !!asset.image : !!asset.video));
     const isShot = 'framing' in target;
+    const stateId = slot === 'state' && stateIndex !== undefined ? 'type' in target ? (target as ArtAsset).states?.[stateIndex]?.id : !isShot ? target.states?.[stateIndex]?.id : undefined : undefined;
+    const historyId = slot === 'turnaround' ? `${target.id}:turnaround` : slot === 'setting' ? `${target.id}:setting` : slot === 'state' ? `${target.id}:state:${stateId || stateIndex || 0}` : target.id;
+    const prior = project.assets.filter(asset => asset.sourceItemId === historyId && (kind === 'image' ? !!asset.image : !!asset.video));
     const prompt = isShot ? `${target.scene}，${target.framing}，${target.action}` : 'type' in target ? slot === 'state' ? (target as ArtAsset).states?.[stateIndex ?? -1]?.prompt || '' : (target as ArtAsset).prompt || '' : target.imagePrompt || `${target.name}，${target.role}，${target.description}`;
     const negativePrompt = kind === 'image' && !isShot ? 'type' in target ? (target as ArtAsset).negativePrompt || '' : target.imageNegativePrompt || '' : undefined;
     const accept = (url: string) => {
@@ -336,12 +337,22 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
         const label = slot === 'state' ? `保存${target.name}状态图片` : target.type === 'scene' && slot === 'setting' ? '保存场景设定图' : target.type === 'scene' ? '保存场景主视角图' : '保存道具图';
         saveDoc(project, 'art', next, label);
       }
-      else saveDoc(project, 'cast', project.docs.cast.map(c => c.id === target.id ? slot === 'turnaround' ? { ...c, turnaroundImage: url } : { ...c, image: url } : c), slot === 'turnaround' ? '保存角色三视图' : '保存角色形象图');
+      else saveDoc(project, 'cast', project.docs.cast.map(c => {
+        if (c.id !== target.id) return c;
+        if (slot === 'state' && stateIndex !== undefined) {
+          const states = [...(c.states || [])];
+          if (states[stateIndex]) states[stateIndex] = { ...states[stateIndex], image: url };
+          return { ...c, states };
+        }
+        return slot === 'turnaround' ? { ...c, turnaroundImage: url } : { ...c, image: url };
+      }), slot === 'state' ? `保存${target.name}状态图片` : slot === 'turnaround' ? '保存角色三视图' : '保存角色形象图');
     };
-    const referenceImages = (slot === 'setting' || slot === 'state') && 'type' in target
+    const referenceImages = slot === 'state'
+      ? ['type' in target ? referenceImage : !isShot ? referenceImage || undefined : undefined].filter((image): image is string => !!image)
+      : slot === 'setting' && 'type' in target
       ? [referenceImage].filter((image): image is string => !!image)
       : slot === 'turnaround' && !isShot && !('type' in target) && target.turnaroundImage ? [target.turnaroundImage] : undefined;
-    if (compact && kind === 'image' && !('framing' in target)) return <CompactDetailImageTools project={project} target={target} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={slot === 'setting' || slot === 'state' ? undefined : target.image} history={prior.filter(asset => asset.image)} historyId={historyId} viewName={slot === 'state' ? '光照状态' : slot === 'setting' ? '设定图' : slot === 'main' ? '主视角' : slot === 'turnaround' ? '三视图' : slot === 'appearance' ? '形象' : '道具图'} onAccept={accept} onDeleteHistory={asset => deleteAsset(asset)} openImage={openImage}/>;
+    if (compact && kind === 'image' && !('framing' in target)) return <CompactDetailImageTools project={project} target={target} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={slot === 'setting' || slot === 'state' ? undefined : target.image} history={prior.filter(asset => asset.image)} historyId={historyId} viewName={slot === 'state' ? '状态' : slot === 'setting' ? '设定图' : slot === 'main' ? '主视角' : slot === 'turnaround' ? '三视图' : slot === 'appearance' ? '形象' : '道具图'} onAccept={accept} onDeleteHistory={asset => deleteAsset(asset)} openImage={openImage}/>;
     return <div className="detail-media-tools"><MediaGenerator project={project} kind={kind} targetId={target.id} prompt={prompt} negativePrompt={negativePrompt} source={target.image} duration={isShot ? target.duration : undefined} onAccept={accept}/>{prior.length > 0 && <details><summary>{kind === 'image' ? '图片' : '视频'}历史记录 · {prior.length}</summary><div className="detail-media-history">{prior.map(asset => <button key={asset.id} onClick={() => (kind === 'image' ? openImage : openVideo)(kind === 'image' ? asset.image! : asset.video!)}>{asset.image ? <img src={asset.image} alt={asset.name}/> : <span>▶ {asset.name}</span>}</button>)}</div></details>}</div>;
   }
   return <div className={['outline', 'script', 'storyboard'].includes(tab) ? `project-content-with-subnav ${tab}-workspace` : ''}>
