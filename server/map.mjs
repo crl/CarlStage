@@ -44,10 +44,22 @@ export function mapSkillResult(section, raw, project) {
       sceneId: str(s.sceneId), lighting: str(s.lighting), characters: list(s.characters).map(str), props: list(s.props).map(str), flow: list(s.flow).filter(b => str(b.action || (b.line ? `${b.speaker || ''}：${b.line}` : ''))).map(b => ({ ...b, seconds: Number(b.seconds) > 0 ? Number(b.seconds) : undefined }))
     }))
   })) };
-  if (section === 'storyboard') return { shots: list(raw.episodes).flatMap(ep => list(ep.segments).flatMap(segment => list(segment.cuts).map((cut, i) => ({
-    id: `${segment.id || ep.ep}-${i + 1}`, scene: str(segment.id), framing: str(cut.size), action: str(cut.frame || cut.shot), duration: Number(cut.seconds) || 4,
-    episode: Number(ep.ep) || 1, segmentId: str(segment.id), camera: str(cut.camera), characters: list(cut.characters).map(str), props: list(cut.props).map(str), beats: list(cut.beats).map(Number), videoPrompt: str(segment.h3Prompt)
-  })))) };
+  if (section === 'storyboard') return { shots: list(raw.episodes).flatMap(ep => list(ep.segments).flatMap(segment => list(segment.cuts).map((cut, i) => {
+    const episodeScript = list(project?.docs?.script?.episodes)[(Number(ep.ep) || 1) - 1];
+    const scriptBeats = list(episodeScript?.scenes).flatMap(scene => list(scene.flow));
+    const [beatStart, beatEnd] = list(cut.beats).map(Number);
+    const scriptAction = beatStart > 0 && beatEnd >= beatStart ? scriptBeats.slice(beatStart - 1, beatEnd).map(beat => {
+      if (str(beat?.action)) return str(beat.action);
+      if (!str(beat?.line)) return '';
+      const speakerId = str(beat.speaker);
+      const speaker = list(project?.docs?.cast).find(character => character.id === speakerId)?.name || speakerId;
+      return `${speaker ? `${speaker}：` : ''}${str(beat.line)}`;
+    }).filter(Boolean).join(' ') : '';
+    return {
+      id: `${segment.id || ep.ep}-${i + 1}`, scene: str(segment.id), framing: str(cut.size), action: scriptAction || str(cut.frame || cut.shot), duration: Number(cut.seconds) || 4,
+      episode: Number(ep.ep) || 1, segmentId: str(segment.id), camera: str(cut.camera), lens: str(cut.lens), cameraPosition: str(cut.cameraPosition), composition: str(cut.composition), eyeline: str(cut.eyeline), focus: str(cut.focus), stability: str(cut.stability), characters: list(cut.characters).map(str), props: list(cut.props).map(str), beats: list(cut.beats).map(Number), videoPrompt: str(segment.h3Prompt)
+    };
+  }))) };
   throw new Error('未知的生成阶段。');
 }
 
