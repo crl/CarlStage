@@ -317,6 +317,14 @@
 .segment-shot-reference>img{cursor:zoom-in}
 
 .segment-reference-picker{display:grid;gap:10px}.segment-reference-group{padding:8px;border:1px solid #393126;border-radius:6px;background:#1c1914}.segment-reference-group>strong{display:block;margin-bottom:7px;color:#cbbb9b;font-size:11px}.segment-reference-group>div{display:flex;flex-wrap:wrap;gap:7px}.segment-reference-group>div>button{display:flex;align-items:center;gap:6px;padding:5px;border:1px solid #393126;border-radius:5px;background:#171612;color:#cfc1a7;cursor:pointer}.segment-reference-group>div>button.selected{border-color:#bb9351;background:#2a2217}.segment-reference-group img{width:45px;height:40px;object-fit:cover;border-radius:3px}.segment-reference-group>div>button>span{font-size:10px}.segment-reference-group>div>button>b{color:#d1ad68;font-size:9px}.segment-reference-group>div>small{color:#817663;font-size:10px}
+.modal .filter-tabs[role="tablist"]{gap:8px;margin:14px 0 0}
+.modal .segment-reference-picker{gap:10px;margin-top:12px}
+.modal .segment-reference-group{padding:10px;border:1px solid #30332e;border-radius:9px;background:#1b1e1b}
+.modal .segment-reference-group>strong{margin-bottom:9px;color:#c9b58e}
+.modal .segment-reference-group>div{gap:7px}
+.modal .segment-reference-group>div>button{padding:6px;border:1px solid #30332e;border-radius:7px;background:#161916;color:#cfcfc6}
+.modal .segment-reference-group>div>button:hover{border-color:#65573e;background:#20221e}
+.modal .segment-reference-group>div>button.selected{border-color:#a88a57;background:#29271f}
 
 .image-style-glyph{position:relative;width:34px;height:26px;overflow:hidden;border:1px solid #4b4c47;border-radius:7px;background-color:#242622;background-size:100% 100%;box-shadow:inset 0 1px 2px #ffffff12;transition:transform .16s,border-color .16s,box-shadow .16s}
 .image-style-option:hover .image-style-glyph{transform:translateY(-1px);border-color:#8b816d;box-shadow:0 3px 9px #0005}
@@ -349,3 +357,4 @@
 .delete-icon-button:hover{border-color:#d77a70!important;background:#69332f!important;color:#fff!important}
 .delete-icon-button:focus-visible{outline:2px solid #d8b67b;outline-offset:2px}
 
+.segment-shot-reference[draggable="true"]{cursor:grab}.segment-shot-reference[draggable="true"]:active{cursor:grabbing}.segment-shot-reference[draggable="true"]:hover{border-color:#5a513f}
