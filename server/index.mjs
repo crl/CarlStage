@@ -9,6 +9,8 @@ import { Codex } from '@openai/codex-sdk';
 import { ollamaChat } from './ollama.mjs';
 import { mapSkillResult } from './map.mjs';
 import { singleEpisodeOutlineWarning } from './quality.mjs';
+import { ensureChatgptService, stopChatgptService } from './chatgpt-service.mjs';
+import { manageChatgptBrowser } from './chatgpt-image.mjs';
 import { loadSettings, normalizeSettings, saveSettings, publicSettings, getPreset, checkComfyWorkflow, testComfyConnection, validateWorkflow } from './settings.mjs';
 import { createMediaJob, getMediaJob, cancelMediaJob, mediaFilePath, copyMediaToLibrary, uploadLibraryMedia, discardMediaJobResult, cancelProjectMediaJobs, removeProjectMedia, removeMediaUrl } from './media.mjs';
 import { resolveCodexPath } from './codex-path.mjs';
@@ -25,6 +27,10 @@ const jobs = new Map();
 const activeProjects = new Set();
 const codexFor = config => new Codex({ codexPathOverride: resolveCodexPath(config) });
 let settings = await loadSettings();
+void ensureChatgptService(settings.chatgptImage).catch(() => {});
+let shuttingDown = false;
+async function shutdown() { if (shuttingDown) return; shuttingDown = true; await stopChatgptService(true); process.exit(0); }
+for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { void shutdown(); });
 
 function send(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -353,6 +359,10 @@ createServer(async (req, res) => {
         res.writeHead(200, { 'content-type': packageMime[ext] || 'application/octet-stream', 'content-length': info.size, 'cache-control': 'no-store' });
         createReadStream(path).pipe(res); return;
       } catch { return send(res, 404, { error: '项目文件不存在。' }); }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/shutdown') { send(res, 200, { ok: true }); void shutdown(); return; }
+    if (req.method === 'POST' && /^\/api\/settings\/chatgpt\/(login|status|reset)$/.test(url.pathname)) {
+      try { const config = normalizeSettings({ ...settings, chatgptImage: { ...settings.chatgptImage, ...await body(req) } }).chatgptImage; return send(res, 200, await manageChatgptBrowser(url.pathname.split('/').pop(), config)); } catch (error) { return send(res, 400, { error: error.message }); }
     }
     if (req.method === 'GET' && url.pathname === '/api/settings') return send(res, 200, publicSettings(settings));
     if (req.method === 'PUT' && url.pathname === '/api/settings') {

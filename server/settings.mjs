@@ -7,7 +7,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 export const SETTINGS_FILE = join(process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs'), 'settings.json');
 const imageDefaults = { workflowJson: '', promptNodeId: '', promptInput: 'text', referenceNodeId: '', referenceInput: 'image', seedNodeId: '', seedInput: 'seed', widthNodeId: '', widthInput: 'width', heightNodeId: '', heightInput: 'height', stepsNodeId: '', stepsInput: 'steps', cfgNodeId: '', cfgInput: 'cfg', width: 1024, height: 1024, steps: 20, cfg: 7, seed: -1 };
 const videoDefaults = { workflowJson: '', promptNodeId: '', promptInput: 'text', referenceNodeId: '', referenceInput: 'image', durationNodeId: '', durationInput: 'duration', seedNodeId: '', seedInput: 'seed', duration: 5, seed: -1, referenceSlots: [] };
-export function defaultSettings() { return { showCreativeTemplates: true, codex: { provider: 'codex', executablePath: '', model: process.env.REELBENCH_CODEX_MODEL || 'gpt-5.5', ollamaModel: 'gemma4:latest', reasoningEffort: 'low', timeoutMinutes: 45 }, imageProvider: 'qwen', gptImage: { model: 'gpt-image-2.5-sunburst', quality: 'medium', apiKey: '' }, comfy: { baseUrl: 'http://127.0.0.1:8188', image: { ...PRESETS.image }, imageEdit: { ...PRESETS.imageEdit }, video: { ...PRESETS.video } } }; }
+export function defaultSettings() { return { showCreativeTemplates: true, codex: { provider: 'codex', executablePath: '', model: process.env.REELBENCH_CODEX_MODEL || 'gpt-5.5', ollamaModel: 'gemma4:latest', reasoningEffort: 'low', timeoutMinutes: 45 }, imageProvider: 'qwen', chatgptImage: { proxy: '', timeoutMinutes: 4 }, gptImage: { model: 'gpt-image-2.5-sunburst', quality: 'medium', apiKey: '' }, comfy: { baseUrl: 'http://127.0.0.1:8188', image: { ...PRESETS.image }, imageEdit: { ...PRESETS.imageEdit }, video: { ...PRESETS.video } } }; }
 export function publicSettings(settings) { return { ...settings, gptImage: { ...settings.gptImage, apiKey: undefined, hasApiKey: !!(settings.gptImage.apiKey || process.env.OPENAI_API_KEY) } }; }
 export function getPreset(kind) { if (!Object.hasOwn(PRESETS, kind)) throw new Error('未知工作流预设。'); return structuredClone(PRESETS[kind]); }
 
@@ -69,7 +69,12 @@ export function normalizeSettings(input) {
   if (!['low', 'medium', 'high', 'xhigh'].includes(codex.reasoningEffort)) throw new Error('请选择有效的推理强度。');
   const legacyImage = comfy.image ? {} : comfy;
   const provider = input.imageProvider ?? defaults.imageProvider;
-  if (!['qwen', 'gpt'].includes(provider)) throw new Error('请选择有效的生图方式。');
+  if (!['qwen', 'gpt', 'chatgpt'].includes(provider)) throw new Error('请选择有效的生图方式。');
+  const chatgptImage = { ...defaults.chatgptImage, ...input.chatgptImage };
+  delete chatgptImage.baseUrl;
+  chatgptImage.proxy = String(chatgptImage.proxy || '').trim();
+  if (chatgptImage.proxy) { let proxy; try { proxy = new URL(chatgptImage.proxy); } catch { throw new Error('ChatGPT 代理地址无效。'); } if (!['http:', 'https:', 'socks5:'].includes(proxy.protocol) || proxy.username || proxy.password || proxy.search || proxy.hash) throw new Error('ChatGPT 代理地址无效。'); }
+  chatgptImage.timeoutMinutes = numberInRange(chatgptImage.timeoutMinutes, 'ChatGPT 生成超时分钟数', 1, 30);
   const gpt = { ...defaults.gptImage, ...input.gptImage };
   if (!['gpt-image-2.5-sunburst', 'gpt-image-2.5-flare'].includes(gpt.model)) throw new Error('GPT Image 2.5 模型无效。');
   if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(gpt.quality)) throw new Error('GPT Image 2.5 质量无效。');
@@ -93,7 +98,7 @@ export function normalizeSettings(input) {
       if (bundledDefault || bundledLegacyEdit) Object.assign(workflow, PRESETS[kind]);
     } catch { /* Custom workflows are validated and preserved below. */ }
   }
-  return { showCreativeTemplates: typeof input.showCreativeTemplates === 'boolean' ? input.showCreativeTemplates : defaults.showCreativeTemplates, codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video') } };
+  return { showCreativeTemplates: typeof input.showCreativeTemplates === 'boolean' ? input.showCreativeTemplates : defaults.showCreativeTemplates, codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, chatgptImage, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video') } };
 }
 export async function loadSettings() { try { return normalizeSettings(JSON.parse(await readFile(SETTINGS_FILE, 'utf8'))); } catch (error) { if (error?.code === 'ENOENT') return defaultSettings(); throw error; } }
 export async function saveSettings(value) { const normalized = normalizeSettings(value); await mkdir(dirname(SETTINGS_FILE), { recursive: true }); await writeFile(SETTINGS_FILE, JSON.stringify(normalized, null, 2), { encoding: 'utf8', mode: 0o600 }); return normalized; }

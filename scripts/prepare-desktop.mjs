@@ -1,3 +1,4 @@
+import { prepareChatgptRuntime } from './prepare-chatgpt-runtime.mjs';
 import { cp, mkdir, copyFile, rm, readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +11,10 @@ await mkdir(runtime, { recursive: true });
 for (const folder of ['server', 'dist', 'vendor/shuohao-skills-pinned/skills']) {
   await cp(join(root, folder), join(runtime, folder), { recursive: true });
 }
+const pythonRuntime = await prepareChatgptRuntime();
+await cp(pythonRuntime, join(runtime, 'python'), { recursive: true });
+await mkdir(join(runtime, 'scripts'), { recursive: true });
+await copyFile(join(root, 'scripts/local-port.mjs'), join(runtime, 'scripts/local-port.mjs'));
 await copyFile(join(root, 'package.json'), join(runtime, 'package.json'));
 await copyFile(join(root, 'package-lock.json'), join(runtime, 'package-lock.json'));
 await copyFile(process.execPath, join(runtime, process.platform === 'win32' ? 'node.exe' : 'node'));

@@ -4,6 +4,8 @@ import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { validateComfyUrl, validateWorkflow, validateMapping } from './settings.mjs';
+import { generateChatgptImage } from './chatgpt-image.mjs';
+import { sourceBytes } from './gpt-image.mjs';
 import { formatGptImagePrompt, generateGptImage } from './gpt-image.mjs';
 import sharp from 'sharp';
 
@@ -203,10 +205,10 @@ async function execute(job) {
   try {
     if (job.cancelled) return;
     job.status = 'running'; job.message = '正在准备工作流…';
-    if (job.kind === 'image' && job.provider === 'gpt') {
-      job.message = 'GPT Image 2.5 正在生成…';
+    if (job.kind === 'image' && ['gpt', 'chatgpt'].includes(job.provider)) {
+      job.message = job.provider === 'chatgpt' ? 'ChatGPT 网页正在生成…' : 'GPT Image 2.5 正在生成…';
       const submittedPrompt = formatGptImagePrompt(job.prompt, job.negativePrompt);
-      const generated = await generateGptImage(job.config, submittedPrompt, job.sources, undefined, job.controller.signal, job.ratio);
+      const generated = job.provider === 'chatgpt' ? await generateChatgptImage(job.config.chatgptImage, submittedPrompt, job.sources, sourceBytes, job.controller.signal) : await generateGptImage(job.config, submittedPrompt, job.sources, undefined, job.controller.signal, job.ratio);
       if (job.cancelled) return;
       const bytes = await normalizeImageRatio(generated, job.ratio);
       if (job.cancelled) return;
@@ -285,11 +287,11 @@ export function createMediaJob(settings, input) {
   if (input.negativePrompt !== undefined && (input.kind !== 'image' || typeof input.negativePrompt !== 'string' || input.negativePrompt.length > 8000)) throw new Error('图片反向提示词无效。');
   safeId(input.projectId);
   const provider = input.kind === 'image' ? (input.provider || settings.imageProvider || 'qwen') : 'minimax';
-  if (input.kind === 'image' && !['qwen', 'gpt'].includes(provider)) throw new Error('生图方式无效。');
+  if (input.kind === 'image' && !['qwen', 'gpt', 'chatgpt'].includes(provider)) throw new Error('生图方式无效。');
   if (input.kind === 'image' && input.imageMode !== undefined && !['edit', 'compose'].includes(input.imageMode)) throw new Error('生图模式无效。');
   const imageMode = input.kind === 'image' ? (input.imageMode || 'edit') : undefined;
   const sources = input.sources ?? (input.source ? [input.source] : []);
-  if (!Array.isArray(sources) || sources.length > (input.kind === 'video' ? 8 : 4) || sources.some(source => typeof source !== 'string' || !validImageSource(source))) throw new Error(input.kind === 'video' ? '参考图无效，视频最多选择 8 张 PNG、JPEG 或 WebP 图片。' : '参考图无效，最多选择 4 张 PNG、JPEG 或 WebP 图片。');
+  if (!Array.isArray(sources) || sources.length > 8 || sources.some(source => typeof source !== 'string' || !validImageSource(source))) throw new Error(input.kind === 'video' ? '参考图无效，视频最多选择 8 张 PNG、JPEG 或 WebP 图片。' : '参考图无效，最多选择 8 张 PNG、JPEG 或 WebP 图片。');
   if (input.kind === 'image' && provider === 'qwen' && sources.length > 1 && input.source !== sources[0]) throw new Error('多张参考图必须按提示词引用顺序提交。');
   if (input.kind === 'video' && (!input.source || !Number.isFinite(input.duration) || input.duration < 1 || input.duration > 15)) throw new Error('MiniMax H3 需要首帧图片，时长须在 1–15 秒之间。');
   if (input.kind === 'video' && (sources[0] !== input.source || (sources.length > 1 && (!Array.isArray(input.cutPoints) || input.cutPoints.length !== sources.length || input.cutPoints[0] !== 0 || input.cutPoints.some((time, index) => !Number.isFinite(time) || time < 0 || time >= input.duration || (index > 0 && time <= input.cutPoints[index - 1])) || (settings.comfy.video.referenceSlots?.length || 0) < sources.length - 1)))) throw new Error('多图视频需要完整的图片节点映射和严格递增的切点。');

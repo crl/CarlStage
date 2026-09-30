@@ -168,7 +168,8 @@ test('分段视频逐图写入图片和递增切点，缺少映射时拒绝提�
 test('生图参考图数量、格式和引用顺序校验', () => {
   const settings = defaultSettings(); settings.imageProvider = 'gpt';
   const base = { projectId: 'testmedia123', kind: 'image', prompt: '测试', provider: 'gpt' };
-  assert.throws(() => createMediaJob(settings, { ...base, sources: Array(5).fill(pixel) }), /最多选择 4 张/);
+  assert.doesNotThrow(() => createMediaJob(settings, { ...base, sources: Array(8).fill(pixel) }));
+  assert.throws(() => createMediaJob(settings, { ...base, sources: Array(9).fill(pixel) }), /最多选择 8 张/);
   assert.throws(() => createMediaJob(settings, { ...base, sources: ['https://example.com/image.png'] }), /参考图无效/);
   assert.throws(() => createMediaJob(settings, { ...base, sources: [pixel, pixel], provider: 'qwen' }), /引用顺序/);
 });

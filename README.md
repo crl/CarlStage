@@ -1,5 +1,7 @@
 # CarlStage 本地创作工作台
 
+生图支持内置「ChatGPT · 网页」服务。Windows x64 开发环境先运行 `npm run chatgpt:prepare` 准备便携 Python 和固定版本依赖，再运行 `npm run dev`；`npm run server`、网页运行和桌面版均由 Node 后端自动启动 Python 服务。桌面运行环境准备会自动包含 Python，无需单独安装或运行 ChatGPT-Image-Svc。服务只监听本机，默认使用 8317，被占用时自动选择空闲端口。在设置中配置代理与超时，点击「登录 ChatGPT」在普通 Edge 窗口重新登录，看到聊天界面后关闭窗口再生图；登录期间暂停生成。运行数据在 `.local-runs/chatgpt-image/` 或桌面应用数据目录，账号数据不会提交或打包。默认复用同一会话，支持 8 张参考图，结果确认后保存。关闭 CarlStage 时清理管理的服务与浏览器；取消任务停止本地等待和保存，网页生成可能继续。
+
 基于 React、TypeScript、Vite 和 Tauri 的本地创作工作台。项目、原文、历史版本及已确认的 skill 原生 JSON 保存在本机项目文件中；真实生成的图片和视频也保存在本机文件。内容生成由本机 Codex 调用 [shuohao-skills](https://github.com/eternityspring/shuohao-skills) 的五个 skill；Qwen 图片与 MiniMax H3 视频通过本机 ComfyUI，GPT Image 2.5 图片通过 OpenAI API。Skill 仓库固定在提交 `ca1c30be78bde70fa84d3817453c71e0ef25b751`（2.0.0），位于 `vendor/shuohao-skills-pinned`。
 
 网页开发模式需要 Node.js 18+；桌面安装包自带 Node.js 运行环境。内容生成需要本机已登录的 Codex CLI（`codex login status`）。桌面安装包不包含 Codex 执行文件，可在“设置 → 创作模型”填写自己的 `codex.exe` 路径，留空时尝试查找本机安装。默认模型为 `gpt-5.5`，可通过 `REELBENCH_CODEX_MODEL` 环境变量调整。本机服务仅监听 `127.0.0.1:8787`，浏览器经 Vite 代理访问。
