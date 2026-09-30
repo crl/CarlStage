@@ -338,3 +338,11 @@
 .art-state-section-head{display:flex;align-items:center;gap:8px}.art-state-section-head>h2{margin-bottom:12px}.art-state-add{display:flex;align-items:center;justify-content:center;width:26px;height:26px;margin-bottom:12px;padding:0;font-family:Arial,sans-serif;font-size:18px;line-height:1}.art-state-image-actions{justify-content:flex-end}.art-state-image-head>.art-state-name.detail-field{min-width:0;margin:0;padding:0;border:0;background:transparent}.art-state-image-head>.art-state-name .detail-value{min-height:0;padding:2px 0;color:#c8b58e;font-size:12px;font-weight:600;cursor:text}
 .art-state-image-controls{display:flex;align-items:center;gap:6px;min-width:0}.art-state-image-controls>.character-image-actions{margin:0}.art-state-remove{flex:none;color:#cc8a78}
 .character-state-item{margin:0 0 12px!important;padding:12px!important;border:1px solid #30352f!important;border-radius:9px;background:#181b18!important}.character-state-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid #30352f}.character-state-heading>.art-state-name.detail-field{min-width:0;margin:0;padding:0;border:0;background:transparent}.character-state-heading>.art-state-name .detail-value{min-height:0;padding:2px 0;color:#c8b58e;font-size:14px;font-weight:600;cursor:text}.character-state-item>.character-state-row{padding:0;border:0}.character-state-item .art-state-image-panel,.character-state-item .art-state-content>.detail-field{padding:0!important;border:0!important;border-radius:0;background:transparent!important}
+
+/* Shared destructive icon alignment and visual treatment. */
+.delete-icon-button{display:inline-grid!important;place-items:center;box-sizing:border-box;padding:0!important;line-height:0!important;text-align:center;vertical-align:middle}
+.delete-icon-button .delete-icon-glyph{display:block;width:14px;height:14px;overflow:visible}
+.delete-icon-button .delete-icon-glyph path{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.delete-icon-button:hover{border-color:#d77a70!important;background:#69332f!important;color:#fff!important}
+.delete-icon-button:focus-visible{outline:2px solid #d8b67b;outline-offset:2px}
+

@@ -1,8 +1,9 @@
 import { beatSeconds } from './model';
-import type { Asset, Project, Store } from './model';
+import type { Asset, Project, Store, StoreSummary } from './model';
 import { imageKey } from './mediaRefs';
 
 const CHANNEL_NAME = 'reelbench-local-demo-sync';
+const CHANNEL_CLIENT_ID = crypto.randomUUID();
 function withLegacyMedia(project: Project, deletedAssets: string[], deletedMedia: string[]): Project {
   if (project.docs.script) {
     const script = { ...project.docs.script, episodes: project.docs.script.episodes.map(episode => ({ ...episode, scenes: episode.scenes.map(scene => ({ ...scene, flow: scene.beats.map((beat, index) => { const existing = scene.flow?.[index] || { action: beat }; return { ...existing, seconds: beatSeconds(existing, beat) }; }) })) })) };
@@ -59,6 +60,47 @@ export async function loadStore(): Promise<Store> {
   return mergeStores({ projects: [], library: [] }, store);
 }
 
+export async function loadStoreSummary(): Promise<StoreSummary> {
+  const response = await fetch('/api/store/summary');
+  if (!response.ok) throw new Error('无法读取项目列表。');
+  clearLegacyBrowserStore();
+  return await response.json() as StoreSummary;
+}
+
+export async function loadProjectParts(projectId: string, parts: string[]): Promise<Project & { changeDetails?: Record<string, Project['changes'][number] | null> }> {
+  const query = new URLSearchParams({ parts: parts.join(',') });
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/parts?${query}`);
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(detail?.error || '无法读取项目内容。');
+  }
+  return await response.json() as Project & { changeDetails?: Record<string, Project['changes'][number] | null> };
+}
+
+export async function saveProjectMutation(projectId: string, input: { expectedRevisions: Record<string, string | null>; updates: Record<string, unknown>; addChanges?: Project['changes']; deleteChanges?: string[] }): Promise<{ conflict: boolean; conflicts?: string[]; revisions: Record<string, string | null> }> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/mutation`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+  const result = await response.json().catch(() => null) as { conflict?: boolean; conflicts?: string[]; revisions?: Record<string, string | null>; error?: string } | null;
+  if (!response.ok && response.status !== 409) throw new Error(result?.error || '项目内容保存失败。');
+  if (typeof BroadcastChannel !== 'undefined') {
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+    channel.postMessage({ origin: CHANNEL_CLIENT_ID, projectId });
+    channel.close();
+  }
+  return { conflict: response.status === 409 || !!result?.conflict, conflicts: result?.conflicts, revisions: result?.revisions || {} };
+}
+
+export async function createProject(project: Project): Promise<Record<string, string>> {
+  const response = await fetch('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(project) });
+  const result = await response.json().catch(() => null) as { revisions?: Record<string, string>; error?: string } | null;
+  if (!response.ok) throw new Error(result?.error || '创建项目失败。');
+  if (typeof BroadcastChannel !== 'undefined') {
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+    channel.postMessage({ origin: CHANNEL_CLIENT_ID });
+    channel.close();
+  }
+  return result?.revisions || {};
+}
+
 function clearLegacyBrowserStore() {
   try { localStorage.removeItem('reelbench-file-store-migrated'); } catch { /* Storage may be unavailable. */ }
   if (typeof indexedDB === 'undefined') return;
@@ -73,14 +115,38 @@ export async function saveStore(state: Store): Promise<void> {
   }
   if (typeof BroadcastChannel !== 'undefined') {
     const channel = new BroadcastChannel(CHANNEL_NAME);
-    channel.postMessage('updated');
+    channel.postMessage({ origin: CHANNEL_CLIENT_ID });
+    channel.close();
+  }
+}
+
+export async function saveStoreIndex(index: Partial<Store>): Promise<void> {
+  const response = await fetch('/api/store/index', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(index) });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(detail?.error || '项目索引保存失败。');
+  }
+  if (typeof BroadcastChannel !== 'undefined') {
+    const channel = new BroadcastChannel(CHANNEL_NAME);
+    channel.postMessage({ origin: CHANNEL_CLIENT_ID });
     channel.close();
   }
 }
 
 export function listenForUpdates(onUpdate: () => void): () => void {
   const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
-  if (channel) channel.onmessage = onUpdate;
-  const timer = window.setInterval(() => { if (!document.hidden) onUpdate(); }, 5000);
+  if (channel) channel.onmessage = event => { if (event.data?.origin !== CHANNEL_CLIENT_ID) onUpdate(); };
+  let revision: string | null = null;
+  let checking = false;
+  const timer = window.setInterval(() => {
+    if (document.hidden || checking) return;
+    checking = true;
+    fetch('/api/store/revision').then(async response => {
+      if (!response.ok) throw new Error('无法检查项目更新。');
+      const next = (await response.json() as { revision: string }).revision;
+      if (revision !== next) onUpdate();
+      revision = next;
+    }).catch(() => {}).finally(() => { checking = false; });
+  }, 5000);
   return () => { channel?.close(); window.clearInterval(timer); };
 }

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clone, IMAGE_RATIOS, makeDocs, makeProject, sectionLabel, uid } from './model';
-import type { ArtAsset, Asset, AssetType, Character, Consultation, DocKey, ImageRatio, Outline, Project, Shot, Store } from './model';
-import { listenForUpdates, loadStore, mergeStores, saveStore } from './db';
+import type { ArtAsset, Asset, AssetType, Character, Consultation, DocKey, ImageRatio, Outline, Project, ProjectSummary, Shot, Store } from './model';
+import { listenForUpdates, loadProjectParts, loadStoreSummary, saveProjectMutation, createProject as persistProject, saveStoreIndex } from './db';
 import { consult, continueJob, createJob, createMediaJob, getMediaJob, cancelMediaJob, discardMediaJob, copyMediaToLibrary, uploadLibraryMedia, deleteMedia, getSettings, getJob, removeProjectRuns, startProjectImport, uploadProjectImportFile, finishProjectImport } from './codex';
 import type { Job, MediaJob } from './codex';
 import SettingsPage from './SettingsPage';
@@ -9,9 +9,20 @@ import { decodeImportedText } from './textImport';
 import { imageKey, ownedMediaUrl } from './mediaRefs';
 import { copyText } from './clipboard';
 import { CopyPromptIcon } from './CopyPromptIcon';
+import { DeleteIcon } from './DeleteIcon';
 import { ProjectDetail, ProjectMaterialTabs, ProjectStoryboardSummary, ProjectSubnav } from './ProjectDetails';
 
 const EMPTY: Store = { projects: [], library: [] };
+const DOC_PARTS: Record<string, string[]> = {
+  overview: [],
+  outline: ['doc-outline', 'doc-cast', 'doc-art', 'artifacts', 'source'],
+  script: ['doc-script', 'doc-outline', 'doc-cast', 'doc-art', 'artifacts', 'consultations'],
+  cast: ['doc-cast', 'doc-outline', 'assets', 'artifacts'],
+  art: ['doc-art', 'doc-outline', 'doc-cast', 'assets', 'artifacts'],
+  storyboard: ['doc-storyboard', 'doc-outline', 'doc-script', 'doc-cast', 'doc-art', 'assets', 'artifacts'],
+  library: ['assets', 'references'],
+  history: ['changes']
+};
 const IMAGE_STYLES = ['写实人像', '电影剧照', '日系动漫', '赛博霓虹', '产品棚拍', '等距 3D', '水彩', '水墨', '扁平插画', '黏土', '像素', '油画'];
 type Route = { page: 'dashboard' | 'library' | 'templates' | 'settings' | 'project'; id?: string; tab?: string; detail?: string[] };
 const assetNames: Record<AssetType, string> = { character: '角色', scene: '场景', prop: '道具', other: '其它' };
@@ -46,6 +57,10 @@ function readFile(file: File): Promise<string> {
 }
 function fmt(date: number) { return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date); }
 function excerpt(text: string, count = 72) { return text.length > count ? text.slice(0, count) + '…' : text; }
+function projectStub(summary: ProjectSummary): Project {
+  const { referenceImageCount: _referenceImageCount, ...projectSummary } = summary;
+  return { ...projectSummary, referenceImages: [], docs: makeDocs(summary.prompt || summary.name, Math.max(1, summary.docStats?.outlineEpisodes || summary.episodeCount || 1), summary.kind), assets: [], changes: [], consultations: [], skillArtifacts: {}, loadedParts: [], revisions: summary.revisions || {}, partRevisions: { meta: summary.revisions?.meta ?? null } };
+}
 function MediaDownload({ src, name, kind }: { src: string; name?: string; kind: 'image' | 'video' }) {
   const extension = src.match(/\.(png|jpe?g|webp|mp4|webm|mov)(?:\?|$)/i)?.[1] || (kind === 'video' ? 'mp4' : src.match(/^data:image\/(png|jpeg|webp)/)?.[1] || 'png');
   const filename = `${(name || (kind === 'video' ? '视频' : '图片')).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')}.${extension === 'jpeg' ? 'jpg' : extension}`;
@@ -54,6 +69,9 @@ function MediaDownload({ src, name, kind }: { src: string; name?: string; kind: 
 
 export default function App() {
   const [state, setState] = useState<Store>(EMPTY);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const mutationQueue = useRef(new Map<string, Promise<void>>());
   const [ready, setReady] = useState(false);
   const [route, setRoute] = useState<Route>(parseRoute);
   const [toast, setToast] = useState('');
@@ -82,12 +100,42 @@ export default function App() {
   }, [zoomMode, zoomImage, zoomDimensions]);
   useEffect(() => { if (!zoomImage && !zoomVideo) return; const close = (event: KeyboardEvent) => { if (event.key === 'Escape') { setZoomImage(null); setZoomVideo(null); } }; window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close); }, [zoomImage, zoomVideo]);
 
-  useEffect(() => { loadStore().then(s => { setState(s); setReady(true); }).catch(() => { setReady(true); setSaveError('无法读取本机项目文件，请检查本机服务。'); }); }, []);
-  useEffect(() => { if (ready) saveStore(state).then(() => setSaveError('')).catch(() => setSaveError('保存失败：无法写入本机项目文件。')); }, [state, ready]);
-  useEffect(() => listenForUpdates(() => { loadStore().then(remote => setState(current => {
-    const merged = mergeStores(current, remote);
-    return JSON.stringify(current) === JSON.stringify(merged) ? current : merged;
+  useEffect(() => { loadStoreSummary().then(summary => {
+    const next = { ...EMPTY, ...summary, projects: summary.projects.map(projectStub) } as Store;
+    setState(next); setReady(true);
+  }).catch(() => { setReady(true); setSaveError('无法读取本机项目文件，请检查本机服务。'); }); }, []);
+  useEffect(() => listenForUpdates(() => { loadStoreSummary().then(remote => setState(current => {
+    const byId = new Map(current.projects.map(project => [project.id, project]));
+    const projects = remote.projects.map(summary => {
+      const existing = byId.get(summary.id);
+      const stub = projectStub(summary);
+      if (!existing) return stub;
+      return { ...stub, ...existing, ...summary, docs: existing.docs, assets: existing.assets, changes: existing.changes, consultations: existing.consultations, skillArtifacts: existing.skillArtifacts, sourceText: existing.sourceText, generatedSource: existing.generatedSource, loadedParts: existing.loadedParts || [], revisions: summary.revisions || {}, partRevisions: { ...(existing.partRevisions || {}), meta: summary.revisions?.meta ?? null } } as Project;
+    });
+    return { ...current, ...remote, projects } as Store;
   })).catch(() => {}); }), []);
+  useEffect(() => {
+    if (!ready || route.page !== 'project' || !route.id) return;
+    const project = state.projects.find(item => item.id === route.id);
+    if (!project) return;
+    const parts = DOC_PARTS[route.tab || 'overview'] || [];
+    const loaded = new Set(project.loadedParts || []);
+    const wantedRevision = project.revisions || {};
+    const missing = parts.filter(part => !loaded.has(part) || (project.partRevisions?.[part] ?? null) !== (wantedRevision[part] ?? null));
+    if (!missing.length) return;
+    let active = true;
+    loadProjectParts(project.id, missing).then(result => {
+      if (!active) return;
+      setState(current => ({ ...current, projects: current.projects.map(item => item.id !== project.id ? item : {
+        ...item, ...result, docs: { ...item.docs, ...result.docs }, assets: missing.includes('assets') ? result.assets : item.assets,
+        changes: missing.includes('changes') ? result.changes : item.changes, consultations: missing.includes('consultations') ? result.consultations : item.consultations,
+        referenceImages: missing.includes('references') ? result.referenceImages : item.referenceImages,
+        skillArtifacts: missing.includes('artifacts') ? result.skillArtifacts : item.skillArtifacts,
+        loadedParts: [...new Set([...(item.loadedParts || []), ...parts])], partRevisions: { ...(item.partRevisions || {}), ...result.revisions }, revisions: { ...(item.revisions || {}), ...result.revisions }
+      }) }));
+    }).catch(error => { if (active) setSaveError((error as Error).message); });
+    return () => { active = false; };
+  }, [ready, route.page, route.id, route.tab, state.projects]);
   useEffect(() => { const onPop = () => setRoute(parseRoute()); window.addEventListener('popstate', onPop); return () => window.removeEventListener('popstate', onPop); }, []);
   useEffect(() => {
     const onToast = (event: Event) => {
@@ -102,16 +150,83 @@ export default function App() {
 
   function go(path: string) { history.pushState({}, '', path); setRoute(parseRoute()); setMobileNav(false); window.scrollTo(0, 0); }
   function updateProject(id: string, change: (project: Project) => Project) {
-    setState(s => ({ ...s, projects: s.projects.map(p => {
-      if (p.id !== id) return p;
-      const changed = change(clone(p));
-      changed.updatedAt = Math.max(Date.now(), p.updatedAt + 1);
-      return changed;
-    }) }));
+    const before = stateRef.current.projects.find(project => project.id === id);
+    if (!before) return;
+    const changed = change(clone(before));
+    changed.updatedAt = Math.max(Date.now(), before.updatedAt + 1);
+    const meta = (project: Project) => { const { docs, assets, changes, consultations, skillArtifacts, sourceText, generatedSource, loadedParts, revisions, partRevisions, docStats, updatedAt, ...value } = project as Project & { partRevisions?: Record<string, string | null> }; return value; };
+    const updates: Record<string, unknown> = {};
+    if (JSON.stringify(meta(before)) !== JSON.stringify(meta(changed))) updates.meta = meta(changed);
+    for (const key of ['outline', 'script', 'cast', 'art', 'storyboard'] as DocKey[]) if ((changed.loadedParts || []).includes(`doc-${key}`) && JSON.stringify(before.docs[key]) !== JSON.stringify(changed.docs[key])) updates[`doc-${key}`] = changed.docs[key];
+    if ((changed.loadedParts || []).includes('assets') && JSON.stringify(before.assets) !== JSON.stringify(changed.assets)) updates.assets = changed.assets;
+    if ((changed.loadedParts || []).includes('references') && JSON.stringify(before.referenceImages) !== JSON.stringify(changed.referenceImages)) updates.references = changed.referenceImages;
+    // History snapshots are stored individually; mutations below only send new/deleted IDs.
+    if ((changed.loadedParts || []).includes('consultations') && JSON.stringify(before.consultations) !== JSON.stringify(changed.consultations)) updates.consultations = changed.consultations;
+    if (JSON.stringify(before.skillArtifacts) !== JSON.stringify(changed.skillArtifacts)) updates.artifacts = changed.skillArtifacts || {};
+    if (before.sourceText !== changed.sourceText || before.generatedSource !== changed.generatedSource) updates.source = { sourceText: changed.sourceText, generatedSource: changed.generatedSource };
+    const beforeIds = new Set(before.changes.map(item => item.id));
+    const changedIds = new Set(changed.changes.map(item => item.id));
+    const addChanges = changed.changes.filter(item => !beforeIds.has(item.id) && item.before);
+    const deleteChanges = before.changes.filter(item => !changedIds.has(item.id)).map(item => item.id);
+    stateRef.current = { ...stateRef.current, projects: stateRef.current.projects.map(project => project.id === id ? changed : project) };
+    setState(current => ({ ...current, projects: current.projects.map(project => project.id === id ? changed : project) }));
+    const previous = mutationQueue.current.get(id) || Promise.resolve();
+    const saving = previous.catch(() => {}).then(async () => {
+      if (!Object.keys(updates).length && !addChanges.length && !deleteChanges.length) return;
+      const current = stateRef.current.projects.find(project => project.id === id) || before;
+      const expectedRevisions: Record<string, string | null> = Object.fromEntries(Object.keys(updates).map(part => [part, current.partRevisions?.[part] ?? null]));
+      if (deleteChanges.length) expectedRevisions.changes = current.partRevisions?.changes ?? current.revisions?.changes ?? null;
+      const result = await saveProjectMutation(id, { expectedRevisions, updates, addChanges, deleteChanges });
+      if (result.conflict) {
+        const refreshParts = [...Object.keys(updates), ...(addChanges.length || deleteChanges.length ? ['changes'] : [])];
+        const refresh = await loadProjectParts(id, refreshParts);
+        const projects = stateRef.current.projects.map(project => project.id !== id ? project : ({
+          ...project, ...refresh, docs: { ...project.docs, ...refresh.docs },
+          loadedParts: [...new Set([...(project.loadedParts || []), ...refreshParts])],
+          revisions: { ...project.revisions, ...refresh.revisions },
+          partRevisions: { ...project.partRevisions, ...refresh.revisions },
+        } as Project));
+        stateRef.current = { ...stateRef.current, projects };
+        setState(current => ({
+          ...current,
+          projects,
+        }));
+        setToast('此内容已在另一个窗口修改，已重新载入最新版本。');
+      } else {
+        const writtenParts = [...Object.keys(updates), ...(addChanges.length || deleteChanges.length ? ['changes'] : [])];
+        const projects = stateRef.current.projects.map(project => project.id === id ? { ...project, revisions: { ...project.revisions, ...result.revisions }, partRevisions: { ...project.partRevisions, ...Object.fromEntries(writtenParts.map(part => [part, result.revisions[part]])) } as Record<string, string | null> } as Project : project);
+        stateRef.current = { ...stateRef.current, projects };
+        setState(current => ({ ...current, projects }));
+        setSaveError('');
+      }
+    }).catch(error => setSaveError(`保存失败：${(error as Error).message}`));
+    mutationQueue.current.set(id, saving);
+  }
+  async function ensureProjectParts(id: string, parts: string[]): Promise<Project> {
+    const current = stateRef.current.projects.find(project => project.id === id);
+    if (!current) throw new Error('项目不存在。');
+    const loaded = new Set(current.loadedParts || []);
+    const currentRevisions = current.partRevisions || {};
+    const wantedRevisions = current.revisions || {};
+    const missing = parts.filter(part => !loaded.has(part) || (currentRevisions[part] ?? null) !== (wantedRevisions[part] ?? null));
+    if (!missing.length) return current;
+    const result = await loadProjectParts(id, missing);
+    const next = { ...current, ...result, docs: { ...current.docs, ...result.docs }, assets: missing.includes('assets') ? result.assets : current.assets, referenceImages: missing.includes('references') ? result.referenceImages : current.referenceImages, changes: missing.includes('changes') ? result.changes : current.changes, consultations: missing.includes('consultations') ? result.consultations : current.consultations, skillArtifacts: missing.includes('artifacts') ? result.skillArtifacts : current.skillArtifacts, loadedParts: [...new Set([...(current.loadedParts || []), ...missing])], partRevisions: { ...current.partRevisions, ...result.revisions }, revisions: { ...current.revisions, ...result.revisions } } as Project;
+    stateRef.current = { ...stateRef.current, projects: stateRef.current.projects.map(project => project.id === id ? next : project) };
+    setState(state => ({ ...state, projects: state.projects.map(project => project.id === id ? next : project) }));
+    return next;
   }
   function create(input: Partial<Project> & Pick<Project, 'kind' | 'name' | 'prompt'>) {
     const project = makeProject(input);
+    project.loadedParts = ['doc-outline', 'doc-script', 'doc-cast', 'doc-art', 'doc-storyboard', 'assets', 'references', 'changes', 'source', 'consultations', 'artifacts'];
+    stateRef.current = { ...stateRef.current, projects: [project, ...stateRef.current.projects] };
     setState(s => ({ ...s, projects: [project, ...s.projects] }));
+    void persistProject(project).then(async () => {
+      const fresh = await loadProjectParts(project.id, project.loadedParts || []);
+      const projects = stateRef.current.projects.map(item => item.id === project.id ? { ...item, ...fresh, loadedParts: project.loadedParts, partRevisions: fresh.revisions } as Project : item);
+      stateRef.current = { ...stateRef.current, projects };
+      setState(current => ({ ...current, projects }));
+    }).catch(error => setSaveError(`创建项目失败：${(error as Error).message}`));
     setNovelOpen(false);
     go(`/p/${project.id}`);
     setToast('项目已创建 · 点击各页面的生成按钮调用 Codex');
@@ -131,30 +246,40 @@ export default function App() {
     try {
       const image = asset.image?.startsWith('/api/media/') ? (await copyMediaToLibrary(asset.image)).url : asset.image;
       const copy = { ...clone(asset), image, mediaKind: image ? 'image' as const : asset.mediaKind, id: uid(), sourceProjectId: projectId, sourceItemId: asset.id };
-      setState(s => ({ ...s, library: [copy, ...s.library] }));
+      const library = [copy, ...stateRef.current.library];
+      setState(s => ({ ...s, library }));
+      await saveStoreIndex({ library });
       setToast('已加入全局资产库');
     } catch (e) { setToast(`加入资产库失败：${(e as Error).message}`); }
   }
   function importAsset(asset: Asset, projectId: string) {
-    updateProject(projectId, p => { p.assets.push({ ...clone(asset), id: uid() }); p.updatedAt = Date.now(); return p; });
+    void (async () => {
+      const existing = stateRef.current.projects.find(project => project.id === projectId);
+      if (!existing) return;
+      await ensureProjectParts(projectId, ['assets']);
+      updateProject(projectId, p => { p.assets.push({ ...clone(asset), id: uid() }); return p; });
+    })().catch(error => setSaveError(`导入资产失败：${(error as Error).message}`));
     setToast('已复制到项目资产库');
   }
   function registerMedia(projectId: string, asset: Asset) {
     updateProject(projectId, p => { p.assets.push(asset); return p; });
   }
   function deleteChange(projectId: string, changeId: string) {
-    setState(s => ({ ...s, deletedChangeIds: [...new Set([...(s.deletedChangeIds || []), changeId])], projects: s.projects.map(p => p.id === projectId ? { ...p, changes: p.changes.filter(c => c.id !== changeId), updatedAt: Date.now() } : p) }));
+    updateProject(projectId, project => { project.changes = project.changes.filter(change => change.id !== changeId); return project; });
+    void saveStoreIndex({ deletedChangeIds: [changeId] }).catch(error => setSaveError((error as Error).message));
     setToast('变更记录已删除');
   }
   function saveConsultation(projectId: string, item: Consultation) {
     updateProject(projectId, project => { project.consultations = [item, ...(project.consultations || [])]; return project; });
   }
   function deleteConsultation(projectId: string, itemId: string) {
-    setState(current => ({ ...current, deletedConsultationIds: [...new Set([...(current.deletedConsultationIds || []), itemId])], projects: current.projects.map(project => project.id === projectId ? { ...project, consultations: (project.consultations || []).filter(item => item.id !== itemId), updatedAt: Date.now() } : project) }));
+    updateProject(projectId, project => { project.consultations = (project.consultations || []).filter(item => item.id !== itemId); return project; });
+    void saveStoreIndex({ deletedConsultationIds: [itemId] }).catch(error => setSaveError((error as Error).message));
     setToast('顾问记录已删除');
   }
   function deleteProject(id: string) {
     setState(s => ({ ...s, projects: s.projects.filter(p => p.id !== id), deletedProjectIds: [...new Set([...(s.deletedProjectIds || []), id])] }));
+    void saveStoreIndex({ deletedProjectIds: [id] }).catch(error => setSaveError((error as Error).message));
     void removeProjectRuns(id).catch(() => setToast('项目已从浏览器删除；本机生成目录未能清理，请检查 Codex 服务。'));
     setConfirmDelete(null); go('/dashboard'); setToast('项目已删除');
   }
@@ -166,12 +291,15 @@ export default function App() {
     const deleteImage = !!media && (media.startsWith('data:image/') || ownedMediaUrl(media, owner));
     try {
       if (deleteImage && media!.startsWith('/api/media/')) await deleteMedia(media!);
-      setState(s => ({ ...s,
-        deletedAssetIds: [...new Set([...(s.deletedAssetIds || []), asset.id, ...(media && scope === 'project' ? [`legacy-${projectId}-${imageKey(media).replace(/:/g, '-')}`] : [])])],
-        deletedImages: deleteImage ? [...new Set([...(s.deletedImages || []), imageKey(media!)])] : s.deletedImages,
-        library: scope === 'global' ? s.library.filter(a => a.id !== asset.id) : s.library,
-        projects: scope === 'project' ? s.projects.map(p => p.id === projectId ? { ...p, assets: p.assets.filter(a => a.id !== asset.id), updatedAt: Date.now() } : p) : s.projects
-      }));
+      const deletedAssetIds = [...new Set([...(stateRef.current.deletedAssetIds || []), asset.id, ...(media && scope === 'project' ? [`legacy-${projectId}-${imageKey(media).replace(/:/g, '-')}`] : [])])];
+      const deletedImages = deleteImage ? [...new Set([...(stateRef.current.deletedImages || []), imageKey(media!)])] : stateRef.current.deletedImages;
+      const library = scope === 'global' ? stateRef.current.library.filter(item => item.id !== asset.id) : stateRef.current.library;
+      setState(current => ({ ...current, deletedAssetIds, deletedImages, library }));
+      await saveStoreIndex({ deletedAssetIds, deletedImages, library });
+      if (scope === 'project' && projectId) {
+        await ensureProjectParts(projectId, ['assets']);
+        updateProject(projectId, project => { project.assets = project.assets.filter(item => item.id !== asset.id); return project; });
+      }
       setConfirmAsset(null); setToast('资产已删除');
     } catch (e) { setToast(`删除失败：${(e as Error).message}`); }
   }
@@ -181,16 +309,18 @@ export default function App() {
     try {
       const owned = ownedMediaUrl(source, projectId);
       if (owned) await deleteMedia(source);
-      setState(s => ({ ...s,
-        deletedImages: owned ? [...new Set([...(s.deletedImages || []), imageKey(source)])] : s.deletedImages,
-        deletedReferenceKeys: [...new Set([...(s.deletedReferenceKeys || []), `${projectId}:${imageKey(source)}`])],
-        projects: s.projects.map(p => p.id === projectId ? { ...p, referenceImages: p.referenceImages.filter((_, i) => i !== index), updatedAt: Date.now() } : p)
-      }));
+      const deletedImages = owned ? [...new Set([...(stateRef.current.deletedImages || []), imageKey(source)])] : stateRef.current.deletedImages;
+      const deletedReferenceKeys = [...new Set([...(stateRef.current.deletedReferenceKeys || []), `${projectId}:${imageKey(source)}`])];
+      setState(s => ({ ...s, deletedImages, deletedReferenceKeys }));
+      await saveStoreIndex({ deletedImages, deletedReferenceKeys });
+      updateProject(projectId, project => { project.referenceImages = project.referenceImages.filter((_, i) => i !== index); return project; });
       setConfirmReference(null); setToast('参考图已删除');
     } catch (e) { setToast(`删除失败：${(e as Error).message}`); }
   }
 
   const project = route.page === 'project' ? state.projects.find(p => p.id === route.id) : undefined;
+  const projectParts = route.page === 'project' ? DOC_PARTS[route.tab || 'overview'] || [] : [];
+  const projectReady = !!project && projectParts.every(part => (project.loadedParts || []).includes(part) && (project.partRevisions?.[part] ?? null) === (project.revisions?.[part] ?? null));
   if (!ready) return <div className="loading">CarlStage <span>正在打开本地工作台…</span></div>;
   return <DeletedImages.Provider value={state.deletedImages || []}><Notify.Provider value={setToast}><LibraryContext.Provider value={state.library}><RegisterMedia.Provider value={registerMedia}><CurrentProject.Provider value={project}><OpenImage.Provider value={showImage}><OpenVideo.Provider value={setZoomVideo}><DeleteChange.Provider value={deleteChange}><SaveConsultation.Provider value={saveConsultation}><DeleteConsultation.Provider value={deleteConsultation}>
     {saveError && <div className="save-error">{saveError}</div>}
@@ -199,10 +329,10 @@ export default function App() {
         <Header go={go} project={project} page={route.page} onMenu={() => setMobileNav(v => !v)} rename={() => project && setRenameProject({ id: project.id, name: project.name })}/>
         {project && <ProjectNav project={project} tab={route.tab || 'overview'} go={go} mobileNav={mobileNav}/>}
         <main className={`main-page ${project ? 'project-main' : ''}`}>
-          {route.page === 'library' && <GlobalLibrary state={state} importAsset={importAsset} deleteAsset={asset => setConfirmAsset({ asset, scope: 'global' })} renameAsset={(asset, name) => { setState(s => ({ ...s, library: s.library.map(item => item.id === asset.id ? { ...item, name } : item) })); setToast('图片名称已更新'); }} addUpload={asset => setState(s => ({ ...s, library: [asset, ...s.library] }))} go={go}/>}
+          {route.page === 'library' && <GlobalLibrary state={state} importAsset={importAsset} deleteAsset={asset => setConfirmAsset({ asset, scope: 'global' })} renameAsset={(asset, name) => { const library = stateRef.current.library.map(item => item.id === asset.id ? { ...item, name } : item); setState(s => ({ ...s, library })); void saveStoreIndex({ library }).catch(error => setSaveError((error as Error).message)); setToast('图片名称已更新'); }} addUpload={asset => { const library = [asset, ...stateRef.current.library]; setState(s => ({ ...s, library })); void saveStoreIndex({ library }).catch(error => setSaveError((error as Error).message)); }} go={go}/>}
           {route.page === 'templates' && <div className="empty-page"><div className="eyebrow">CREATIVE TEMPLATES</div><h1>创意模板</h1><p>模板内容正在整理，暂未开放。</p><button className="btn" onClick={() => go('/dashboard')}>返回工作台</button></div>}
           {route.page === 'settings' && <SettingsPage/>}
-          {route.page === 'project' && (project ? <ProjectPage project={project} tab={route.tab || 'overview'} detail={route.detail || []} go={go} saveDoc={saveDoc} updateProject={updateProject} addToLibrary={addToLibrary} importAsset={importAsset} deleteAsset={asset => setConfirmAsset({ asset, scope: 'project', projectId: project.id })} deleteReference={(source, index) => setConfirmReference({ source, index, projectId: project.id })} globalAssets={state.library} notify={setToast}/> : <div className="empty-page"><h1>找不到这个项目</h1><button className="btn" onClick={() => go('/dashboard')}>返回工作台</button></div>)}
+          {route.page === 'project' && (project ? projectReady ? <ProjectPage project={project} tab={route.tab || 'overview'} detail={route.detail || []} go={go} saveDoc={saveDoc} updateProject={updateProject} ensureProjectParts={ensureProjectParts} addToLibrary={addToLibrary} importAsset={importAsset} deleteAsset={asset => setConfirmAsset({ asset, scope: 'project', projectId: project.id })} deleteReference={(source, index) => setConfirmReference({ source, index, projectId: project.id })} globalAssets={state.library} notify={setToast}/> : <div className="loading">CarlStage <span>正在读取项目内容…</span></div> : <div className="empty-page"><h1>找不到这个项目</h1><button className="btn" onClick={() => go('/dashboard')}>返回工作台</button></div>)}
         </main>
       </div>}
     {novelOpen && <NovelModal onClose={() => setNovelOpen(false)} onCreate={create}/>}
@@ -233,7 +363,7 @@ function Dashboard({ projects, go, create, openNovel, onDelete }: { projects: Pr
   return <div className="dashboard">
     <aside className="dash-sidebar"><div className="brand"><span className="logo">CS</span><div><strong>CarlStage</strong><small>AI 影视创作工作台</small></div></div>
       <nav className="dash-nav"><button className="active" onClick={() => go('/dashboard')}>⌂ <span>首页</span></button><button onClick={() => go('/asset-library')}>◇ <span>资产库</span></button>{showCreativeTemplates && <button onClick={() => go('/creative-templates')}>▦ <span>创意模板</span><em>待更新</em></button>}</nav>
-      <div className="recent-title">最近项目</div><div className="recent-list">{projects.length ? projects.map(p => <div className="recent-item" key={p.id}><button className="recent-link" onClick={() => go(`/p/${p.id}`)}><span className="recent-icon">{p.kind === 'novel' ? '文' : '创'}</span><span className="recent-copy"><strong>{p.name}</strong><small>{p.kind === 'novel' ? p.genre || '小说项目' : `${p.docs.script.episodes.length} 条剧本`} · {new Date(p.updatedAt).toLocaleDateString('zh-CN')}</small></span></button><button className="recent-delete" title="删除项目" onClick={() => onDelete(p.id)}>×</button></div>) : <p className="sidebar-empty">还没有项目，从一个创意开始吧。</p>}</div>
+      <div className="recent-title">最近项目</div><div className="recent-list">{projects.length ? projects.map(p => <div className="recent-item" key={p.id}><button className="recent-link" onClick={() => go(`/p/${p.id}`)}><span className="recent-icon">{p.kind === 'novel' ? '文' : '创'}</span><span className="recent-copy"><strong>{p.name}</strong><small>{p.kind === 'novel' ? p.genre || '小说项目' : `${p.docStats?.scriptScenes || 0} 场剧本`} · {new Date(p.updatedAt).toLocaleDateString('zh-CN')}</small></span></button><button className="recent-delete delete-icon-button" title="删除项目" onClick={() => onDelete(p.id)}><DeleteIcon/></button></div>) : <p className="sidebar-empty">还没有项目，从一个创意开始吧。</p>}</div>
       <button className="sidebar-create" onClick={openNovel}>＋ 小说项目</button>
     </aside>
     <main className="dash-main"><div className="dash-top"><span>✦ 独立创作，从灵感到分镜</span><div className="dash-top-actions"><span className="demo-pill">本机 Codex 版</span><button className="settings-trigger" onClick={() => go('/settings')}>⚙ 设置</button></div></div><div className="hero-wrap">
@@ -272,7 +402,7 @@ function ProjectNav({ project, tab, go, mobileNav }: { project: Project; tab: st
   return <nav className={`project-nav ${mobileNav ? 'open' : ''}`} aria-label="项目导航">{main.filter(([key]) => key !== 'reports' || project.skillProjectImported).map(([key, label, icon]) => <button key={key} className={`${tab === key ? 'active' : ''} ${key === 'overview' || key === 'reports' || key === 'library' ? 'nav-group-start' : ''} ${key === 'history' ? 'nav-bottom' : ''}`} onClick={() => key === 'reports' ? window.open(`/api/projects/${project.id}/proj/index.html`, '_blank', 'noopener') : go(`/p/${project.id}${key === 'overview' ? '' : `/${key}`}`)} title={label}><span aria-hidden="true">{icon}</span><small>{label}</small></button>)}</nav>;
 }
 
-function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLibrary, importAsset, deleteAsset, deleteReference, globalAssets, notify }: { project: Project; tab: string; detail: string[]; go: (path: string) => void; saveDoc: <T extends DocKey>(project: Project, key: T, value: Project['docs'][T], label?: string) => void; updateProject: (id: string, change: (project: Project) => Project) => void; addToLibrary: (asset: Asset, projectId: string) => void; importAsset: (asset: Asset, projectId: string) => void; deleteAsset: (asset: Asset) => void; deleteReference: (source: string, index: number) => void; globalAssets: Asset[]; notify: (message: string) => void }) {
+function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, ensureProjectParts, addToLibrary, importAsset, deleteAsset, deleteReference, globalAssets, notify }: { project: Project; tab: string; detail: string[]; go: (path: string) => void; saveDoc: <T extends DocKey>(project: Project, key: T, value: Project['docs'][T], label?: string) => void; updateProject: (id: string, change: (project: Project) => Project) => void; ensureProjectParts: (id: string, parts: string[]) => Promise<Project>; addToLibrary: (asset: Asset, projectId: string) => void; importAsset: (asset: Asset, projectId: string) => void; deleteAsset: (asset: Asset) => void; deleteReference: (source: string, index: number) => void; globalAssets: Asset[]; notify: (message: string) => void }) {
   const openImage = useContext(OpenImage);
   const openVideo = useContext(OpenVideo);
   const storageKey = `reelbench-job-${project.id}`;
@@ -285,7 +415,7 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
   async function regenerateAll() {
     if (batchBusy || job) return;
     const sections: DocKey[] = ['outline', 'cast', 'script', 'art', 'storyboard'];
-    let currentProject = clone(project);
+    let currentProject = clone(await ensureProjectParts(project.id, ['doc-outline', 'doc-cast', 'doc-script', 'doc-art', 'doc-storyboard', 'artifacts', 'assets', 'changes', 'source']));
     setBatchBusy(true); setJobError('');
     try {
       for (const [index, section] of sections.entries()) {
@@ -363,6 +493,7 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
     {tab === 'overview' && <><Overview project={project} go={go} onStyleChange={style => updateProject(project.id, current => ({ ...current, style }))} onRegenerateAll={() => void regenerateAll()} regenerateDisabled={batchBusy || !!job} onImportPackage={async files => {
       setJobError('');
       try {
+        await ensureProjectParts(project.id, ['doc-outline', 'doc-script', 'doc-cast', 'doc-art', 'doc-storyboard', 'artifacts', 'source', 'changes']);
         const start = await startProjectImport(project.id);
         const normalized = files.map(file => ({ file, path: file.webkitRelativePath.split('/').slice(1).join('/') || file.name }));
         for (let i = 0; i < normalized.length; i += 4) await Promise.all(normalized.slice(i, i + 4).map(({ file, path }) => uploadProjectImportFile(project.id, start.importId, path, file)));
@@ -379,14 +510,19 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, addToLi
         });
         notify('项目目录已导入到当前项目的 proj 文件夹。');
       } catch (error) { setJobError(`导入失败：${(error as Error).message}`); }
-    }}/>{project.kind === 'novel' && <ReimportNovel project={project} updateProject={updateProject} notify={notify}/>}</>}
+    }}/>{project.kind === 'novel' && <ReimportNovel project={project} updateProject={updateProject} ensureProjectParts={ensureProjectParts} notify={notify}/>}</>}
     {!hasDetail && key === 'outline' && <OutlinePage project={project} save={value => saveDoc(project, 'outline', value)} go={go}/>}
     {!hasDetail && key === 'script' && <ScriptPage project={project} save={value => saveDoc(project, 'script', value)} notify={notify}/>}
     {!hasDetail && key === 'cast' && <CastGallery project={project} save={value => saveDoc(project, 'cast', value)} addToLibrary={addToLibrary} go={go}/>}
     {!hasDetail && key === 'art' && <ArtGallery project={project} save={value => saveDoc(project, 'art', value)} addToLibrary={addToLibrary} go={go}/>}
     {!hasDetail && key === 'storyboard' && <><ProjectStoryboardSummary project={project} go={go}/><StoryboardPage project={project} save={value => saveDoc(project, 'storyboard', value)} go={go}/></>}
-    {tab === 'history' && <HistoryPage project={project} updateProject={updateProject} notify={notify}/>}
-    {tab === 'library' && <ProjectMaterialTabs project={project}><ProjectLibrary project={project} globalAssets={globalAssets} importAsset={importAsset} deleteAsset={deleteAsset} deleteReference={deleteReference} updateProject={updateProject} addProjectAsset={asset => updateProject(project.id, p => { p.assets.push(asset); return p; })} notify={notify} go={go}/></ProjectMaterialTabs>}
+    {tab === 'history' && <HistoryPage project={project} updateProject={updateProject} notify={notify} loadChange={async id => {
+      const summary = project.changes.find(item => item.id === id);
+      if (!summary) return null;
+      const result = await loadProjectParts(project.id, [`change:${id}`]);
+      return result.changeDetails?.[id] || null;
+    }} ensureProjectParts={ensureProjectParts}/>}
+    {tab === 'library' && <ProjectMaterialTabs project={project} onPrompts={() => ensureProjectParts(project.id, ['doc-cast', 'doc-art', 'doc-storyboard'])}><ProjectLibrary project={project} globalAssets={globalAssets} importAsset={importAsset} deleteAsset={deleteAsset} deleteReference={deleteReference} updateProject={updateProject} addProjectAsset={asset => updateProject(project.id, p => { p.assets.push(asset); return p; })} notify={notify} go={go}/></ProjectMaterialTabs>}
   </div></div>;
 }
 
@@ -420,20 +556,19 @@ function applyOutlineProjectSettings(project: Project, raw: unknown) {
 function Overview({ project, go, onStyleChange, onRegenerateAll, regenerateDisabled, onImportPackage }: { project: Project; go: (path: string) => void; onStyleChange: (style: string) => void; onRegenerateAll: () => void; regenerateDisabled: boolean; onImportPackage: (files: File[]) => void }) {
   const [confirmRegenerateAll, setConfirmRegenerateAll] = useState(false);
   const packagePicker = useRef<HTMLInputElement>(null);
-  const shots = project.docs.storyboard.shots;
-  const segments = new Set(shots.map(s => s.segmentId).filter(Boolean));
+  const stats = project.docStats || { outlineEpisodes: 0, outlineBeats: 0, cast: 0, scenes: 0, props: 0, scriptScenes: 0, scriptBeats: 0, shots: 0, segments: 0, storyboardEpisodes: 0 };
   const metrics = [
-    { key: 'outline', number: '01', label: '大纲', caption: '什么', summary: `${project.docs.outline.episodes.length} 集 · ${project.docs.outline.beats?.length || 0} 个爽点` },
-    { key: 'cast', number: '02', label: '角色', caption: '谁', summary: `${project.docs.cast.length} 个角色` },
-    { key: 'art', number: '03', label: '美术', caption: '在哪 + 拿什么', summary: `${project.docs.art.scenes.length} 个场景 · ${project.docs.art.props.length} 个道具` },
-    { key: 'script', number: '04', label: '剧本', caption: '戏', summary: `${project.docs.script.episodes.reduce((n, e) => n + e.scenes.length, 0)} 场 · ${project.docs.script.episodes.reduce((n, e) => n + e.scenes.reduce((sum, s) => sum + s.beats.length, 0), 0)} 节拍` },
-    { key: 'storyboard', number: '05', label: '分镜', caption: '怎么拍', summary: `${segments.size} 段 · ${shots.length} 个镜头` }
+    { key: 'outline', number: '01', label: '大纲', caption: '什么', summary: `${stats.outlineEpisodes} 集 · ${stats.outlineBeats} 个爽点` },
+    { key: 'cast', number: '02', label: '角色', caption: '谁', summary: `${stats.cast} 个角色` },
+    { key: 'art', number: '03', label: '美术', caption: '在哪 + 拿什么', summary: `${stats.scenes} 个场景 · ${stats.props} 个道具` },
+    { key: 'script', number: '04', label: '剧本', caption: '戏', summary: `${stats.scriptScenes} 场 · ${stats.scriptBeats} 节拍` },
+    { key: 'storyboard', number: '05', label: '分镜', caption: '怎么拍', summary: `${stats.segments} 段 · ${stats.shots} 个镜头` }
   ];
   const card = (m: typeof metrics[number]) => <button key={m.key} className="flow-stage" onClick={() => go(`/p/${project.id}/${m.key}`)}><span className="flow-stage-top"><small>{m.number}</small><strong>{m.label}</strong><em>{m.caption}</em></span><span className="flow-stage-summary">{m.summary}</span></button>;
   return <><PageHeading stage="工作台 · 项目总览" title={project.name} subtitle="从大纲到分镜，五个阶段的文案与素材都在这里改。每一次改动都记在变更里，随时可以撤回。" actions={<><button className="btn" onClick={() => packagePicker.current?.click()}>{project.skillProjectImported ? '重新导入项目目录' : '导入 shuohao-skills 项目'}</button><input ref={packagePicker} type="file" multiple hidden onChange={event => { const files = Array.from(event.target.files || []); if (files.length) onImportPackage(files); event.target.value = ''; }} {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}/><button className="btn primary" disabled={regenerateDisabled} onClick={() => setConfirmRegenerateAll(true)}>{regenerateDisabled ? '正在逐步生成…' : '一键重新生成全部'}</button></>}/><div className="flow-diagram"><div className="flow-source">{project.kind === 'novel' ? '小说原文' : '创意原文'}<small>{project.sourceName || '素材来源'}</small></div><span className="flow-arrow">→</span>{card(metrics[0])}<span className="flow-arrow">→</span><div className="flow-cluster"><div className="flow-cluster-head">收敛层 · 三者同步迭代，无先后</div>{metrics.slice(1, 4).map(card)}<div className="flow-cluster-foot">人工过一遍 · 不满意就微调，重新生成</div></div><span className="flow-arrow">→</span>{card(metrics[4])}<span className="flow-arrow">→</span><div className="flow-source">批量生成<small>按镜出片</small></div></div><div className="overview-meta"><span>题材：{project.genre || '未设置'}</span><span>改编幅度：{project.adaptation}</span><span>画面比例：{project.ratio}</span><label className="overview-style"><span>统一画风</span><select aria-label="统一画风" value={project.style} onChange={event => onStyleChange(event.target.value)}>{project.style && !IMAGE_STYLES.includes(project.style) && <option value={project.style}>{project.style}</option>}{IMAGE_STYLES.map(style => <option key={style} value={style}>{style}</option>)}</select></label></div>{confirmRegenerateAll && <Modal title="确认重新生成全部" onClose={() => setConfirmRegenerateAll(false)}><p>将依次重新生成大纲、角色、剧本、美术和分镜。此流程会多次调用创作模型，可能消耗较多用量；已有内容会记录到变更历史。确认继续吗？</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmRegenerateAll(false)}>取消</button><button className="btn primary" onClick={() => { setConfirmRegenerateAll(false); onRegenerateAll(); }}>确认重新生成</button></div></Modal>}</>;
 }
 
-function ReimportNovel({ project, updateProject, notify }: { project: Project; updateProject: (id: string, change: (project: Project) => Project) => void; notify: (message: string) => void }) {
+function ReimportNovel({ project, updateProject, ensureProjectParts, notify }: { project: Project; updateProject: (id: string, change: (project: Project) => Project) => void; ensureProjectParts: (id: string, parts: string[]) => Promise<Project>; notify: (message: string) => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function reimport(file: File | undefined) {
@@ -446,6 +581,7 @@ function ReimportNovel({ project, updateProject, notify }: { project: Project; u
       const sourceText = (await readFile(file)).trim();
       if (!sourceText) throw new Error('小说文件为空。');
       if (!window.confirm('重新导入会根据原文重建大纲、剧本、角色、美术和分镜。当前版本会保存在「变更」中，确定继续吗？')) return;
+      await ensureProjectParts(project.id, ['doc-outline', 'doc-script', 'doc-cast', 'doc-art', 'doc-storyboard', 'artifacts', 'source', 'changes']);
       updateProject(project.id, p => {
         const nextDocs = makeDocs(sourceText, p.episodeCount, 'novel');
         const keys: DocKey[] = ['outline', 'script', 'cast', 'art', 'storyboard'];
@@ -538,7 +674,6 @@ function OutlinePage({ project, save, go }: { project: Project; save: (value: Pr
     ...scenes.map(item => ({ kind: 'scene' as const, id: item.id, name: item.name, tier: item.primary ? '主场景' : '一次性场景', episodes: sceneAppearances(item.id) })),
     ...props.map(item => ({ kind: 'prop' as const, id: item.id, name: item.name, tier: item.beatIds.map(id => beats.find(beat => beat.id === id)?.type).filter(Boolean).join('、') || '叙事道具', episodes: draft.episodes.flatMap((episode, index) => episode.propIds?.includes(item.id) ? [index + 1] : []) }))
   ];
-  const updateEpisodeRef = (index: number, key: 'sceneIds' | 'characterIds' | 'propIds', refIndex: number, value: string) => setDraft(d => ({ ...d, episodes: d.episodes.map((episode, i) => { if (i !== index) return episode; const refs = [...(episode[key] || [])]; refs[refIndex] = value; return { ...episode, [key]: refs }; }) }));
   return <div className="outline-report-page">
     <PageHeading stage="STAGE 01 · OUTLINE" title={project.name} subtitle="改编报告 · 大纲总表" actions={<button className="btn primary" onClick={() => save(draft)}>保存大纲</button>}/>
     <div className="outline-report-meta"><span>{project.genre || '未设置题材'}</span><span>{project.episodeCount} 集 × {project.minDuration === project.maxDuration ? project.minDuration : `${project.minDuration}–${project.maxDuration}`} 分钟</span><span>{project.adaptation || '未设置改编模式'}</span></div>
@@ -594,7 +729,7 @@ function Consultant({ project, onApply }: { project: Project; onApply: (scene: P
     <div className="eyebrow">CREATIVE CONSULTANT</div><h2>创作顾问</h2><p>可讨论 · 可修改</p>
     <div className="segmented"><button className={mode === 'talk' ? 'selected' : ''} onClick={() => setMode('talk')}>讨论</button><button className={mode === 'edit' ? 'selected' : ''} onClick={() => setMode('edit')}>修改剧本</button></div>
     {entries.length > 0 && <div className="consultant-history"><h3>{mode === 'talk' ? '讨论历史' : '修改历史'}</h3>{entries.map(item => <div className="consultant-reply consultant-entry" key={item.id}>
-      <button className="consultant-entry-delete" type="button" title="删除记录" aria-label="删除这条顾问记录" onClick={() => setConfirmId(item.id)}>×</button>
+      <button className="consultant-entry-delete delete-icon-button" type="button" title="删除记录" aria-label="删除这条顾问记录" onClick={() => setConfirmId(item.id)}><DeleteIcon/></button>
       <small>{fmt(item.at)}</small><strong>{item.question}</strong><p>{item.reply}</p>
       {item.scene && <div className="consultant-scene"><strong>修改预览</strong><p>{item.scene.title} · {item.scene.location}</p><p>{item.scene.description}</p><pre>{item.scene.beats.join('\n')}</pre><div className="inline-actions"><button className="btn primary small" onClick={() => onApply(item.scene!)}>确认写入</button></div></div>}
     </div>)}</div>}
@@ -608,19 +743,6 @@ function Consultant({ project, onApply }: { project: Project; onApply: (scene: P
 function SegmentPromptEditor({ value, label, save }: { value: string; label: string; save: (value: string) => void }) {
   const [draft, setDraft] = useState(value); useEffect(() => setDraft(value), [value]);
   return <textarea aria-label={label} value={draft} onChange={e => setDraft(e.target.value)} onBlur={() => { if (draft !== value) save(draft); }} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') e.currentTarget.blur(); }}/>
-}
-
-function SegmentShotField({ label, value, type = 'text', min, max, step, save }: { label: string; value: string | number; type?: 'text' | 'number'; min?: number; max?: number; step?: number; save: (value: string | number) => void }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
-  function commit() {
-    if (type === 'number') {
-      const next = Number(draft);
-      if (!Number.isFinite(next) || next <= 0) { setDraft(String(value)); return; }
-      if (next !== value) save(next);
-    } else if (draft !== value) save(draft);
-  }
-  return <label>{label}<input type={type} min={min} max={max} step={step} value={draft} onChange={event => setDraft(event.target.value)} onBlur={commit}/></label>;
 }
 
 function SegmentProduction({ project, episode, segment, save, openImage, go }: { project: Project; episode: number; segment: string; save: (value: Project['docs']['storyboard'], label?: string) => void; openImage: (url: string) => void; go: (path: string) => void }) {
@@ -791,10 +913,10 @@ function SegmentProduction({ project, episode, segment, save, openImage, go }: {
       const videoPrompt = `以本镜分镜图作为首帧，保持人物身份、服装、场景和道具一致。${shot.action}${shot.camera ? ` 镜头运动：${shot.camera}。` : ''}动作连续自然，时长 ${shot.duration} 秒。`;
       const toggleReference = (id: string, category: string) => changeShot(shot.id, item => category === '角色' ? ({ ...item, characters: (item.characters || []).includes(id) ? item.characters!.filter(value => value !== id) : [...(item.characters || []), id] }) : category === '场景' ? ({ ...item, sceneId: selectedScene?.id === id ? null : id }) : ({ ...item, props: (item.props || []).includes(id) ? item.props!.filter(value => value !== id) : [...(item.props || []), id] }), '更新镜头引用资产');
       return <article className="panel segment-shot-editor" key={shot.id}>
-        <div className="segment-shot-editor-head"><strong>#{index + 1}</strong><span>{starts[index].toFixed(1)}s</span><span>·</span><span>{shot.duration}s</span><span>·</span><span>{shot.framing || '景别未设'}</span><span>·</span><span>{shot.camera || '运镜未设'}</span><button className="segment-shot-delete-button" title="删除此镜头" aria-label={`删除第 ${index + 1} 镜`} onClick={() => setDeleteShotId(shot.id)}>×</button></div>
+        <div className="segment-shot-editor-head"><strong>#{index + 1}</strong><span>{starts[index].toFixed(1)}s</span><span>·</span><span>{shot.duration}s</span><span>·</span><span>{shot.framing || '景别未设'}</span><span>·</span><span>{shot.camera || '运镜未设'}</span><button className="segment-shot-delete-button delete-icon-button" title="删除此镜头" aria-label={`删除第 ${index + 1} 镜`} onClick={() => setDeleteShotId(shot.id)}><DeleteIcon/></button></div>
         <div className="segment-shot-editor-grid">
           <section className="segment-shot-visual"><div className="segment-shot-editor-label"><span>分镜图</span><div className="segment-shot-media-actions"><button className="btn small segment-shot-history-button" onClick={() => setImageHistoryShotId(shot.id)} title="图片历史">◷ <span>{imageVersionCount}</span></button>{(() => { const job = imageJobs[shot.id]; const status = job?.status === 'queued' || job?.status === 'running' || job?.status === 'completed' ? job.status : null; const statusTitle = status === 'queued' ? `排队中${job.queuePosition ? ` · 队列第 ${job.queuePosition} 位` : ''}` : status === 'running' ? '正在生成' : status === 'completed' ? '已生成，待确认保存' : ''; return <button className="btn small segment-shot-regenerate-button" onClick={() => setMediaDialog({ shot, kind: 'image' })} title={statusTitle || '重新生成'} aria-label={`重新生成${status ? `，${statusTitle}` : ''}`}>重新生成{status && <span className={`segment-shot-job-dot ${status}`} aria-hidden="true"/>}</button>; })()}</div></div><div className="segment-shot-large-picture">{shot.image ? <img src={shot.image} alt={`镜头 ${index + 1}`} onClick={() => openImage(shot.image!)}/> : <span>尚无分镜图</span>}<small>SHOT {String(index + 1).padStart(2, '0')} · {starts[index].toFixed(2)}s</small></div><div className="segment-shot-video-tools"><strong>本镜视频 · MiniMax H3</strong>{shot.image && shot.duration >= 1 && shot.duration <= 15 ? <MediaGenerator project={project} kind="video" targetId={shot.id} prompt={videoPrompt} source={shot.image} duration={shot.duration} onAccept={(url, usedPrompt) => changeShot(shot.id, item => ({ ...item, video: url, videoPrompt: usedPrompt || videoPrompt }), '保存单镜 H3 视频')}/> : <p className="hint">{!shot.image ? '先生成并保存本镜分镜图，再生成视频。' : 'MiniMax H3 单镜时长需为 1–15 秒。'}</p>}{videoVersions.length > 0 && <div className="segment-version-tabs"><span>本镜历次</span>{videoVersions.map((version, versionIndex) => <button key={version.id} className={shot.video === version.video ? 'active' : ''} onClick={() => changeShot(shot.id, item => ({ ...item, video: version.video }), '切换单镜视频版本')}>第 {versionIndex + 1} 版</button>)}</div>}{shot.video && <MediaClip src={shot.video} showDownload={false}/>}</div></section>
-          <section className="segment-shot-prompt"><div className="segment-shot-editor-label"><span>画面提示词</span><button className="copy-prompt-button" onClick={() => void copyText(shot.action)} title="复制画面提示词" aria-label="复制画面提示词"><CopyPromptIcon/></button></div><SegmentPromptEditor label={`第 ${index + 1} 镜画面提示词`} value={shot.action} save={value => changeShot(shot.id, item => ({ ...item, action: value }), '修改分镜画面提示词')}/><details className="segment-shot-prompt-preview"><summary>查看完整生图提示词（含景别、运镜和引用资产）</summary><pre>{storyboardImageReferences(project, shot).prompt}</pre></details><div className="segment-shot-reference-head"><span>引用资产</span><div><button className="btn small" onClick={() => setReferenceShotId(shot.id)}>＋ 添加引用</button></div></div><div className="segment-shot-references">{[...(selectedScene ? [{ ...selectedScene, referenceImage: selectedScene.image, category: '场景' }] : []), ...selectedArt.map(item => ({ ...item, referenceImage: item.image, category: '道具' })), ...selectedCharacters.map(item => ({ ...item, referenceImage: item.turnaroundImage || item.image, category: '角色' }))].map(asset => <div className={`segment-shot-reference segment-shot-reference-${asset.category === '角色' ? 'character' : asset.category === '场景' ? 'scene' : 'prop'}`} key={asset.id}>{asset.referenceImage ? <img src={asset.referenceImage} alt=""/> : <span>{asset.category}</span>}<small>{asset.category}</small><button className="segment-shot-reference-link" onClick={() => go(asset.category === '角色' ? `/p/${project.id}/cast/${encodeURIComponent(asset.id)}` : `/p/${project.id}/art/${asset.category === '场景' ? 'scenes' : 'props'}/${encodeURIComponent(asset.id)}`)}>{asset.name}</button><button className="segment-shot-reference-remove" title="移除引用" onClick={() => toggleReference(asset.id, asset.category)}>×</button></div>)}{!selectedScene && !selectedArt.length && !selectedCharacters.length && <span className="segment-shot-no-references">尚未引用角色、场景或道具</span>}</div></section>
+          <section className="segment-shot-prompt"><div className="segment-shot-editor-label"><span>画面提示词</span><button className="copy-prompt-button" onClick={() => void copyText(shot.action)} title="复制画面提示词" aria-label="复制画面提示词"><CopyPromptIcon/></button></div><SegmentPromptEditor label={`第 ${index + 1} 镜画面提示词`} value={shot.action} save={value => changeShot(shot.id, item => ({ ...item, action: value }), '修改分镜画面提示词')}/><details className="segment-shot-prompt-preview"><summary>查看完整生图提示词（含景别、运镜和引用资产）</summary><pre>{storyboardImageReferences(project, shot).prompt}</pre></details><div className="segment-shot-reference-head"><span>引用资产</span><div><button className="btn small" onClick={() => setReferenceShotId(shot.id)}>＋ 添加引用</button></div></div><div className="segment-shot-references">{[...(selectedScene ? [{ ...selectedScene, referenceImage: selectedScene.image, category: '场景' }] : []), ...selectedArt.map(item => ({ ...item, referenceImage: item.image, category: '道具' })), ...selectedCharacters.map(item => ({ ...item, referenceImage: item.turnaroundImage || item.image, category: '角色' }))].map(asset => <div className={`segment-shot-reference segment-shot-reference-${asset.category === '角色' ? 'character' : asset.category === '场景' ? 'scene' : 'prop'}`} key={asset.id}>{asset.referenceImage ? <img src={asset.referenceImage} alt=""/> : <span>{asset.category}</span>}<small>{asset.category}</small><button className="segment-shot-reference-link" onClick={() => go(asset.category === '角色' ? `/p/${project.id}/cast/${encodeURIComponent(asset.id)}` : `/p/${project.id}/art/${asset.category === '场景' ? 'scenes' : 'props'}/${encodeURIComponent(asset.id)}`)}>{asset.name}</button><button className="segment-shot-reference-remove delete-icon-button" title="移除引用" onClick={() => toggleReference(asset.id, asset.category)}><DeleteIcon/></button></div>)}{!selectedScene && !selectedArt.length && !selectedCharacters.length && <span className="segment-shot-no-references">尚未引用角色、场景或道具</span>}</div></section>
         </div>
       </article>;
     })}</div>
@@ -899,8 +1021,8 @@ function CompactDetailImageTools({ project, target, prompt, negativePrompt, refe
   if (target.image && !versions.some(asset => asset.image === target.image)) versions.unshift({ id: `current-${historyId}`, type: assetType, name: target.name, description: '当前使用中的图片', image: target.image, sourceItemId: historyId });
   return <>
     <div className="character-image-actions"><button className="btn small character-history-button" title={`${viewName}图片历史`} onClick={() => setDialog('history')}>◷ <span>{versions.length}</span></button><SingleImageUploadButton project={project} target={target} title={`${target.name} · ${viewName}`} historyId={historyId} onAccept={onAccept}/><button className="btn small segment-shot-regenerate-button" title={statusTitle || generateLabel} aria-label={`${generateLabel}${visibleJobStatus ? `，${statusTitle}` : ''}`} onClick={() => setDialog('edit')}>{generateLabel}{visibleJobStatus && <span className={`segment-shot-job-dot ${visibleJobStatus}`} aria-hidden="true"/>}</button></div>
-    {dialog === 'edit' && <Modal title={`${generateLabel}图片 · ${target.name} · ${viewName}`} onClose={() => setDialog(null)}><MediaGenerator key={historyId} project={project} kind="image" targetId={target.id} historyId={historyId} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={source} preferQwen onJobStatusChange={setJobStatus} onAccept={url => { onAccept(url); setDialog(null); }}/></Modal>}
-    {dialog === 'history' && <Modal title={`${viewName}图片历史记录`} onClose={() => setDialog(null)}><div className="eyebrow">IMAGE HISTORY</div><p className="muted">图片历史记录按视图分别保存。</p><div className="segment-image-history-grid">{versions.map((asset, index) => { const current = asset.image === target.image; return <article className={`segment-image-history-card${current ? ' current' : ''}`} key={asset.id}>{!current && <button className="segment-image-history-delete" title="删除此版本" aria-label="删除此版本" onClick={() => onDeleteHistory(asset)}>×</button>}<button className="segment-image-history-preview" onClick={() => openImage(asset.image!)}><img src={asset.image} alt={asset.name}/><span>查看大图</span></button><div className="segment-image-history-meta"><strong>图片 #{versions.length - index}</strong>{current && <em>当前版本</em>}</div><p>{asset.provider || ('type' in target ? target.type : '角色')}{asset.generatedAt ? ` · ${new Date(asset.generatedAt).toLocaleString()}` : ''}</p><button className="btn primary small" disabled={current} onClick={() => { if (target.image && !project.assets.some(item => item.sourceItemId === historyId && item.image === target.image)) registerMedia(project.id, { id: uid(), type: assetType, name: `${target.name} · 恢复前版本`, description: '恢复历史版本时保留的前一版本', mediaKind: 'image', image: target.image, sourceProjectId: project.id, sourceItemId: historyId, generatedAt: Date.now() }); onAccept(asset.image!); setDialog(null); }}>{current ? '正在使用' : '恢复此版本'}</button></article>; })}{!versions.length && <div className="detail-empty">暂无历史图片。生成或编辑后，版本会保存在这里。</div>}</div></Modal>}
+    {dialog === 'edit' && <Modal title={`${target.name} · ${viewName}`} onClose={() => setDialog(null)}><MediaGenerator key={historyId} project={project} kind="image" targetId={target.id} historyId={historyId} prompt={prompt} negativePrompt={negativePrompt} referenceImages={referenceImages} source={source} defaultRatio={viewName === '形象' ? '9:16' : undefined} preferQwen onJobStatusChange={setJobStatus} onAccept={url => { onAccept(url); setDialog(null); }}/></Modal>}
+    {dialog === 'history' && <Modal title={`${viewName}图片历史记录`} onClose={() => setDialog(null)}><div className="eyebrow">IMAGE HISTORY</div><p className="muted">图片历史记录按视图分别保存。</p><div className="segment-image-history-grid">{versions.map((asset, index) => { const current = asset.image === target.image; return <article className={`segment-image-history-card${current ? ' current' : ''}`} key={asset.id}>{!current && <button className="segment-image-history-delete delete-icon-button" title="删除此版本" aria-label="删除此版本" onClick={() => onDeleteHistory(asset)}><DeleteIcon/></button>}<button className="segment-image-history-preview" onClick={() => openImage(asset.image!)}><img src={asset.image} alt={asset.name}/><span>查看大图</span></button><div className="segment-image-history-meta"><strong>图片 #{versions.length - index}</strong>{current && <em>当前版本</em>}</div><p>{asset.provider || ('type' in target ? target.type : '角色')}{asset.generatedAt ? ` · ${new Date(asset.generatedAt).toLocaleString()}` : ''}</p><button className="btn primary small" disabled={current} onClick={() => { if (target.image && !project.assets.some(item => item.sourceItemId === historyId && item.image === target.image)) registerMedia(project.id, { id: uid(), type: assetType, name: `${target.name} · 恢复前版本`, description: '恢复历史版本时保留的前一版本', mediaKind: 'image', image: target.image, sourceProjectId: project.id, sourceItemId: historyId, generatedAt: Date.now() }); onAccept(asset.image!); setDialog(null); }}>{current ? '正在使用' : '恢复此版本'}</button></article>; })}{!versions.length && <div className="detail-empty">暂无历史图片。生成或编辑后，版本会保存在这里。</div>}</div></Modal>}
   </>;
 }
 
@@ -940,7 +1062,7 @@ function GalleryImageCard({ project, target, title, subtitle, description, promp
     } catch (error) { notify(controller.signal.aborted ? '已取消图片上传' : `上传失败：${(error as Error).message}`); }
     finally { if (uploadController.current === controller) uploadController.current = null; setUploadingImage(false); }
   }
-  return <article className="panel gallery-image-card"><div className="gallery-card-top"><span>{viewName}</span><div className="gallery-image-actions"><button className="btn small gallery-history-button" title={`${viewName}图片历史`} onClick={() => setShowHistory(true)}>◷ <span>{versions.length}</span></button><span className="gallery-upload-wrap"><label className={`btn small gallery-upload-image-button${uploadingImage ? ' disabled' : ''}`}>{uploadingImage ? '正在上传…' : '上传图片'}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingImage} onChange={event => { void uploadCardImage(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }}/></label>{uploadingImage && <button type="button" className="gallery-upload-cancel" title="取消上传" aria-label="取消上传" onClick={() => uploadController.current?.abort()}>×</button>}</span><button className="btn small" onClick={() => setEditingImage(true)}>重新生成</button></div></div><div className={`gallery-card-image${dualView || characterDualView ? ' gallery-card-image-dual' : ''}${characterDualView && view === 'main' ? ' gallery-card-character-appearance' : ''}`}>{(dualView || characterDualView) && <div className="gallery-view-tabs" role="tablist" aria-label={characterDualView ? '角色图片视图' : '美术图片视图'}><button type="button" role="tab" aria-selected={view === 'main'} className={view === 'main' ? 'active' : ''} onClick={() => setView('main')}>{characterDualView ? '形象' : '主视角'}</button><button type="button" role="tab" aria-selected={view === 'setting'} className={view === 'setting' ? 'active' : ''} onClick={() => setView('setting')}>{characterDualView ? '三视图' : '设定图'}</button></div>}{image ? <MediaPicture src={image}/> : <span>尚未生成{viewName}</span>}</div><div className="gallery-card-actions"><button className="btn small" disabled={!image} onClick={() => onLibrary(image, activePrompt, viewName)}>加入资产库</button><ImagePicker value={image} onChange={acceptImage} allowRemove={false}/></div><div className="gallery-card-identity"><GalleryText value={title} onChange={onName} className="gallery-card-name"/><span>{subtitle}</span></div><GalleryText value={description} onChange={onDescription} className="gallery-card-description"/><div className="gallery-card-prompt-label">出图提示词 <button className="copy-prompt-button" onClick={() => void copyPrompt()} title="复制提示词" aria-label="复制提示词"><CopyPromptIcon/></button></div><GalleryText value={activePrompt} onChange={saveActivePrompt} className="gallery-card-prompt"/><div className="gallery-card-bottom"><button onClick={onDetails}>详情</button><button onClick={onDelete}>删除</button></div>{editingImage && <Modal title={`重新生成图片 · ${title} · ${viewName}`} onClose={() => setEditingImage(false)}><MediaGenerator key={historyId} project={project} kind="image" targetId={target.id} historyId={historyId} prompt={activePrompt || description} negativePrompt={'type' in target ? target.negativePrompt : target.imageNegativePrompt} referenceImages={view === 'setting' && (dualView || characterDualView) && target.image ? [target.image] : undefined} source={view === 'setting' && (dualView || characterDualView) ? undefined : image} preferQwen onAccept={url => { acceptImage(url); setEditingImage(false); }}/></Modal>}{showHistory && <Modal title={`${viewName}图片历史记录`} onClose={() => setShowHistory(false)}><div className="eyebrow">IMAGE HISTORY</div><p className="muted">重新生成、编辑和恢复都会保留一个版本。恢复只切换当前图片，不会删除其他版本。</p><div className="segment-image-history-grid">{versions.map((asset, index) => { const current = asset.image === image; return <article className={`segment-image-history-card${current ? ' current' : ''}`} key={asset.id}><button className="segment-image-history-preview" onClick={() => openImage(asset.image!)}><img src={asset.image} alt={asset.name}/><span>查看大图</span></button><div className="segment-image-history-meta"><strong>图片 #{versions.length - index}</strong>{current && <em>当前版本</em>}</div><p>{asset.provider || subtitle}{asset.generatedAt ? ` · ${new Date(asset.generatedAt).toLocaleString()}` : ''}</p><button className="btn primary small" disabled={current} onClick={() => { if (image && !project.assets.some(item => item.sourceItemId === historyId && item.image === image)) registerMedia(project.id, { id: uid(), type: 'other', name: `${title} · 恢复前版本`, description: '恢复历史版本时保留的前一版本', mediaKind: 'image', image, sourceProjectId: project.id, sourceItemId: historyId, generatedAt: Date.now() }); acceptImage(asset.image!); setShowHistory(false); }}>{current ? '正在使用' : '恢复此版本'}</button></article>; })}{!versions.length && <div className="detail-empty">暂无历史图片。重新生成或编辑后，版本会保存在这里。</div>}</div></Modal>}{confirmRemoveImage && <Modal title={`移除${viewName}`} onClose={() => setConfirmRemoveImage(false)}><p>确定移除「{title}」当前使用的图片吗？历史版本会保留，可稍后恢复。</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmRemoveImage(false)}>取消</button><button className="btn danger" onClick={() => { acceptImage(''); setConfirmRemoveImage(false); }}>移除图片</button></div></Modal>}</article>;
+  return <article className="panel gallery-image-card"><div className="gallery-card-top"><span>{viewName}</span><div className="gallery-image-actions"><button className="btn small gallery-history-button" title={`${viewName}图片历史`} onClick={() => setShowHistory(true)}>◷ <span>{versions.length}</span></button><span className="gallery-upload-wrap"><label className={`btn small gallery-upload-image-button${uploadingImage ? ' disabled' : ''}`}>{uploadingImage ? '正在上传…' : '上传图片'}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingImage} onChange={event => { void uploadCardImage(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }}/></label>{uploadingImage && <button type="button" className="gallery-upload-cancel" title="取消上传" aria-label="取消上传" onClick={() => uploadController.current?.abort()}>×</button>}</span><button className="btn small" onClick={() => setEditingImage(true)}>重新生成</button></div></div><div className={`gallery-card-image${dualView || characterDualView ? ' gallery-card-image-dual' : ''}${characterDualView && view === 'main' ? ' gallery-card-character-appearance' : ''}`}>{(dualView || characterDualView) && <div className="gallery-view-tabs" role="tablist" aria-label={characterDualView ? '角色图片视图' : '美术图片视图'}><button type="button" role="tab" aria-selected={view === 'main'} className={view === 'main' ? 'active' : ''} onClick={() => setView('main')}>{characterDualView ? '形象' : '主视角'}</button><button type="button" role="tab" aria-selected={view === 'setting'} className={view === 'setting' ? 'active' : ''} onClick={() => setView('setting')}>{characterDualView ? '三视图' : '设定图'}</button></div>}{image ? <MediaPicture src={image}/> : <span>尚未生成{viewName}</span>}</div><div className="gallery-card-actions"><button className="btn small" disabled={!image} onClick={() => onLibrary(image, activePrompt, viewName)}>加入资产库</button><ImagePicker value={image} onChange={acceptImage} allowRemove={false}/></div><div className="gallery-card-identity"><GalleryText value={title} onChange={onName} className="gallery-card-name"/><span>{subtitle}</span></div><GalleryText value={description} onChange={onDescription} className="gallery-card-description"/><div className="gallery-card-prompt-label">出图提示词 <button className="copy-prompt-button" onClick={() => void copyPrompt()} title="复制提示词" aria-label="复制提示词"><CopyPromptIcon/></button></div><GalleryText value={activePrompt} onChange={saveActivePrompt} className="gallery-card-prompt"/><div className="gallery-card-bottom"><button onClick={onDetails}>详情</button><button onClick={onDelete}>删除</button></div>{editingImage && <Modal title={`${title} · ${viewName}`} onClose={() => setEditingImage(false)}><MediaGenerator key={historyId} project={project} kind="image" targetId={target.id} historyId={historyId} prompt={activePrompt || description} negativePrompt={'type' in target ? target.negativePrompt : target.imageNegativePrompt} referenceImages={view === 'setting' && (dualView || characterDualView) && target.image ? [target.image] : undefined} source={view === 'setting' && (dualView || characterDualView) ? undefined : image} defaultRatio={characterDualView && view === 'main' ? '9:16' : undefined} preferQwen onAccept={url => { acceptImage(url); setEditingImage(false); }}/></Modal>}{showHistory && <Modal title={`${viewName}图片历史记录`} onClose={() => setShowHistory(false)}><div className="eyebrow">IMAGE HISTORY</div><p className="muted">重新生成、编辑和恢复都会保留一个版本。恢复只切换当前图片，不会删除其他版本。</p><div className="segment-image-history-grid">{versions.map((asset, index) => { const current = asset.image === image; return <article className={`segment-image-history-card${current ? ' current' : ''}`} key={asset.id}><button className="segment-image-history-preview" onClick={() => openImage(asset.image!)}><img src={asset.image} alt={asset.name}/><span>查看大图</span></button><div className="segment-image-history-meta"><strong>图片 #{versions.length - index}</strong>{current && <em>当前版本</em>}</div><p>{asset.provider || subtitle}{asset.generatedAt ? ` · ${new Date(asset.generatedAt).toLocaleString()}` : ''}</p><button className="btn primary small" disabled={current} onClick={() => { if (image && !project.assets.some(item => item.sourceItemId === historyId && item.image === image)) registerMedia(project.id, { id: uid(), type: 'other', name: `${title} · 恢复前版本`, description: '恢复历史版本时保留的前一版本', mediaKind: 'image', image, sourceProjectId: project.id, sourceItemId: historyId, generatedAt: Date.now() }); acceptImage(asset.image!); setShowHistory(false); }}>{current ? '正在使用' : '恢复此版本'}</button></article>; })}{!versions.length && <div className="detail-empty">暂无历史图片。重新生成或编辑后，版本会保存在这里。</div>}</div></Modal>}{confirmRemoveImage && <Modal title={`移除${viewName}`} onClose={() => setConfirmRemoveImage(false)}><p>确定移除「{title}」当前使用的图片吗？历史版本会保留，可稍后恢复。</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmRemoveImage(false)}>取消</button><button className="btn danger" onClick={() => { acceptImage(''); setConfirmRemoveImage(false); }}>移除图片</button></div></Modal>}</article>;
 }
 
 function CastGallery({ project, save, addToLibrary, go }: { project: Project; save: (value: Character[]) => void; addToLibrary: (asset: Asset, projectId: string) => void; go: (path: string) => void }) {
@@ -1009,7 +1131,7 @@ async function detectImageRatio(source: string | undefined, fallback: ImageRatio
 }
 function ratioValue(ratio: ImageRatio) { const [width, height] = ratio.split(':').map(Number); return width / height; }
 
-function MediaGenerator({ project, kind, targetId, prompt, negativePrompt, source, duration, onAccept, preferQwen = false, videoSources, cutPoints, segmentMode = false, referenceImages, historyId, onJobStatusChange }: { project: Project; kind: 'image' | 'video'; targetId: string; prompt: string; negativePrompt?: string; source?: string; duration?: number; onAccept: (url: string, usedPrompt?: string) => void; preferQwen?: boolean; videoSources?: string[]; cutPoints?: number[]; segmentMode?: boolean; referenceImages?: string[]; historyId?: string; onJobStatusChange?: (job: MediaJob | null) => void }) {
+function MediaGenerator({ project, kind, targetId, prompt, negativePrompt, source, duration, onAccept, preferQwen = false, videoSources, cutPoints, segmentMode = false, referenceImages, historyId, defaultRatio, onJobStatusChange }: { project: Project; kind: 'image' | 'video'; targetId: string; prompt: string; negativePrompt?: string; source?: string; duration?: number; onAccept: (url: string, usedPrompt?: string) => void; preferQwen?: boolean; videoSources?: string[]; cutPoints?: number[]; segmentMode?: boolean; referenceImages?: string[]; historyId?: string; defaultRatio?: ImageRatio; onJobStatusChange?: (job: MediaJob | null) => void }) {
   const storageKey = `reelbench-media-${project.id}-${kind}-${historyId || targetId}`;
   const [job, setJob] = useState<MediaJob | null>(null);
   const [error, setError] = useState('');
@@ -1021,7 +1143,7 @@ function MediaGenerator({ project, kind, targetId, prompt, negativePrompt, sourc
   const [preparing, setPreparing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [provider, setProvider] = useState<'qwen' | 'gpt'>('qwen');
-  const [imageRatio, setImageRatio] = useState<ImageRatio | 'adaptive'>(project.ratio);
+  const [imageRatio, setImageRatio] = useState<ImageRatio | 'adaptive'>(defaultRatio || project.ratio);
   const [ratioPickerOpen, setRatioPickerOpen] = useState(false);
   const ratioPickerRef = useRef<HTMLDivElement>(null);
   const [imageStyle, setImageStyle] = useState(project.style);
@@ -1033,7 +1155,7 @@ function MediaGenerator({ project, kind, targetId, prompt, negativePrompt, sourc
   const registerMedia = useContext(RegisterMedia);
   const [chooseReference, setChooseReference] = useState(false);
   useEffect(() => { if (kind === 'image') { if (preferQwen) setProvider('qwen'); else getSettings().then(s => setProvider(s.imageProvider)).catch(() => {}); } }, [kind, preferQwen]);
-  useEffect(() => { setReferences(referenceImagesKey ? referenceImagesKey.split('\n') : source ? [source] : []); setDraftPrompt(prompt); setDraftNegativePrompt(negativePrompt || ''); setImageRatio(project.ratio); setImageStyle(project.style); setPromptEdited(false); }, [project.id, targetId, kind, referenceImagesKey, negativePrompt, project.ratio, project.style]);
+  useEffect(() => { setReferences(referenceImagesKey ? referenceImagesKey.split('\n') : source ? [source] : []); setDraftPrompt(prompt); setDraftNegativePrompt(negativePrompt || ''); setImageRatio(defaultRatio || project.ratio); setImageStyle(project.style); setPromptEdited(false); }, [project.id, targetId, kind, referenceImagesKey, negativePrompt, defaultRatio, project.ratio, project.style]);
   useEffect(() => {
     if (kind !== 'image' || !promptRef.current) return;
     const textarea = promptRef.current;
@@ -1223,38 +1345,43 @@ function collectDiff(before: unknown, after: unknown, path: string[] = []): Diff
   return [{ path, kind, before: diffValue(before), after: diffValue(after) }];
 }
 function DiffText({ value }: { value: string }) { return <pre className="history-diff-text">{value.split('\n').map((line, index) => <span className="history-diff-line" key={index}><i>{index + 1}</i><span>{line || ' '}</span></span>)}</pre>; }
-function HistoryPage({ project, updateProject, notify }: { project: Project; updateProject: (id: string, change: (project: Project) => Project) => void; notify: (message: string) => void }) {
+function HistoryPage({ project, updateProject, notify, loadChange, ensureProjectParts }: { project: Project; updateProject: (id: string, change: (project: Project) => Project) => void; notify: (message: string) => void; loadChange: (id: string) => Promise<Project['changes'][number] | null>; ensureProjectParts: (id: string, parts: string[]) => Promise<Project> }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Project['changes'][number] | null>(null);
+  const [loading, setLoading] = useState(false);
   const [confirmChange, setConfirmChange] = useState<string | null>(null);
   const [filter, setFilter] = useState<DocKey | 'all'>('all');
   const deleteChange = useContext(DeleteChange);
-  const validChanges = project.changes.filter(item => collectDiff(item.before, item.after || project.docs[item.section]).length > 0);
-  const change = validChanges.find(c => c.id === selected);
-  const diffRows = change ? collectDiff(change.before, change.after || project.docs[change.section]) : [];
+  const validChanges = project.changes;
+  const change = selected && detail?.id === selected ? detail : null;
+  const diffRows = change?.before !== undefined && change.after !== undefined ? collectDiff(change.before, change.after) : [];
   const categories: [DocKey | 'all', string][] = [['all', '全部'], ['outline', '大纲'], ['cast', '角色'], ['script', '剧本'], ['art', '美术'], ['storyboard', '分镜']];
   const categoryCount = (key: DocKey | 'all') => key === 'all' ? validChanges.length : validChanges.filter(item => item.section === key).length;
   const visibleChanges = validChanges.filter(item => filter === 'all' || item.section === filter);
-  useEffect(() => {
-    if (validChanges.length === project.changes.length) return;
-    const validIds = new Set(validChanges.map(item => item.id));
-    updateProject(project.id, current => { current.changes = current.changes.filter(item => validIds.has(item.id)); return current; });
-  }, [project.id, project.changes, project.docs, updateProject]);
+  async function openChange(id: string) {
+    setSelected(id); setDetail(null); setLoading(true);
+    try { setDetail(await loadChange(id)); }
+    catch (error) { notify(`无法读取历史快照：${(error as Error).message}`); }
+    finally { setLoading(false); }
+  }
   const diffPath = (path: string[]) => [sectionLabel(change!.section), ...path.map(part => diffFieldNames[part] || part)].join(' / ');
   function restore(id: string) {
-    const target = project.changes.find(item => item.id === id);
-    if (!target || collectDiff(project.docs[target.section], target.before).length === 0) { setSelected(null); notify('当前内容没有变化，未新增恢复记录'); return; }
-    updateProject(project.id, p => {
-      const old = p.changes.find(c => c.id === id);
-      if (!old) return p;
-      p.changes.unshift({ id: uid(), at: Date.now(), section: old.section, label: `恢复版本 · ${old.label}`, before: clone(p.docs[old.section]), after: clone(old.before), beforeArtifact: p.skillArtifacts?.[old.section] ? clone(p.skillArtifacts[old.section]) : undefined, beforeGeneratedSource: old.section === 'outline' ? p.generatedSource : undefined });
-      (p.docs as unknown as Record<DocKey, Project['docs'][DocKey]>)[old.section] = clone(old.before);
-      p.skillArtifacts = { ...p.skillArtifacts, [old.section]: old.beforeArtifact ? clone(old.beforeArtifact) : undefined };
-      if (old.section === 'outline') p.generatedSource = old.beforeGeneratedSource;
-      return p;
-    });
-    setSelected(null); notify('已恢复版本，可再次撤回');
+    void (async () => {
+      const target = detail?.id === id ? detail : await loadChange(id);
+      if (!target?.before) { notify('这条历史记录没有可恢复的快照'); return; }
+      const current = await ensureProjectParts(project.id, [`doc-${target.section}`, 'artifacts', 'changes']);
+      if (collectDiff(current.docs[target.section], target.before).length === 0) { setSelected(null); notify('当前内容没有变化，未新增恢复记录'); return; }
+      updateProject(project.id, p => {
+        p.changes.unshift({ id: uid(), at: Date.now(), section: target.section, label: `恢复版本 · ${target.label}`, before: clone(p.docs[target.section]), after: clone(target.before!), beforeArtifact: p.skillArtifacts?.[target.section] ? clone(p.skillArtifacts[target.section]) : undefined, beforeGeneratedSource: target.section === 'outline' ? p.generatedSource : undefined });
+        (p.docs as unknown as Record<DocKey, Project['docs'][DocKey]>)[target.section] = clone(target.before!);
+        p.skillArtifacts = { ...p.skillArtifacts, [target.section]: target.beforeArtifact ? clone(target.beforeArtifact) : undefined };
+        if (target.section === 'outline') p.generatedSource = target.beforeGeneratedSource;
+        return p;
+      });
+      setSelected(null); notify('已恢复版本，可再次撤回');
+    })().catch(error => notify(`恢复失败：${(error as Error).message}`));
   }
-  return <><PageHeading stage="变更 · HISTORY" title="变更历史" subtitle="按创作阶段筛选记录；可逐项查看差异并撤销。"/><div className="history-filter-tabs">{categories.map(([key, label]) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{label}<small>{categoryCount(key)}</small></button>)}</div><div className="history-list">{visibleChanges.length ? visibleChanges.map(c => <div className="history-row" key={c.id}><button className="history-item" onClick={() => setSelected(c.id)}><span className="history-dot"/><span><strong>{c.label}</strong><small>{sectionLabel(c.section)} · {fmt(c.at)}</small></span><em>比较差异 →</em></button><button className="history-delete" aria-label={`删除${c.label}的变更记录`} title="删除记录" onClick={() => setConfirmChange(c.id)}>×</button></div>) : <div className="empty-state">该分类暂无变更记录。</div>}</div>{change && <Modal title="查看变更" onClose={() => setSelected(null)}><div className="eyebrow">{sectionLabel(change.section)} · {fmt(change.at)}</div><p>{change.label}</p>{!change.after && <p className="history-legacy-note">这条旧记录没有保存改后快照，当前内容可能已经包含后续修改。</p>}<div className="history-diff-summary"><strong>{diffRows.length} 项差异</strong><span><i className="added">＋</i> 新增</span><span><i className="removed">−</i> 删除</span><span><i className="changed">±</i> 修改</span></div><div className="history-diff-list">{diffRows.length ? diffRows.map((row, index) => <article className={`history-diff-row ${row.kind}`} key={`${row.path.join('.')}-${index}`}><div className="history-diff-path"><b>{row.kind === 'added' ? '+' : row.kind === 'removed' ? '−' : '±'}</b>{diffPath(row.path)}</div><div className="history-diff-values"><div className="history-diff-before"><small>改前</small><DiffText value={row.before}/></div><div className="history-diff-after"><small>改后</small><DiffText value={row.after}/></div></div></article>) : <div className="detail-empty">改前与改后没有差异。</div>}</div><div className="modal-actions"><button className="btn" onClick={() => setSelected(null)}>关闭</button><button className="btn primary" onClick={() => restore(change.id)}>撤销这批</button></div></Modal>}{confirmChange && <Modal title="删除变更记录" onClose={() => setConfirmChange(null)}><p>确定删除「{project.changes.find(c => c.id === confirmChange)?.label}」？删除后无法从这条记录恢复，当前文档和媒体不会改变。</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmChange(null)}>取消</button><button className="btn danger" onClick={() => { deleteChange(project.id, confirmChange); setConfirmChange(null); }}>删除记录</button></div></Modal>}</>;
+  return <><PageHeading stage="变更 · HISTORY" title="变更历史" subtitle="按创作阶段筛选记录；可逐项查看差异并撤销。"/><div className="history-filter-tabs">{categories.map(([key, label]) => <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{label}<small>{categoryCount(key)}</small></button>)}</div><div className="history-list">{visibleChanges.length ? visibleChanges.map(c => <div className="history-row" key={c.id}><button className="history-item" onClick={() => void openChange(c.id)}><span className="history-dot"/><span><strong>{c.label}</strong><small>{sectionLabel(c.section)} · {fmt(c.at)}</small></span><em>比较差异 →</em></button><button className="history-delete delete-icon-button" aria-label={`删除${c.label}的变更记录`} title="删除记录" onClick={() => setConfirmChange(c.id)}><DeleteIcon/></button></div>) : <div className="empty-state">该分类暂无变更记录。</div>}</div>{selected && <Modal title="查看变更" onClose={() => { setSelected(null); setDetail(null); }}><>{loading && <p>正在读取历史快照…</p>}{change && <><div className="eyebrow">{sectionLabel(change.section)} · {fmt(change.at)}</div><p>{change.label}</p>{(!change.before || !change.after) && <p className="history-legacy-note">这条旧记录缺少完整快照，无法显示完整差异或恢复。</p>}<div className="history-diff-summary"><strong>{diffRows.length} 项差异</strong><span><i className="added">＋</i> 新增</span><span><i className="removed">−</i> 删除</span><span><i className="changed">±</i> 修改</span></div><div className="history-diff-list">{diffRows.length ? diffRows.map((row, index) => <article className={`history-diff-row ${row.kind}`} key={`${row.path.join('.')}-${index}`}><div className="history-diff-path"><b>{row.kind === 'added' ? '+' : row.kind === 'removed' ? '−' : '±'}</b>{diffPath(row.path)}</div><div className="history-diff-values"><div className="history-diff-before"><small>改前</small><DiffText value={row.before}/></div><div className="history-diff-after"><small>改后</small><DiffText value={row.after}/></div></div></article>) : <div className="detail-empty">改前与改后没有差异。</div>}</div></>}<div className="modal-actions"><button className="btn" onClick={() => setSelected(null)}>关闭</button><button className="btn primary" disabled={!change?.before} onClick={() => restore(selected)}>撤销这批</button></div></></Modal>}{confirmChange && <Modal title="删除变更记录" onClose={() => setConfirmChange(null)}><p>确定删除「{project.changes.find(c => c.id === confirmChange)?.label}」？删除后无法从这条记录恢复，当前文档和媒体不会改变。</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmChange(null)}>取消</button><button className="btn danger" onClick={() => { deleteChange(project.id, confirmChange); setConfirmChange(null); }}>删除记录</button></div></Modal>}</>;
 }
 
 function AssetFilter({ value, onChange, counts }: { value: AssetType | 'all'; onChange: (value: AssetType | 'all') => void; counts: Record<AssetType | 'all', number> }) { return <div className="filter-tabs">{([['all', '全部'], ['character', '角色'], ['scene', '场景'], ['prop', '道具'], ['other', '其它']] as const).map(([key, label]) => <button key={key} className={value === key ? 'active' : ''} onClick={() => onChange(key)}>{label} <small>{counts[key]}</small></button>)}</div>; }
@@ -1262,7 +1389,7 @@ function AssetCards({ assets, action, actionLabel, deleteAsset, renameAsset, det
   const [editing, setEditing] = useState<string | null>(null); const [name, setName] = useState(''); const [editingPrompt, setEditingPrompt] = useState<string | null>(null); const [prompt, setPrompt] = useState('');
   function commit(asset: Asset) { const next = name.trim(); if (next && next !== asset.name) renameAsset?.(asset, next); setEditing(null); }
   async function copyPrompt(value: string) { if (!value.trim()) return; await copyText(value); }
-  return <div className="asset-grid">{assets.map(a => { const path = detailPath?.(a); const currentPrompt = a.prompt ?? (a.description === '本机上传' ? '' : a.description); return <article className="panel asset-card" key={a.id}>{deleteAsset && <button className="asset-card-delete" title="删除资产" aria-label={`删除${a.name}`} onClick={() => deleteAsset(a)}>×</button>}<div className={`asset-placeholder${a.video ? ' asset-placeholder-video' : ''}`}><span>{a.type === 'character' ? '人' : a.type === 'scene' ? '景' : a.type === 'prop' ? '物' : '◇'}</span>{a.image && <MediaPicture src={a.image}/ >}{a.video && <MediaClip src={a.video}/>}</div><div className="asset-card-body"><span className="eyebrow">{assetNames[a.type] || '其它'} · {a.video ? '视频' : a.image ? '图片' : '内容'}</span>{editing === a.id ? <input className="asset-rename-input" autoFocus maxLength={120} value={name} aria-label="图片名称" onChange={e => setName(e.target.value)} onBlur={() => commit(a)} onKeyDown={e => { if (e.key === 'Enter') commit(a); if (e.key === 'Escape') setEditing(null); }}/> : <div className="asset-card-name">{path ? <button className="asset-card-title-link" onClick={() => go?.(path)}>{a.name}</button> : <h3>{a.name}</h3>}{renameAsset && a.image && <button className="rename-trigger" title="重命名图片" aria-label="重命名图片" onClick={() => { setName(a.name); setEditing(a.id); }}><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button>}</div>}{updatePrompt && a.image ? <div className="asset-prompt-block"><div className="asset-prompt-heading"><span>提示词</span><button className="copy-prompt-button" onClick={() => void copyPrompt(currentPrompt)} title="复制提示词" aria-label="复制提示词"><CopyPromptIcon/></button>{editingPrompt === a.id && <><button className="text-button" onClick={() => { setPrompt(currentPrompt); setEditingPrompt(null); }}>取消</button><button className="text-button" onClick={() => { updatePrompt(a, prompt); setEditingPrompt(null); }}>保存</button></>}</div>{editingPrompt === a.id ? <textarea className="asset-prompt-editor" autoFocus value={prompt} maxLength={8000} onChange={e => setPrompt(e.target.value)} aria-label={`${a.name}提示词`}/> : <p className="asset-prompt-text" title="双击编辑提示词" onDoubleClick={() => { setPrompt(currentPrompt); setEditingPrompt(a.id); }}>{currentPrompt || '尚未填写提示词'}</p>}</div> : <p>{a.description}</p>}<div className="inline-actions">{a.image && <MediaDownload src={a.image} name={a.name} kind="image"/>}{a.video && <MediaDownload src={a.video} name={a.name} kind="video"/>}{action && <button className="btn small" onClick={() => action(a)}>{actionLabel}</button>}</div></div></article>; })}</div>;
+  return <div className="asset-grid">{assets.map(a => { const path = detailPath?.(a); const currentPrompt = a.prompt ?? (a.description === '本机上传' ? '' : a.description); return <article className="panel asset-card" key={a.id}>{deleteAsset && <button className="asset-card-delete delete-icon-button" title="删除资产" aria-label={`删除${a.name}`} onClick={() => deleteAsset(a)}><DeleteIcon/></button>}<div className={`asset-placeholder${a.video ? ' asset-placeholder-video' : ''}`}><span>{a.type === 'character' ? '人' : a.type === 'scene' ? '景' : a.type === 'prop' ? '物' : '◇'}</span>{a.image && <MediaPicture src={a.image}/ >}{a.video && <MediaClip src={a.video}/>}</div><div className="asset-card-body"><span className="eyebrow">{assetNames[a.type] || '其它'} · {a.video ? '视频' : a.image ? '图片' : '内容'}</span>{editing === a.id ? <input className="asset-rename-input" autoFocus maxLength={120} value={name} aria-label="图片名称" onChange={e => setName(e.target.value)} onBlur={() => commit(a)} onKeyDown={e => { if (e.key === 'Enter') commit(a); if (e.key === 'Escape') setEditing(null); }}/> : <div className="asset-card-name">{path ? <button className="asset-card-title-link" onClick={() => go?.(path)}>{a.name}</button> : <h3>{a.name}</h3>}{renameAsset && a.image && <button className="rename-trigger" title="重命名图片" aria-label="重命名图片" onClick={() => { setName(a.name); setEditing(a.id); }}><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button>}</div>}{updatePrompt && a.image ? <div className="asset-prompt-block"><div className="asset-prompt-heading"><span>提示词</span><button className="copy-prompt-button" onClick={() => void copyPrompt(currentPrompt)} title="复制提示词" aria-label="复制提示词"><CopyPromptIcon/></button>{editingPrompt === a.id && <><button className="text-button" onClick={() => { setPrompt(currentPrompt); setEditingPrompt(null); }}>取消</button><button className="text-button" onClick={() => { updatePrompt(a, prompt); setEditingPrompt(null); }}>保存</button></>}</div>{editingPrompt === a.id ? <textarea className="asset-prompt-editor" autoFocus value={prompt} maxLength={8000} onChange={e => setPrompt(e.target.value)} aria-label={`${a.name}提示词`}/> : <p className="asset-prompt-text" title="双击编辑提示词" onDoubleClick={() => { setPrompt(currentPrompt); setEditingPrompt(a.id); }}>{currentPrompt || '尚未填写提示词'}</p>}</div> : <p>{a.description}</p>}<div className="inline-actions">{a.image && <MediaDownload src={a.image} name={a.name} kind="image"/>}{a.video && <MediaDownload src={a.video} name={a.name} kind="video"/>}{action && <button className="btn small" onClick={() => action(a)}>{actionLabel}</button>}</div></div></article>; })}</div>;
 }
 function GlobalLibrary({ state, importAsset, deleteAsset, renameAsset, addUpload, go }: { state: Store; importAsset: (asset: Asset, projectId: string) => void; deleteAsset: (asset: Asset) => void; renameAsset: (asset: Asset, name: string) => void; addUpload: (asset: Asset) => void; go: (path: string) => void }) {
   const [type, setType] = useState<AssetType | 'all'>('all'); const [media, setMedia] = useState<'all' | 'image' | 'video'>('all');

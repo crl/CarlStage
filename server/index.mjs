@@ -12,7 +12,7 @@ import { singleEpisodeOutlineWarning } from './quality.mjs';
 import { loadSettings, normalizeSettings, saveSettings, publicSettings, getPreset, checkComfyWorkflow, testComfyConnection, validateWorkflow } from './settings.mjs';
 import { createMediaJob, getMediaJob, cancelMediaJob, mediaFilePath, copyMediaToLibrary, uploadLibraryMedia, discardMediaJobResult, cancelProjectMediaJobs, removeProjectMedia, removeMediaUrl } from './media.mjs';
 import { resolveCodexPath } from './codex-path.mjs';
-import { readStore, saveStore } from './store.mjs';
+import { readStore, saveStore, saveStoreIndex, storeRevision, readStoreSummary, readProjectParts, saveProjectMutation, createProject } from './store.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RUNS = process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs');
@@ -252,7 +252,21 @@ createServer(async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { ok: true, skillVersion: VERSION });
     if (req.method === 'GET' && url.pathname === '/api/store') return send(res, 200, await readStore());
+    if (req.method === 'GET' && url.pathname === '/api/store/summary') return send(res, 200, await readStoreSummary());
+    if (req.method === 'GET' && url.pathname === '/api/store/revision') return send(res, 200, { revision: await storeRevision() });
+    if (req.method === 'PUT' && url.pathname === '/api/store/index') return send(res, 200, await saveStoreIndex(await body(req, 25 * 1024 * 1024)));
+    if (req.method === 'POST' && url.pathname === '/api/projects') return send(res, 201, { revisions: await createProject(await body(req, 50 * 1024 * 1024)) });
     if (req.method === 'PUT' && url.pathname === '/api/store') return send(res, 200, await saveStore(await body(req, 200 * 1024 * 1024)));
+    const projectParts = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/parts$/);
+    if (req.method === 'GET' && projectParts) {
+      try { const parts = (url.searchParams.get('parts') || '').split(',').filter(Boolean); const result = await readProjectParts(projectParts[1], parts); return result ? send(res, 200, result) : send(res, 404, { error: '项目不存在。' }); }
+      catch (error) { return send(res, 400, { error: error instanceof Error ? error.message : String(error) }); }
+    }
+    const projectMutation = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/mutation$/);
+    if (req.method === 'PUT' && projectMutation) {
+      try { const result = await saveProjectMutation(projectMutation[1], await body(req, 50 * 1024 * 1024)); return send(res, result.conflict ? 409 : 200, result); }
+      catch (error) { return send(res, 400, { error: error instanceof Error ? error.message : String(error) }); }
+    }
     const projStart = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/proj\/import\/start$/);
     if (req.method === 'POST' && projStart) {
       const importId = randomUUID();
