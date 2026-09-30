@@ -57,8 +57,11 @@ async function writeJsonAtomic(path, value) {
 function manifestPath(id) { return join(projectDirectory(id), 'manifest.json'); }
 function partPath(id, part, revision) { return join(projectDirectory(id), 'parts', `${part}.${revision}.json`); }
 function changePath(id, changeId) { if (!/^[a-zA-Z0-9_-]{1,100}$/.test(changeId)) throw new Error('变更记录 ID 无效。'); return join(projectDirectory(id), 'changes', `${changeId}.json`); }
+function classifyStoryboardImages(assets, shots = []) {
+  return assets.map(asset => asset.type === 'other' && asset.image && !asset.video && shots.some(shot => shot.id === asset.sourceItemId || shot.image === asset.image) ? { ...asset, type: 'storyboard' } : asset);
+}
 function withLegacyMedia(project) {
-  const assets = [...(project.assets || [])];
+  const assets = classifyStoryboardImages(project.assets || [], project.docs?.storyboard?.shots);
   const add = (url, type, name, sourceItemId, video = false) => {
     if (!url || assets.some(asset => asset.image === url || asset.video === url)) return;
     const id = `legacy-${project.id}-${imageKey(url).replace(/:/g, '-')}`;
@@ -67,7 +70,7 @@ function withLegacyMedia(project) {
   for (const item of project.docs?.cast || []) add(item.image, 'character', item.name, item.id);
   for (const item of project.docs?.art?.scenes || []) add(item.image, 'scene', item.name, item.id);
   for (const item of project.docs?.art?.props || []) add(item.image, 'prop', item.name, item.id);
-  for (const item of project.docs?.storyboard?.shots || []) { add(item.image, 'other', `分镜 · ${item.scene}`, item.id); add(item.video, 'other', `分镜视频 · ${item.scene}`, item.id, true); }
+  for (const item of project.docs?.storyboard?.shots || []) { add(item.image, 'storyboard', `分镜 · ${item.scene}`, item.id); add(item.video, 'other', `分镜视频 · ${item.scene}`, item.id, true); }
   for (const segment of project.docs?.storyboard?.segments || []) for (const version of segment.videos || []) add(version.url, 'other', `第 ${segment.episode} 集 ${segment.id} · 分段视频`, `segment-${segment.episode}-${segment.id}`, true);
   return { ...project, assets };
 }
@@ -124,7 +127,13 @@ async function getProject(id, requestedParts = []) {
   const parts = new Set(requestedParts);
   const result = { ...meta, id, updatedAt: manifest.updatedAt || manifest.summary?.updatedAt || meta.updatedAt, loadedParts: [...parts], docs: {}, assets: [], changes: [], consultations: [], skillArtifacts: {}, referenceImages: [], docStats: manifest.docStats || {} };
   for (const key of DOC_KEYS) if (parts.has(`doc-${key}`)) result.docs[key] = await readPartFile(id, manifest, `doc-${key}`);
-  if (parts.has('assets')) result.assets = await readPartFile(id, manifest, 'assets') || [];
+  if (parts.has('assets')) {
+    result.assets = await readPartFile(id, manifest, 'assets') || [];
+    if (result.assets.some(asset => asset.type === 'other' && asset.image && !asset.video)) {
+      const storyboard = await readPartFile(id, manifest, 'doc-storyboard');
+      result.assets = classifyStoryboardImages(result.assets, storyboard?.shots);
+    }
+  }
   if (parts.has('changes')) result.changes = await readPartFile(id, manifest, 'changes') || [];
   if (parts.has('consultations')) result.consultations = await readPartFile(id, manifest, 'consultations') || [];
   if (parts.has('source')) Object.assign(result, await readPartFile(id, manifest, 'source') || {});

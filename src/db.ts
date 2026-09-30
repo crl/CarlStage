@@ -9,7 +9,8 @@ function withLegacyMedia(project: Project, deletedAssets: string[], deletedMedia
     const script = { ...project.docs.script, episodes: project.docs.script.episodes.map(episode => ({ ...episode, scenes: episode.scenes.map(scene => ({ ...scene, flow: scene.beats.map((beat, index) => { const existing = scene.flow?.[index] || { action: beat }; return { ...existing, seconds: beatSeconds(existing, beat) }; }) })) })) };
     project = { ...project, docs: { ...project.docs, script } };
   }
-  const assets = [...(project.assets || [])];
+  const shots = project.docs.storyboard.shots;
+  const assets = (project.assets || []).map(asset => asset.type === 'other' && asset.image && !asset.video && shots.some(shot => shot.id === asset.sourceItemId || shot.image === asset.image) ? { ...asset, type: 'storyboard' as const } : asset);
   const add = (url: string | undefined, type: Asset['type'], name: string, sourceItemId: string, video = false) => {
     if (!url || deletedMedia.includes(imageKey(url)) || assets.some(a => a.image === url || a.video === url)) return;
     const id = `legacy-${project.id}-${imageKey(url).replace(/:/g, '-')}`;
@@ -19,7 +20,7 @@ function withLegacyMedia(project: Project, deletedAssets: string[], deletedMedia
   for (const scene of project.docs.art.scenes) add(scene.image, 'scene', scene.name, scene.id);
   for (const prop of project.docs.art.props) add(prop.image, 'prop', prop.name, prop.id);
   for (const shot of project.docs.storyboard.shots) {
-    add(shot.image, 'other', `分镜 · ${shot.scene}`, shot.id);
+    add(shot.image, 'storyboard', `分镜 · ${shot.scene}`, shot.id);
     add(shot.video, 'other', `分镜视频 · ${shot.scene}`, shot.id, true);
   }
   for (const segment of project.docs.storyboard.segments || []) for (const version of segment.videos) add(version.url, 'other', `第 ${segment.episode} 集 ${segment.id} · 分段视频`, `segment-${segment.episode}-${segment.id}`, true);

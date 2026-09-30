@@ -161,20 +161,34 @@ MESSAGE_STATE_JS = r"""
   const users = [...document.querySelectorAll('[data-message-author-role="user"]')];
   const last = users.at(-1);
   const key = last?.getAttribute('data-message-id') || last?.closest('[data-testid^="conversation-turn-"]')?.getAttribute('data-testid') || '';
-  return {key, count: users.length};
+  return {key, count: users.length, galleries: document.querySelectorAll('[data-testid="generated-image-gallery"]').length,
+    turns: [...document.querySelectorAll('[data-turn-key]')].map(node => node.getAttribute('data-turn-key'))};
 }
 """
 
 LATEST_RESPONSE_JS = r"""
 (before) => {
+  const galleries = [...document.querySelectorAll('[data-testid="generated-image-gallery"]')];
+  let reply;
+  // Images 页面使用独立画廊，没有常规聊天页的消息角色标记。
+  if (galleries.length || before.galleries) {
+    reply = galleries.at(-1);
+    if (!reply) return [];
+    const turn = reply.closest('[data-turn-key]')?.getAttribute('data-turn-key');
+    if (turn && before.turns) {
+      if (before.turns.includes(turn)) return [];
+    } else if (galleries.length <= (before.galleries || 0)) return [];
+  } else {
   const users = [...document.querySelectorAll('[data-message-author-role="user"]')];
   const user = users.at(-1);
   if (!user) return [];
   const key = user.getAttribute('data-message-id') || user.closest('[data-testid^="conversation-turn-"]')?.getAttribute('data-testid') || '';
   if (key ? key === before.key : users.length <= before.count) return [];
   const replies = [...document.querySelectorAll('[data-message-author-role="assistant"]')];
-  const reply = replies.at(-1);
-  if (!reply || !(user.compareDocumentPosition(reply) & Node.DOCUMENT_POSITION_FOLLOWING)) return [];
+  const message = replies.at(-1);
+  if (!message || !(user.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING)) return [];
+  reply = message.closest('[data-testid^="conversation-turn-"]') || message;
+  }
   return [...reply.querySelectorAll('img')].filter(img => img.complete && img.naturalWidth >= 200 && img.naturalHeight >= 200)
     .map(img => ({src: img.currentSrc || img.src, w: img.naturalWidth, h: img.naturalHeight}))
     .filter(img => /^(https?:|blob:)/.test(img.src));

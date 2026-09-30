@@ -1,5 +1,5 @@
 export type ProjectKind = 'idea' | 'novel';
-export type AssetType = 'character' | 'scene' | 'prop' | 'other';
+export type AssetType = 'character' | 'scene' | 'prop' | 'storyboard' | 'other';
 export type DocKey = 'outline' | 'script' | 'cast' | 'art' | 'storyboard';
 export type Asset = { id: string; type: AssetType; name: string; description: string; prompt?: string; mediaKind?: 'image' | 'video'; image?: string; video?: string; sourceProjectId?: string; sourceItemId?: string; generatedAt?: number; provider?: string };
 export type ImageRatio = '1:1' | '9:16' | '16:9' | '3:4' | '4:3' | '3:2' | '2:3' | '4:5' | '5:4' | '21:9';
