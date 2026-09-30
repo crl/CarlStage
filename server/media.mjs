@@ -12,10 +12,12 @@ import sharp from 'sharp';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const MEDIA = join(process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs'), 'media');
 const jobs = new Map();
-const pending = [];
-let activeJob = null;
+const pending = { comfyui: [], other: [] };
+const activeJobs = { comfyui: null, other: null };
+const queueType = job => ['gpt', 'chatgpt'].includes(job.provider) ? 'other' : 'comfyui';
 const imageRatios = new Set(['1:1', '9:16', '16:9', '3:4', '4:3', '3:2', '2:3', '4:5', '5:4', '21:9']);
 const aspectOf = ratio => { const [width, height] = String(ratio || '16:9').split(':').map(Number); return width > 0 && height > 0 ? width / height : 16 / 9; };
+const videoResolutionArea = (ratio, resolution) => resolution ** 2 * Math.max(aspectOf(ratio), 1 / aspectOf(ratio));
 function imageDimensions(ratio, area = 1_327_104) {
   const [ratioWidth, ratioHeight] = String(ratio || '16:9').split(':').map(Number);
   const widthFactor = ratioWidth > 0 ? ratioWidth : 16; const heightFactor = ratioHeight > 0 ? ratioHeight : 9; const unit = 16;
@@ -33,16 +35,17 @@ const safeId = value => { if (!/^[a-zA-Z0-9_-]{3,80}$/.test(value)) throw new Er
 const filePath = (projectId, name) => { safeId(projectId); if (!/^[a-f0-9-]{36}\.(png|jpg|jpeg|webp|mp4|webm|mov)$/.test(name)) throw new Error('媒体文件名无效。'); return join(MEDIA, projectId, name); };
 const publicJob = job => {
   const { source, sources, config, controller, cancelPromise, runPromise, cancelled, ...visible } = job;
-  return { ...visible, ...(job.status === 'queued' ? { queuePosition: pending.indexOf(job.id) + 1 } : {}) };
+  const queue = queueType(job);
+  return { ...visible, queueType: queue, ...(job.status === 'queued' ? { queuePosition: pending[queue].indexOf(job.id) + 1 } : {}) };
 };
 const wait = (ms, signal) => delay(ms, undefined, { signal });
 const timedSignal = (job, ms) => AbortSignal.any([job.controller.signal, AbortSignal.timeout(ms)]);
-function startNext() {
-  if (activeJob) return;
-  while (pending.length) {
-    const id = pending.shift(); const job = jobs.get(id);
+function startNext(queue) {
+  if (activeJobs[queue]) return;
+  while (pending[queue].length) {
+    const id = pending[queue].shift(); const job = jobs.get(id);
     if (!job || job.status !== 'queued') continue;
-    activeJob = id;
+    activeJobs[queue] = id;
     job.runPromise = execute(job);
     return;
   }
@@ -97,6 +100,10 @@ function setInput(graph, config, prefix, value, required = false) {
   if (!id) { if (required) throw new Error(`请在设置中配置${prefix === 'prompt' ? '提示词' : prefix === 'reference' ? '参考图' : '时长'}节点。`); return; }
   validateMapping(graph, id, key, prefix);
   graph[id].inputs[key] = value;
+}
+function hasReferenceToVideoNode(config) {
+  try { return Object.values(JSON.parse(config.workflowJson || '{}')).some(node => node?.class_type === 'MiniMaxH3ReferenceToVideo'); }
+  catch { return false; }
 }
 export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedExtraNames = []) {
   validateWorkflow(config.workflowJson);
@@ -168,10 +175,46 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
   }
   if (kind === 'video') {
     setInput(graph, config, 'duration', config.durationInput === 'length' ? Math.round(input.duration * 24) + 1 : input.duration, true);
-    uploadedExtraNames.forEach((name, index) => { const slot = config.referenceSlots?.[index]; if (!slot) throw new Error('视频工作流缺少多图节点映射。'); validateMapping(graph, slot.imageNodeId, slot.imageInput, '多图图片'); validateMapping(graph, slot.timeNodeId, slot.timeInput, '多图切点'); graph[slot.imageNodeId].inputs[slot.imageInput] = name; graph[slot.timeNodeId].inputs[slot.timeInput] = input.cutPoints[index + 1]; });
+    const referenceToVideo = Object.values(graph).find(node => node.class_type === 'MiniMaxH3ReferenceToVideo');
+    if (config.lastFrameNodeId) {
+      if (uploadedExtraNames.length !== 1) throw new Error('首尾帧工作流必须同时提供首帧和尾帧图片。');
+      setInput(graph, config, 'lastFrame', uploadedExtraNames[0], true);
+    } else if (referenceToVideo) {
+      const referenceInputs = referenceToVideo.inputs;
+      const priorSlots = new Map(Object.entries(referenceInputs).filter(([key]) => /^ref_images\.ref_image_\d+$/.test(key)));
+      for (const key of priorSlots.keys()) delete referenceInputs[key];
+      if (uploadedName) referenceInputs['ref_images.ref_image_0'] = [String(config.referenceNodeId), 0];
+      let nextNodeId = Math.max(0, ...Object.keys(graph).map(id => Number(id)).filter(Number.isFinite)) + 1;
+      uploadedExtraNames.forEach((name, index) => {
+        const slotIndex = index + 1;
+        const priorLink = priorSlots.get(`ref_images.ref_image_${slotIndex}`);
+        let nodeId = Array.isArray(priorLink) ? String(priorLink[0]) : '';
+        if (!graph[nodeId] || graph[nodeId].class_type !== 'LoadImage') {
+          nodeId = String(nextNodeId++);
+          graph[nodeId] = { class_type: 'LoadImage', inputs: { image: name } };
+        } else graph[nodeId].inputs.image = name;
+        referenceInputs[`ref_images.ref_image_${slotIndex}`] = [nodeId, 0];
+      });
+      const ratioLabels = { '1:1': '1:1 (Square)', '2:3': '2:3 (Portrait Photo)', '3:2': '3:2 (Photo)', '3:4': '3:4 (Portrait Standard)', '4:3': '4:3 (Standard)', '9:16': '9:16 (Portrait Widescreen)', '16:9': '16:9 (Widescreen)', '21:9': '21:9 (Ultrawide)', '4:5': '3:4 (Portrait Standard)', '5:4': '4:3 (Standard)' };
+      const selector = Object.values(graph).find(node => node.class_type === 'ResolutionSelector');
+      if (selector && ratioLabels[input.ratio]) selector.inputs.aspect_ratio = ratioLabels[input.ratio];
+    } else {
+      uploadedExtraNames.forEach((name, index) => { const slot = config.referenceSlots?.[index]; if (!slot) throw new Error('视频工作流缺少多图节点映射。'); validateMapping(graph, slot.imageNodeId, slot.imageInput, '多图图片'); validateMapping(graph, slot.timeNodeId, slot.timeInput, '多图切点'); graph[slot.imageNodeId].inputs[slot.imageInput] = name; graph[slot.timeNodeId].inputs[slot.timeInput] = input.cutPoints[index + 1]; });
+    }
+    const ratioLabels = { '1:1': '1:1 (Square)', '2:3': '2:3 (Portrait Photo)', '3:2': '3:2 (Photo)', '3:4': '3:4 (Portrait Standard)', '4:3': '4:3 (Standard)', '9:16': '9:16 (Portrait Widescreen)', '16:9': '16:9 (Widescreen)', '21:9': '21:9 (Ultrawide)', '4:5': '3:4 (Portrait Standard)', '5:4': '4:3 (Standard)' };
+    const resolutionSelector = Object.values(graph).find(node => node.class_type === 'ResolutionSelector');
+    if (resolutionSelector && ratioLabels[input.ratio]) resolutionSelector.inputs.aspect_ratio = ratioLabels[input.ratio];
     for (const node of Object.values(graph)) {
-      if (node.class_type !== 'MiniMaxH3ImageToVideo' || !Number.isFinite(node.inputs?.width) || !Number.isFinite(node.inputs?.height)) continue;
-      [node.inputs.width, node.inputs.height] = Object.values(imageDimensions(input.ratio, node.inputs.width * node.inputs.height));
+      if (referenceToVideo || node.class_type !== 'MiniMaxH3ImageToVideo' || !Number.isFinite(node.inputs?.width) || !Number.isFinite(node.inputs?.height)) continue;
+      const area = Number.isFinite(input.videoResolution) ? videoResolutionArea(input.ratio, input.videoResolution) : node.inputs.width * node.inputs.height;
+      [node.inputs.width, node.inputs.height] = Object.values(imageDimensions(input.ratio, area));
+    }
+    if (Number.isFinite(input.videoResolution)) {
+      const selector = Object.values(graph).find(node => node.class_type === 'ResolutionSelector');
+      if (selector) selector.inputs.megapixels = videoResolutionArea(input.ratio, input.videoResolution) / 1_000_000;
+      else if (referenceToVideo && Number.isFinite(referenceToVideo.inputs?.width) && Number.isFinite(referenceToVideo.inputs?.height)) {
+        [referenceToVideo.inputs.width, referenceToVideo.inputs.height] = Object.values(imageDimensions(input.ratio, videoResolutionArea(input.ratio, input.videoResolution)));
+      }
     }
   }
   if (config.seedNodeId) setInput(graph, config, 'seed', config.seed === -1 ? Math.floor(Math.random() * 2 ** 32) : config.seed);
@@ -225,7 +268,8 @@ async function execute(job) {
     const uploadedExtraNames = await Promise.all(extraSources.map(source => inputImage(source, origin, job.controller.signal)));
     if (job.cancelled) return;
     const workflowKind = job.kind === 'image' && reference && (job.imageMode === 'compose' || !job.config.comfy.image.referenceNodeId) ? 'imageEdit' : job.kind;
-    const graph = buildMediaWorkflow(job.config.comfy[workflowKind], workflowKind, job, uploadedName, uploadedExtraNames);
+    const videoConfig = job.kind === 'video' && job.videoWorkflow === 'firstLast' ? job.config.comfy.videoFirstLast : job.config.comfy[workflowKind];
+    const graph = buildMediaWorkflow(videoConfig, workflowKind, job, uploadedName, uploadedExtraNames);
     const auditPath = join(MEDIA, job.projectId, 'jobs', `${job.id}.json`);
     await mkdir(dirname(auditPath), { recursive: true });
     await writeFile(auditPath, JSON.stringify({ id: job.id, prompt: job.prompt, ratio: job.ratio, sources: job.sources, uploadedNames: [uploadedName, ...uploadedExtraNames], workflow: graph }, null, 2));
@@ -280,13 +324,14 @@ async function execute(job) {
     job.result = { url: `/api/media/${job.projectId}/${name}`, mime: response.headers.get('content-type') || (job.kind === 'video' ? `video/${extension}` : `image/${extension}`), prompt: job.prompt, generatedAt: Date.now() };
     job.status = 'completed'; job.message = '生成完成，请预览并确认。';
   } catch (error) { if (job.cancelled) return; job.status = 'failed'; job.error = error instanceof TypeError ? '无法连接本机 ComfyUI。请确认服务地址与运行状态。' : error instanceof Error ? error.message : String(error); job.message = '生成失败'; }
-  finally { await job.cancelPromise; if (activeJob === job.id) activeJob = null; queueMicrotask(startNext); }
+  finally { await job.cancelPromise; const queue = queueType(job); if (activeJobs[queue] === job.id) activeJobs[queue] = null; queueMicrotask(() => startNext(queue)); }
 }
 export function createMediaJob(settings, input) {
   if (!['image', 'video'].includes(input.kind) || typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 8000) throw new Error('媒体生成请求无效。');
   if (input.negativePrompt !== undefined && (input.kind !== 'image' || typeof input.negativePrompt !== 'string' || input.negativePrompt.length > 8000)) throw new Error('图片反向提示词无效。');
   safeId(input.projectId);
   const provider = input.kind === 'image' ? (input.provider || settings.imageProvider || 'qwen') : 'minimax';
+  if (input.videoWorkflow !== undefined && (input.kind !== 'video' || input.videoWorkflow !== 'firstLast')) throw new Error('视频工作流类型无效。');
   if (input.kind === 'image' && !['qwen', 'gpt', 'chatgpt'].includes(provider)) throw new Error('生图方式无效。');
   if (input.kind === 'image' && input.imageMode !== undefined && !['edit', 'compose'].includes(input.imageMode)) throw new Error('生图模式无效。');
   const imageMode = input.kind === 'image' ? (input.imageMode || 'edit') : undefined;
@@ -294,16 +339,20 @@ export function createMediaJob(settings, input) {
   if (!Array.isArray(sources) || sources.length > 8 || sources.some(source => typeof source !== 'string' || !validImageSource(source))) throw new Error(input.kind === 'video' ? '参考图无效，视频最多选择 8 张 PNG、JPEG 或 WebP 图片。' : '参考图无效，最多选择 8 张 PNG、JPEG 或 WebP 图片。');
   if (input.kind === 'image' && provider === 'qwen' && sources.length > 1 && input.source !== sources[0]) throw new Error('多张参考图必须按提示词引用顺序提交。');
   if (input.kind === 'video' && (!input.source || !Number.isFinite(input.duration) || input.duration < 1 || input.duration > 15)) throw new Error('MiniMax H3 需要首帧图片，时长须在 1–15 秒之间。');
-  if (input.kind === 'video' && (sources[0] !== input.source || (sources.length > 1 && (!Array.isArray(input.cutPoints) || input.cutPoints.length !== sources.length || input.cutPoints[0] !== 0 || input.cutPoints.some((time, index) => !Number.isFinite(time) || time < 0 || time >= input.duration || (index > 0 && time <= input.cutPoints[index - 1])) || (settings.comfy.video.referenceSlots?.length || 0) < sources.length - 1)))) throw new Error('多图视频需要完整的图片节点映射和严格递增的切点。');
+  if (input.videoResolution !== undefined && (input.kind !== 'video' || ![480, 720, 1080].includes(input.videoResolution))) throw new Error('MiniMax H3 分辨率无效。');
+  const isReferenceToVideo = input.kind === 'video' && hasReferenceToVideoNode(settings.comfy.video);
+  if (input.kind === 'video' && input.videoWorkflow === 'firstLast' && (sources.length !== 2 || sources[0] !== input.source || !settings.comfy.videoFirstLast.workflowJson || !settings.comfy.videoFirstLast.lastFrameNodeId)) throw new Error('MiniMax H3 首尾帧工作流需要已配置的工作流和两张首尾帧图片。');
+  if (input.kind === 'video' && !input.videoWorkflow && (sources[0] !== input.source || (sources.length > 1 && (isReferenceToVideo ? sources.length > 8 : !Array.isArray(input.cutPoints) || input.cutPoints.length !== sources.length || input.cutPoints[0] !== 0 || input.cutPoints.some((time, index) => !Number.isFinite(time) || time < 0 || time >= input.duration || (index > 0 && time <= input.cutPoints[index - 1])) || (settings.comfy.video.referenceSlots?.length || 0) < sources.length - 1)))) throw new Error(isReferenceToVideo ? 'MiniMax H3 R2V 每段最多提交 8 张分镜参考图。' : '多图视频需要完整的图片节点映射和严格递增的切点。');
   if (input.ratio !== undefined && !imageRatios.has(input.ratio)) throw new Error('项目画面比例无效。');
   if (provider === 'qwen' || input.kind === 'video') {
     const reference = input.kind === 'image' ? sources[0] : input.source;
     const workflowKind = input.kind === 'image' && reference && (imageMode === 'compose' || !settings.comfy.image.referenceNodeId) ? 'imageEdit' : input.kind;
     const extraSources = (input.kind === 'image' || input.kind === 'video') ? sources.slice(1) : [];
-    buildMediaWorkflow(settings.comfy[workflowKind], workflowKind, { ...input, imageMode }, reference ? '__reference__' : undefined, extraSources.map((_, index) => `__reference_${index + 2}__`));
+    const workflowConfig = input.kind === 'video' && input.videoWorkflow === 'firstLast' ? settings.comfy.videoFirstLast : settings.comfy[workflowKind];
+    buildMediaWorkflow(workflowConfig, workflowKind, { ...input, imageMode }, reference ? '__reference__' : undefined, extraSources.map((_, index) => `__reference_${index + 2}__`));
   }
-  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, imageMode, prompt: input.prompt.trim(), negativePrompt: typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '', duration: input.duration, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
-  jobs.set(job.id, job); pending.push(job.id); queueMicrotask(startNext);
+  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, videoWorkflow: input.videoWorkflow, imageMode, prompt: input.prompt.trim(), negativePrompt: typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '', duration: input.duration, videoResolution: input.videoResolution, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
+  jobs.set(job.id, job); const queue = queueType(job); pending[queue].push(job.id); queueMicrotask(() => startNext(queue));
   return publicJob(job);
 }
 export function getMediaJob(id) { const job = jobs.get(id); return job ? publicJob(job) : null; }
@@ -315,8 +364,8 @@ export async function cancelMediaJob(id, message = '任务已取消。') {
   const wasQueued = job.status === 'queued';
   job.cancelled = true; job.status = 'cancelled'; job.message = message;
   if (wasQueued) {
-    const index = pending.indexOf(id); if (index !== -1) pending.splice(index, 1);
-    queueMicrotask(startNext);
+    const queue = queueType(job); const index = pending[queue].indexOf(id); if (index !== -1) pending[queue].splice(index, 1);
+    queueMicrotask(() => startNext(queue));
     return publicJob(job);
   }
   job.cancelPromise = (async () => {

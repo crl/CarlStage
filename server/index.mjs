@@ -369,7 +369,7 @@ createServer(async (req, res) => {
       try { const update = await body(req); settings = await saveSettings({ ...update, gptImage: { ...update.gptImage, apiKey: update.gptImage?.apiKey ?? settings.gptImage.apiKey } }); return send(res, 200, publicSettings(settings)); }
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
-    const presetMatch = url.pathname.match(/^\/api\/settings\/presets\/(image|imageEdit|video)$/);
+    const presetMatch = url.pathname.match(/^\/api\/settings\/presets\/(image|imageEdit|video|videoFirstLast)$/);
     if (req.method === 'GET' && presetMatch) return send(res, 200, getPreset(presetMatch[1]));
     if (req.method === 'POST' && url.pathname === '/api/settings/presets/check') {
       try { const { baseUrl, workflow } = await body(req); return send(res, 200, await checkComfyWorkflow(baseUrl, workflow)); }

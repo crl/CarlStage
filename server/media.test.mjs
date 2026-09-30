@@ -132,12 +132,39 @@ test('Qwen 编辑工作流将多张参考图分别绑定为 image 标记', () =>
   assert.match(workflow[config.promptNodeId].inputs.prompt, /场景参考 <image2>/);
 });
 
-test('MiniMax H3 视频尺寸跟随项目画面比例', () => {
+test('默认 MiniMax H3 R2V 比例跟随项目画面比例', () => {
   const video = defaultSettings().comfy.video;
   const portrait = buildMediaWorkflow(video, 'video', { prompt: '镜头缓缓推进', duration: 3, ratio: '9:16' }, 'frame.png');
   const landscape = buildMediaWorkflow(video, 'video', { prompt: '镜头缓缓推进', duration: 3, ratio: '16:9' }, 'frame.png');
-  assert.deepEqual([portrait['5'].inputs.width, portrait['5'].inputs.height], [288, 512]);
-  assert.deepEqual([landscape['5'].inputs.width, landscape['5'].inputs.height], [512, 288]);
+  const portraitSelector = Object.values(portrait).find(node => node.class_type === 'ResolutionSelector');
+  const landscapeSelector = Object.values(landscape).find(node => node.class_type === 'ResolutionSelector');
+  assert.equal(portraitSelector.inputs.aspect_ratio, '9:16 (Portrait Widescreen)');
+  assert.equal(landscapeSelector.inputs.aspect_ratio, '16:9 (Widescreen)');
+});
+
+test('MiniMax H3 首尾帧预设写入两张图片、提示词、时长、种子和分辨率', () => {
+  const config = defaultSettings().comfy.videoFirstLast;
+  const graph = buildMediaWorkflow(config, 'video', { prompt: '沿着首帧平滑过渡到尾帧', duration: 3, ratio: '16:9', videoResolution: 720 }, 'first.png', ['last.png']);
+  assert.equal(graph[config.promptNodeId].inputs.prompt, '沿着首帧平滑过渡到尾帧');
+  assert.equal(graph[config.referenceNodeId].inputs.image, 'first.png');
+  assert.equal(graph[config.lastFrameNodeId].inputs.image, 'last.png');
+  assert.equal(graph[config.durationNodeId].inputs.length, 73);
+  assert.equal(graph[config.seedNodeId].inputs.noise_seed >= 0, true);
+  const selector = graph['115'];
+  assert.equal(selector.inputs.aspect_ratio, '16:9 (Widescreen)');
+  assert.equal(selector.inputs.megapixels, 720 ** 2 * (16 / 9) / 1_000_000);
+  assert.throws(() => buildMediaWorkflow(config, 'video', { prompt: '无尾帧', duration: 3 }, 'first.png'), /首帧和尾帧/);
+});
+
+test('MiniMax H3 image-to-video 比例映射仍兼容旧工作流', () => {
+  const video = { ...defaultSettings().comfy.video, workflowJson: JSON.stringify({
+    '1': { class_type: 'MiniMaxH3ImageToVideo', inputs: { prompt: '', width: 512, height: 288, length: 73, first_frame: ['2', 0] } },
+    '2': { class_type: 'LoadImage', inputs: { image: '' } }
+  }), promptNodeId: '1', promptInput: 'prompt', referenceNodeId: '2', referenceInput: 'image', durationNodeId: '1', durationInput: 'length', seedNodeId: '' };
+  const portrait = buildMediaWorkflow(video, 'video', { prompt: '镜头缓缓推进', duration: 3, ratio: '9:16' }, 'frame.png');
+  const landscape = buildMediaWorkflow(video, 'video', { prompt: '镜头缓缓推进', duration: 3, ratio: '16:9' }, 'frame.png');
+  assert.deepEqual([portrait['1'].inputs.width, portrait['1'].inputs.height], [288, 512]);
+  assert.deepEqual([landscape['1'].inputs.width, landscape['1'].inputs.height], [512, 288]);
 });
 
 test('MiniMax H3 视频请求不受误带的生图模式字段拦截', () => {
@@ -163,6 +190,36 @@ test('分段视频逐图写入图片和递增切点，缺少映射时拒绝提�
   const input = { projectId: 'testmedia123', kind: 'video', prompt: '两镜', source: pixel, sources: [pixel, pixel], duration: 7 };
   assert.throws(() => createMediaJob(settings, { ...input, cutPoints: [0, 0] }), /严格递增/);
   assert.throws(() => createMediaJob({ ...settings, comfy: { ...settings.comfy, video: { ...settings.comfy.video, referenceSlots: [] } } }, { ...input, cutPoints: [0, 3] }), /多图/);
+});
+
+test('MiniMax H3 R2V 将所有分镜图写入动态参考图节点且不要求切点', () => {
+  const settings = defaultSettings();
+  const config = settings.comfy.video;
+  config.workflowJson = JSON.stringify({
+    '1': { class_type: 'MiniMaxH3ReferenceToVideo', inputs: { prompt: ['5', 0], length: 124, 'ref_images.ref_image_0': ['2', 0], 'ref_images.ref_image_1': ['6', 0] } },
+    '2': { class_type: 'LoadImage', inputs: { image: '' } },
+    '3': { class_type: 'RandomNoise', inputs: { noise_seed: 1 } },
+    '4': { class_type: 'ResolutionSelector', inputs: { aspect_ratio: '16:9 (Widescreen)' } },
+    '5': { class_type: 'PrimitiveStringMultiline', inputs: { value: '' } },
+    '6': { class_type: 'LoadImage', inputs: { image: '' } }
+  });
+  Object.assign(config, { promptNodeId: '5', promptInput: 'value', referenceNodeId: '2', referenceInput: 'image', durationNodeId: '1', durationInput: 'length', seedNodeId: '3', seedInput: 'noise_seed', referenceSlots: [] });
+  const graph = buildMediaWorkflow(config, 'video', { prompt: '按顺序生成', duration: 4, ratio: '9:16' }, 'first.png', ['second.png', 'third.png']);
+  const minimax = graph['1'];
+  assert.deepEqual(minimax.inputs['ref_images.ref_image_0'], ['2', 0]);
+  assert.deepEqual(minimax.inputs['ref_images.ref_image_1'], ['6', 0]);
+  assert.equal(graph['6'].inputs.image, 'second.png');
+  assert.deepEqual(minimax.inputs['ref_images.ref_image_2'], ['7', 0]);
+  assert.equal(graph['7'].inputs.image, 'third.png');
+  assert.equal(minimax.inputs.length, 97);
+  assert.equal(graph['4'].inputs.aspect_ratio, '9:16 (Portrait Widescreen)');
+  assert.equal(graph['5'].inputs.value, '按顺序生成');
+  for (const resolution of [480, 720, 1080]) {
+    const sized = buildMediaWorkflow(config, 'video', { prompt: '分辨率测试', duration: 4, ratio: '16:9', videoResolution: resolution }, 'first.png');
+    assert.equal(sized['4'].inputs.megapixels, resolution ** 2 * (16 / 9) / 1_000_000);
+  }
+  const single = buildMediaWorkflow(config, 'video', { prompt: '单镜', duration: 2, ratio: '16:9' }, 'only.png');
+  assert.equal(single['1'].inputs['ref_images.ref_image_1'], undefined);
 });
 
 test('生图参考图数量、格式和引用顺序校验', () => {
@@ -220,7 +277,7 @@ test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t 
   await assert.rejects(readMedia(projectId, videoResult.result.url.split('/').pop()));
 });
 
-test('生图和生视频共用队列，排位更新且取消后不保存结果', async t => {
+test('ComfyUI 生图和生视频共用队列并与其它途径区分，排位更新且取消后不保存结果', async t => {
   const interrupted = [];
   const submitted = [];
   const server = createServer(async (req, res) => {
@@ -255,8 +312,13 @@ test('生图和生视频共用队列，排位更新且取消后不保存结果',
   t.after(async () => { await removeProjectMedia(projectId); });
   const first = createMediaJob(settings, { projectId, kind: 'image', prompt: 'first' });
   await until(first.id, job => job.status === 'running' && !!job.promptId);
+  const external = createMediaJob(settings, { projectId, kind: 'image', provider: 'gpt', prompt: 'external' });
+  assert.equal(external.queueType, 'other');
+  void cancelMediaJob(external.id);
   const second = createMediaJob(settings, { projectId, kind: 'video', prompt: 'second', source: pixel, duration: 4 });
   const third = createMediaJob(settings, { projectId, kind: 'image', prompt: 'third' });
+  assert.equal(getMediaJob(second.id).queueType, 'comfyui');
+  assert.equal(getMediaJob(third.id).queueType, 'comfyui');
   assert.equal(getMediaJob(second.id).queuePosition, 1);
   assert.equal(getMediaJob(third.id).queuePosition, 2);
   assert.equal((await cancelMediaJob(second.id)).status, 'cancelled');

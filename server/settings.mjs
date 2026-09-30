@@ -7,7 +7,8 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 export const SETTINGS_FILE = join(process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs'), 'settings.json');
 const imageDefaults = { workflowJson: '', promptNodeId: '', promptInput: 'text', referenceNodeId: '', referenceInput: 'image', seedNodeId: '', seedInput: 'seed', widthNodeId: '', widthInput: 'width', heightNodeId: '', heightInput: 'height', stepsNodeId: '', stepsInput: 'steps', cfgNodeId: '', cfgInput: 'cfg', width: 1024, height: 1024, steps: 20, cfg: 7, seed: -1 };
 const videoDefaults = { workflowJson: '', promptNodeId: '', promptInput: 'text', referenceNodeId: '', referenceInput: 'image', durationNodeId: '', durationInput: 'duration', seedNodeId: '', seedInput: 'seed', duration: 5, seed: -1, referenceSlots: [] };
-export function defaultSettings() { return { showCreativeTemplates: true, codex: { provider: 'codex', executablePath: '', model: process.env.REELBENCH_CODEX_MODEL || 'gpt-5.5', ollamaModel: 'gemma4:latest', reasoningEffort: 'low', timeoutMinutes: 45 }, imageProvider: 'qwen', chatgptImage: { proxy: '', timeoutMinutes: 4 }, gptImage: { model: 'gpt-image-2.5-sunburst', quality: 'medium', apiKey: '' }, comfy: { baseUrl: 'http://127.0.0.1:8188', image: { ...PRESETS.image }, imageEdit: { ...PRESETS.imageEdit }, video: { ...PRESETS.video } } }; }
+const firstLastVideoDefaults = { ...videoDefaults, lastFrameNodeId: '', lastFrameInput: 'image', referenceSlots: undefined };
+export function defaultSettings() { return { showCreativeTemplates: true, codex: { provider: 'codex', executablePath: '', model: process.env.REELBENCH_CODEX_MODEL || 'gpt-5.5', ollamaModel: 'gemma4:latest', reasoningEffort: 'low', timeoutMinutes: 45 }, imageProvider: 'qwen', chatgptImage: { proxy: '', timeoutMinutes: 4 }, gptImage: { model: 'gpt-image-2.5-sunburst', quality: 'medium', apiKey: '' }, comfy: { baseUrl: 'http://127.0.0.1:8188', image: { ...PRESETS.image }, imageEdit: { ...PRESETS.imageEdit }, video: { ...PRESETS.video }, videoFirstLast: { ...PRESETS.videoFirstLast } } }; }
 export function publicSettings(settings) { return { ...settings, gptImage: { ...settings.gptImage, apiKey: undefined, hasApiKey: !!(settings.gptImage.apiKey || process.env.OPENAI_API_KEY) } }; }
 export function getPreset(kind) { if (!Object.hasOwn(PRESETS, kind)) throw new Error('未知工作流预设。'); return structuredClone(PRESETS[kind]); }
 
@@ -33,7 +34,7 @@ const numberInRange = (value, name, min, max) => { const n = Number(value); if (
 function normalizeWorkflow(input, defaults, kind) {
   const workflowJson = String(input.workflowJson || '').trim();
   if (workflowJson.length > 2_000_000) throw new Error('工作流 JSON 不得超过 2 MB。');
-  const result = { workflowJson };
+  const result = { workflowJson, workflowFileName: String(input.workflowFileName || '').trim().slice(0, 255) };
   for (const key of Object.keys(defaults).filter(key => key.endsWith('NodeId') || key.endsWith('Input'))) result[key] = String(input[key] ?? defaults[key]).trim();
   if (workflowJson) {
     validateWorkflow(workflowJson);
@@ -55,6 +56,23 @@ function normalizeWorkflow(input, defaults, kind) {
     return mapped;
   });
   return { ...result, duration: numberInRange(input.duration, '视频时长', 1, 15), seed: numberInRange(input.seed, '随机种子', -1, Number.MAX_SAFE_INTEGER), referenceSlots: slots };
+}
+function normalizeFirstLastVideoWorkflow(input) {
+  const workflowJson = String(input.workflowJson || '').trim();
+  if (workflowJson.length > 2_000_000) throw new Error('工作流 JSON 不得超过 2 MB。');
+  const result = { workflowJson, workflowFileName: String(input.workflowFileName || '').trim().slice(0, 255) };
+  for (const key of Object.keys(firstLastVideoDefaults).filter(key => key.endsWith('NodeId') || key.endsWith('Input'))) result[key] = String(input[key] ?? firstLastVideoDefaults[key] ?? '').trim();
+  if (workflowJson) {
+    validateWorkflow(workflowJson);
+    const graph = JSON.parse(workflowJson);
+    for (const [prefix, label] of [['prompt', '提示词'], ['reference', '首帧图片'], ['lastFrame', '尾帧图片'], ['duration', '时长'], ['seed', '种子']]) {
+      if (prefix !== 'seed' || result.seedNodeId) {
+        if (!result[`${prefix}NodeId`]) throw new Error(`首尾帧工作流需要${label}节点 ID。`);
+        validateMapping(graph, result[`${prefix}NodeId`], result[`${prefix}Input`], label);
+      }
+    }
+  }
+  return { ...result, duration: numberInRange(input.duration, '首尾帧视频时长', 1, 15), seed: numberInRange(input.seed, '随机种子', -1, Number.MAX_SAFE_INTEGER) };
 }
 export function normalizeSettings(input) {
   if (!input || typeof input !== 'object') throw new Error('设置内容无效。');
@@ -81,6 +99,7 @@ export function normalizeSettings(input) {
   if (typeof gpt.apiKey !== 'string' || gpt.apiKey.length > 500) throw new Error('API Key 无效。');
   const image = normalizeWorkflow({ ...imageDefaults, ...legacyImage, ...comfy.image }, imageDefaults, 'image');
   const imageEdit = normalizeWorkflow({ ...PRESETS.imageEdit, ...comfy.imageEdit }, imageDefaults, 'imageEdit');
+  const videoFirstLast = normalizeFirstLastVideoWorkflow({ ...PRESETS.videoFirstLast, ...(comfy.videoFirstLast || {}) });
   for (const [kind, workflow] of [['image', image], ['imageEdit', imageEdit]]) {
     try {
       const graph = JSON.parse(workflow.workflowJson);
@@ -98,7 +117,7 @@ export function normalizeSettings(input) {
       if (bundledDefault || bundledLegacyEdit) Object.assign(workflow, PRESETS[kind]);
     } catch { /* Custom workflows are validated and preserved below. */ }
   }
-  return { showCreativeTemplates: typeof input.showCreativeTemplates === 'boolean' ? input.showCreativeTemplates : defaults.showCreativeTemplates, codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, chatgptImage, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video') } };
+  return { showCreativeTemplates: typeof input.showCreativeTemplates === 'boolean' ? input.showCreativeTemplates : defaults.showCreativeTemplates, codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, chatgptImage, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video'), videoFirstLast } };
 }
 export async function loadSettings() { try { return normalizeSettings(JSON.parse(await readFile(SETTINGS_FILE, 'utf8'))); } catch (error) { if (error?.code === 'ENOENT') return defaultSettings(); throw error; } }
 export async function saveSettings(value) { const normalized = normalizeSettings(value); await mkdir(dirname(SETTINGS_FILE), { recursive: true }); await writeFile(SETTINGS_FILE, JSON.stringify(normalized, null, 2), { encoding: 'utf8', mode: 0o600 }); return normalized; }

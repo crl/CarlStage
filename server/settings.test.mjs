@@ -26,6 +26,44 @@ test('设置校验 API 工作流节点与参数范围', () => {
   assert.throws(() => validateWorkflow('{"nodes": []}', '', 'text'), /API 格式/);
 });
 
+test('默认 MiniMax H3 工作流使用 R2V 并映射提示词、首图、时长和随机种子', () => {
+  const video = defaultSettings().comfy.video;
+  const graph = JSON.parse(video.workflowJson);
+  assert.ok(Object.values(graph).some(node => node.class_type === 'MiniMaxH3ReferenceToVideo'));
+  assert.deepEqual([video.promptNodeId, video.promptInput], ['138', 'value']);
+  assert.deepEqual([video.referenceNodeId, video.referenceInput], ['137', 'image']);
+  assert.deepEqual([video.durationNodeId, video.durationInput], ['136', 'length']);
+  assert.deepEqual([video.seedNodeId, video.seedInput], ['129', 'noise_seed']);
+  assert.deepEqual(video.referenceSlots, []);
+  assert.doesNotThrow(() => normalizeSettings(defaultSettings()));
+});
+
+test('工作流文件名随设置保存，并兼容没有文件名的旧设置', () => {
+  const settings = defaultSettings();
+  settings.comfy.video.workflowFileName = 'custom-r2v.json';
+  settings.comfy.videoFirstLast.workflowFileName = 'custom-first-last.json';
+  const normalized = normalizeSettings(settings);
+  assert.equal(normalized.comfy.video.workflowFileName, 'custom-r2v.json');
+  assert.equal(normalized.comfy.videoFirstLast.workflowFileName, 'custom-first-last.json');
+  delete settings.comfy.video.workflowFileName;
+  assert.equal(normalizeSettings(settings).comfy.video.workflowFileName, '');
+});
+
+test('内置 MiniMax H3 首尾帧工作流作为逐镜默认配置，并迁移旧设置', () => {
+  const defaults = defaultSettings();
+  const workflow = defaults.comfy.videoFirstLast;
+  const graph = JSON.parse(workflow.workflowJson);
+  assert.ok(Object.values(graph).some(node => node.class_type === 'MiniMaxH3ImageToVideo' && node.inputs.first_frame && node.inputs.last_frame));
+  assert.deepEqual([workflow.promptNodeId, workflow.promptInput], ['105:104', 'prompt']);
+  assert.deepEqual([workflow.referenceNodeId, workflow.referenceInput], ['114', 'image']);
+  assert.deepEqual([workflow.lastFrameNodeId, workflow.lastFrameInput], ['127', 'image']);
+  assert.deepEqual([workflow.durationNodeId, workflow.durationInput], ['105:104', 'length']);
+  assert.deepEqual([workflow.seedNodeId, workflow.seedInput], ['105:15', 'noise_seed']);
+  assert.ok(normalizeSettings(defaults).comfy.videoFirstLast.workflowJson);
+  const oldSettings = normalizeSettings({ ...defaults, comfy: { ...defaults.comfy, videoFirstLast: undefined } });
+  assert.equal(oldSettings.comfy.videoFirstLast.workflowJson, workflow.workflowJson);
+});
+
 test('多图视频节点映射在保存设置时校验', () => {
   const settings = defaultSettings();
   const graph = JSON.parse(settings.comfy.video.workflowJson);
