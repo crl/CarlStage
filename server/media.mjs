@@ -32,9 +32,9 @@ function imageDimensions(ratio, area = 1_327_104) {
 // when its commonly supported labels are known.
 const qwenRatioLabels = { '1:1': '1:1 (Square)', '9:16': '9:16 (Portrait Widescreen)', '16:9': '16:9 (Widescreen)', '3:4': '3:4 (Portrait)', '4:3': '4:3 (Landscape)', '3:2': '3:2 (Landscape)', '2:3': '2:3 (Portrait)' };
 const safeId = value => { if (!/^[a-zA-Z0-9_-]{3,80}$/.test(value)) throw new Error('项目 ID 无效。'); return value; };
-const filePath = (projectId, name) => { safeId(projectId); if (!/^[a-f0-9-]{36}\.(png|jpg|jpeg|webp|mp4|webm|mov)$/.test(name)) throw new Error('媒体文件名无效。'); return join(MEDIA, projectId, name); };
+const filePath = (projectId, name) => { safeId(projectId); if (!/^[a-f0-9-]{36}\.(png|jpg|jpeg|webp|mp4|webm|mov|mp3|wav|flac|ogg)$/.test(name)) throw new Error('媒体文件名无效。'); return join(MEDIA, projectId, name); };
 const publicJob = job => {
-  const { source, sources, config, controller, cancelPromise, runPromise, cancelled, ...visible } = job;
+  const { source, sources, lyrics, config, controller, cancelPromise, runPromise, cancelled, ...visible } = job;
   const queue = queueType(job);
   return { ...visible, queueType: queue, ...(job.status === 'queued' ? { queuePosition: pending[queue].indexOf(job.id) + 1 } : {}) };
 };
@@ -105,10 +105,46 @@ function hasReferenceToVideoNode(config) {
   try { return Object.values(JSON.parse(config.workflowJson || '{}')).some(node => node?.class_type === 'MiniMaxH3ReferenceToVideo'); }
   catch { return false; }
 }
+function removeMinimaxGuideChain(graph) {
+  const guides = new Set(Object.entries(graph).filter(([, node]) => node.class_type === 'MiniMaxH3AddGuide').map(([id]) => id));
+  if (!guides.size) return;
+  const guideOnlyNodes = new Set();
+  const collectGuideInputs = (link, visited = new Set()) => {
+    if (!Array.isArray(link) || typeof link[0] !== 'string' || visited.has(link[0]) || guides.has(link[0])) return;
+    const id = link[0]; const node = graph[id]; if (!node || node.class_type === 'MiniMaxH3ReferenceToVideo' || node.class_type === 'VAELoader' || node.class_type === 'CLIPLoader') return;
+    visited.add(id); guideOnlyNodes.add(id);
+    for (const value of Object.values(node.inputs || {})) collectGuideInputs(value, visited);
+  };
+  for (const id of guides) { collectGuideInputs(graph[id].inputs?.image); collectGuideInputs(graph[id].inputs?.frame_idx); }
+  const resolve = link => {
+    let current = link; const visited = new Set();
+    while (Array.isArray(current) && guides.has(String(current[0])) && !visited.has(String(current[0]))) {
+      const id = String(current[0]); visited.add(id); current = graph[id]?.inputs?.positive;
+    }
+    return current;
+  };
+  for (const node of Object.values(graph)) for (const [key, value] of Object.entries(node.inputs || {})) {
+    if (Array.isArray(value) && typeof value[0] === 'string') node.inputs[key] = resolve(value);
+  }
+  for (const id of guides) delete graph[id];
+  while (guideOnlyNodes.size) {
+    const referenced = new Set(Object.values(graph).flatMap(node => Object.values(node.inputs || {}).filter(value => Array.isArray(value) && typeof value[0] === 'string').map(value => value[0])));
+    const unused = [...guideOnlyNodes].filter(id => !referenced.has(id));
+    if (!unused.length) break;
+    for (const id of unused) { delete graph[id]; guideOnlyNodes.delete(id); }
+  }
+}
 export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedExtraNames = []) {
   validateWorkflow(config.workflowJson);
   if (!config.workflowJson) throw new Error(`请先在设置中导入${kind === 'video' ? 'MiniMax H3 生视频' : 'Qwen-Image-2.1 生图'}工作流。`);
   const graph = JSON.parse(config.workflowJson);
+  if (kind === 'audio') {
+    setInput(graph, config, 'prompt', input.prompt, true);
+    setInput(graph, config, 'lyrics', input.lyrics, true);
+    setInput(graph, config, 'duration', input.duration, true);
+    if (config.seedNodeId) setInput(graph, config, 'seed', config.seed === -1 ? Math.floor(Math.random() * 2 ** 32) : config.seed);
+    return graph;
+  }
   setInput(graph, config, 'prompt', input.prompt, true);
   const negativePrompt = typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '';
   if (negativePrompt) {
@@ -174,6 +210,7 @@ export function buildMediaWorkflow(config, kind, input, uploadedName, uploadedEx
     }
   }
   if (kind === 'video') {
+    removeMinimaxGuideChain(graph);
     setInput(graph, config, 'duration', config.durationInput === 'length' ? Math.round(input.duration * 24) + 1 : input.duration, true);
     const referenceToVideo = Object.values(graph).find(node => node.class_type === 'MiniMaxH3ReferenceToVideo');
     if (config.lastFrameNodeId) {
@@ -262,7 +299,7 @@ async function execute(job) {
       job.status = 'completed'; job.message = '生成完成，请预览并确认。'; return;
     }
     const origin = validateComfyUrl(job.config.comfy.baseUrl);
-    const reference = job.kind === 'image' ? job.sources[0] : job.source;
+    const reference = job.kind === 'image' ? job.sources[0] : job.kind === 'video' ? job.source : undefined;
     const uploadedName = reference ? await inputImage(reference, origin, job.controller.signal) : undefined;
     const extraSources = job.kind === 'image' || job.kind === 'video' ? job.sources.slice(1) : [];
     const uploadedExtraNames = await Promise.all(extraSources.map(source => inputImage(source, origin, job.controller.signal)));
@@ -289,10 +326,10 @@ async function execute(job) {
       if (completed) {
         if (completed.status?.status_str === 'error') throw new Error(`ComfyUI 生成失败：${JSON.stringify(completed.status.messages || []).slice(0, 800)}`);
         const outputEntries = Object.entries(completed.outputs || {});
-        const preferredClasses = job.kind === 'video' ? new Set(['SaveVideo', 'SaveAnimatedWEBP']) : new Set(['SaveImage', 'SaveImageAdvanced']);
+        const preferredClasses = job.kind === 'video' ? new Set(['SaveVideo', 'SaveAnimatedWEBP']) : job.kind === 'audio' ? new Set(['SaveAudio', 'SaveAudioAdvanced']) : new Set(['SaveImage', 'SaveImageAdvanced']);
         const preferredIds = new Set(Object.entries(graph).filter(([, node]) => preferredClasses.has(node.class_type)).map(([id]) => id));
         const orderedOutputs = [...outputEntries.filter(([id]) => preferredIds.has(id)), ...outputEntries.filter(([id]) => !preferredIds.has(id))];
-        const entries = orderedOutputs.flatMap(([, node]) => job.kind === 'video' ? [...(node.videos || []), ...(node.gifs || []), ...(node.images || []).filter(item => /\.(mp4|webm|mov)$/i.test(item.filename || ''))] : node.images || []);
+        const entries = orderedOutputs.flatMap(([, node]) => job.kind === 'video' ? [...(node.videos || []), ...(node.gifs || []), ...(node.images || []).filter(item => /\.(mp4|webm|mov)$/i.test(item.filename || ''))] : job.kind === 'audio' ? [...(node.audio || []), ...(node.audios || []), ...(node.files || []).filter(item => /\.(mp3|wav|flac|ogg)$/i.test(item.filename || ''))] : node.images || []);
         output = entries.find(item => item.filename);
         if (!output) throw new Error('ComfyUI 已完成，但没有输出可读取的媒体文件。');
         break;
@@ -307,9 +344,9 @@ async function execute(job) {
     if (!response.ok) throw new Error(`读取 ComfyUI 结果失败（HTTP ${response.status}）。`);
     let bytes = Buffer.from(await response.arrayBuffer());
     if (job.cancelled) return;
-    if (bytes.length > (job.kind === 'video' ? 1024 : 40) * 1024 * 1024) throw new Error('生成文件过大，未能导入本机项目。');
+    if (bytes.length > (job.kind === 'video' ? 1024 : job.kind === 'audio' ? 200 : 40) * 1024 * 1024) throw new Error('生成文件过大，未能导入本机项目。');
     let extension = extname(output.filename).slice(1).toLowerCase();
-    const allowed = job.kind === 'video' ? ['mp4', 'webm', 'mov'] : ['png', 'jpg', 'jpeg', 'webp'];
+    const allowed = job.kind === 'video' ? ['mp4', 'webm', 'mov'] : job.kind === 'audio' ? ['mp3', 'wav', 'flac', 'ogg'] : ['png', 'jpg', 'jpeg', 'webp'];
     if (!allowed.includes(extension)) throw new Error(`不支持的生成文件格式：${extension || '未知'}。`);
     if (job.kind === 'image') {
       const metadata = await sharp(bytes).metadata();
@@ -321,13 +358,14 @@ async function execute(job) {
     const path = filePath(job.projectId, name);
     await mkdir(dirname(path), { recursive: true }); await writeFile(path, bytes);
     if (job.cancelled) { await rm(path, { force: true }); return; }
-    job.result = { url: `/api/media/${job.projectId}/${name}`, mime: response.headers.get('content-type') || (job.kind === 'video' ? `video/${extension}` : `image/${extension}`), prompt: job.prompt, generatedAt: Date.now() };
+    job.result = { url: `/api/media/${job.projectId}/${name}`, mime: response.headers.get('content-type') || (job.kind === 'video' ? `video/${extension}` : job.kind === 'audio' ? `audio/${extension === 'mp3' ? 'mpeg' : extension}` : `image/${extension}`), prompt: job.prompt, generatedAt: Date.now() };
     job.status = 'completed'; job.message = '生成完成，请预览并确认。';
   } catch (error) { if (job.cancelled) return; job.status = 'failed'; job.error = error instanceof TypeError ? '无法连接本机 ComfyUI。请确认服务地址与运行状态。' : error instanceof Error ? error.message : String(error); job.message = '生成失败'; }
   finally { await job.cancelPromise; const queue = queueType(job); if (activeJobs[queue] === job.id) activeJobs[queue] = null; queueMicrotask(() => startNext(queue)); }
 }
 export function createMediaJob(settings, input) {
-  if (!['image', 'video'].includes(input.kind) || typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 8000) throw new Error('媒体生成请求无效。');
+  if (!['image', 'video', 'audio'].includes(input.kind) || typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 8000) throw new Error('媒体生成请求无效。');
+  if (input.kind === 'audio' && (typeof input.lyrics !== 'string' || !input.lyrics.trim() || input.lyrics.length > 8000 || !Number.isFinite(input.duration) || input.duration < 1 || input.duration > 60 || !settings.comfy.audio.workflowJson)) throw new Error('文生音频需要有效的歌词、1–60 秒时长和已配置的工作流。');
   if (input.negativePrompt !== undefined && (input.kind !== 'image' || typeof input.negativePrompt !== 'string' || input.negativePrompt.length > 8000)) throw new Error('图片反向提示词无效。');
   safeId(input.projectId);
   const provider = input.kind === 'image' ? (input.provider || settings.imageProvider || 'qwen') : 'minimax';
@@ -335,7 +373,7 @@ export function createMediaJob(settings, input) {
   if (input.kind === 'image' && !['qwen', 'gpt', 'chatgpt'].includes(provider)) throw new Error('生图方式无效。');
   if (input.kind === 'image' && input.imageMode !== undefined && !['edit', 'compose'].includes(input.imageMode)) throw new Error('生图模式无效。');
   const imageMode = input.kind === 'image' ? (input.imageMode || 'edit') : undefined;
-  const sources = input.sources ?? (input.source ? [input.source] : []);
+  const sources = input.kind === 'audio' ? [] : input.sources ?? (input.source ? [input.source] : []);
   if (!Array.isArray(sources) || sources.length > 8 || sources.some(source => typeof source !== 'string' || !validImageSource(source))) throw new Error(input.kind === 'video' ? '参考图无效，视频最多选择 8 张 PNG、JPEG 或 WebP 图片。' : '参考图无效，最多选择 8 张 PNG、JPEG 或 WebP 图片。');
   if (input.kind === 'image' && provider === 'qwen' && sources.length > 1 && input.source !== sources[0]) throw new Error('多张参考图必须按提示词引用顺序提交。');
   if (input.kind === 'video' && (!input.source || !Number.isFinite(input.duration) || input.duration < 1 || input.duration > 15)) throw new Error('MiniMax H3 需要首帧图片，时长须在 1–15 秒之间。');
@@ -344,14 +382,14 @@ export function createMediaJob(settings, input) {
   if (input.kind === 'video' && input.videoWorkflow === 'firstLast' && (sources.length !== 2 || sources[0] !== input.source || !settings.comfy.videoFirstLast.workflowJson || !settings.comfy.videoFirstLast.lastFrameNodeId)) throw new Error('MiniMax H3 首尾帧工作流需要已配置的工作流和两张首尾帧图片。');
   if (input.kind === 'video' && !input.videoWorkflow && (sources[0] !== input.source || (sources.length > 1 && (isReferenceToVideo ? sources.length > 8 : !Array.isArray(input.cutPoints) || input.cutPoints.length !== sources.length || input.cutPoints[0] !== 0 || input.cutPoints.some((time, index) => !Number.isFinite(time) || time < 0 || time >= input.duration || (index > 0 && time <= input.cutPoints[index - 1])) || (settings.comfy.video.referenceSlots?.length || 0) < sources.length - 1)))) throw new Error(isReferenceToVideo ? 'MiniMax H3 R2V 每段最多提交 8 张分镜参考图。' : '多图视频需要完整的图片节点映射和严格递增的切点。');
   if (input.ratio !== undefined && !imageRatios.has(input.ratio)) throw new Error('项目画面比例无效。');
-  if (provider === 'qwen' || input.kind === 'video') {
-    const reference = input.kind === 'image' ? sources[0] : input.source;
+  if (provider === 'qwen' || input.kind === 'video' || input.kind === 'audio') {
+    const reference = input.kind === 'image' ? sources[0] : input.kind === 'video' ? input.source : undefined;
     const workflowKind = input.kind === 'image' && reference && (imageMode === 'compose' || !settings.comfy.image.referenceNodeId) ? 'imageEdit' : input.kind;
     const extraSources = (input.kind === 'image' || input.kind === 'video') ? sources.slice(1) : [];
     const workflowConfig = input.kind === 'video' && input.videoWorkflow === 'firstLast' ? settings.comfy.videoFirstLast : settings.comfy[workflowKind];
     buildMediaWorkflow(workflowConfig, workflowKind, { ...input, imageMode }, reference ? '__reference__' : undefined, extraSources.map((_, index) => `__reference_${index + 2}__`));
   }
-  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, videoWorkflow: input.videoWorkflow, imageMode, prompt: input.prompt.trim(), negativePrompt: typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '', duration: input.duration, videoResolution: input.videoResolution, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
+  const job = { id: randomUUID(), projectId: input.projectId, kind: input.kind, provider, videoWorkflow: input.videoWorkflow, imageMode, prompt: input.prompt.trim(), lyrics: input.kind === 'audio' ? input.lyrics.trim() : undefined, negativePrompt: typeof input.negativePrompt === 'string' ? input.negativePrompt.trim() : '', duration: input.duration, videoResolution: input.videoResolution, ratio: input.ratio || '16:9', source: input.source, sources, cutPoints: input.cutPoints, status: 'queued', message: '等待执行…', config: structuredClone(settings), controller: new AbortController() };
   jobs.set(job.id, job); const queue = queueType(job); pending[queue].push(job.id); queueMicrotask(() => startNext(queue));
   return publicJob(job);
 }
@@ -444,7 +482,7 @@ export async function removeProjectMedia(projectId) {
   await rm(target, { recursive: true, force: true });
 }
 export async function removeMediaUrl(url) {
-  const match = typeof url === 'string' && url.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(?:png|jpg|jpeg|webp|mp4|webm|mov))$/);
+  const match = typeof url === 'string' && url.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(?:png|jpg|jpeg|webp|mp4|webm|mov|mp3|wav|flac|ogg))$/);
   if (!match) throw new Error('只能删除本应用保存的媒体文件。');
   await rm(filePath(match[1], match[2]), { force: true });
 }

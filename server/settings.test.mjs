@@ -31,10 +31,24 @@ test('默认 MiniMax H3 工作流使用 R2V 并映射提示词、首图、时长
   const graph = JSON.parse(video.workflowJson);
   assert.ok(Object.values(graph).some(node => node.class_type === 'MiniMaxH3ReferenceToVideo'));
   assert.deepEqual([video.promptNodeId, video.promptInput], ['138', 'value']);
-  assert.deepEqual([video.referenceNodeId, video.referenceInput], ['137', 'image']);
-  assert.deepEqual([video.durationNodeId, video.durationInput], ['136', 'length']);
+  assert.deepEqual([video.referenceNodeId, video.referenceInput], ['164', 'image']);
+  assert.deepEqual([video.durationNodeId, video.durationInput], ['132', 'value']);
   assert.deepEqual([video.seedNodeId, video.seedInput], ['129', 'noise_seed']);
   assert.deepEqual(video.referenceSlots, []);
+  assert.equal(Object.values(graph).some(node => node.class_type === 'MiniMaxH3AddGuide'), false);
+  assert.deepEqual(graph['126'].inputs.conditioning, ['136', 0]);
+  assert.doesNotThrow(() => normalizeSettings(defaultSettings()));
+});
+
+test('文生音频默认工作流映射歌词、音乐描述、时长和种子', () => {
+  const audio = defaultSettings().comfy.audio;
+  const graph = JSON.parse(audio.workflowJson);
+  assert.equal(graph['37:13'].inputs.caption, '');
+  assert.equal(graph['37:13'].inputs.lyrics, '');
+  assert.deepEqual([audio.promptNodeId, audio.promptInput], ['37:13', 'caption']);
+  assert.deepEqual([audio.lyricsNodeId, audio.lyricsInput], ['37:13', 'lyrics']);
+  assert.deepEqual([audio.durationNodeId, audio.durationInput], ['37:13', 'max_duration']);
+  assert.deepEqual([audio.seedNodeId, audio.seedInput], ['37:38', 'seed']);
   assert.doesNotThrow(() => normalizeSettings(defaultSettings()));
 });
 
@@ -46,7 +60,7 @@ test('工作流文件名随设置保存，并兼容没有文件名的旧设置',
   assert.equal(normalized.comfy.video.workflowFileName, 'custom-r2v.json');
   assert.equal(normalized.comfy.videoFirstLast.workflowFileName, 'custom-first-last.json');
   delete settings.comfy.video.workflowFileName;
-  assert.equal(normalizeSettings(settings).comfy.video.workflowFileName, '');
+  assert.equal(normalizeSettings(settings).comfy.video.workflowFileName, 'video_minimax_h3_multiframe_reference.json');
 });
 
 test('内置 MiniMax H3 首尾帧工作流作为逐镜默认配置，并迁移旧设置', () => {

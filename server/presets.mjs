@@ -22,12 +22,14 @@ const image = {
 
 const imageEdit = JSON.parse(await readFile(new URL('./workflows/image_qwen_image_2_1_image_edit.json', import.meta.url), 'utf8'));
 
-const video = JSON.parse(await readFile(new URL('./workflows/video_minimax_h3_r2v.json', import.meta.url), 'utf8'));
+const video = JSON.parse(await readFile(new URL('./workflows/video_minimax_h3_multiframe_reference.json', import.meta.url), 'utf8'));
 const videoFirstLast = JSON.parse(await readFile(new URL('./workflows/video_minimax_h3_first_last.json', import.meta.url), 'utf8'));
+const audio = JSON.parse(await readFile(new URL('./workflows/audio_minimax_music_3.json', import.meta.url), 'utf8'));
 
 export const PRESETS = {
   image: { workflowJson: JSON.stringify(image, null, 2), workflowFileName: '', promptNodeId: '5', promptInput: 'prompt', referenceNodeId: '', referenceInput: 'image', seedNodeId: '6', seedInput: 'seed', widthNodeId: '9', widthInput: 'width', heightNodeId: '9', heightInput: 'height', stepsNodeId: '6', stepsInput: 'steps', cfgNodeId: '6', cfgInput: 'cfg', width: 768, height: 432, steps: 25, cfg: 1, seed: -1 },
   imageEdit: { workflowJson: JSON.stringify(imageEdit, null, 2), workflowFileName: '', promptNodeId: '459:474', promptInput: 'prompt', referenceNodeId: '470', referenceInput: 'image', seedNodeId: '459:458', seedInput: 'seed', widthNodeId: '', widthInput: 'width', heightNodeId: '', heightInput: 'height', stepsNodeId: '459:458', stepsInput: 'steps', cfgNodeId: '459:458', cfgInput: 'cfg', width: 1376, height: 768, steps: 25, cfg: 1, seed: -1 },
-  video: { workflowJson: JSON.stringify(video, null, 2), workflowFileName: '', promptNodeId: '138', promptInput: 'value', referenceNodeId: '137', referenceInput: 'image', durationNodeId: '136', durationInput: 'length', seedNodeId: '129', seedInput: 'noise_seed', duration: 5, seed: -1, referenceSlots: [] },
+  video: { workflowJson: JSON.stringify(video, null, 2), workflowFileName: 'video_minimax_h3_multiframe_reference.json', promptNodeId: '138', promptInput: 'value', referenceNodeId: '164', referenceInput: 'image', durationNodeId: '132', durationInput: 'value', seedNodeId: '129', seedInput: 'noise_seed', duration: 5, seed: -1, referenceSlots: [] },
+  audio: { workflowJson: JSON.stringify(audio, null, 2), workflowFileName: 'audio_minimax_music_3.json', promptNodeId: '37:13', promptInput: 'caption', lyricsNodeId: '37:13', lyricsInput: 'lyrics', durationNodeId: '37:13', durationInput: 'max_duration', seedNodeId: '37:38', seedInput: 'seed', duration: 60, seed: -1 },
   videoFirstLast: { workflowJson: JSON.stringify(videoFirstLast, null, 2), workflowFileName: '', promptNodeId: '105:104', promptInput: 'prompt', referenceNodeId: '114', referenceInput: 'image', lastFrameNodeId: '127', lastFrameInput: 'image', durationNodeId: '105:104', durationInput: 'length', seedNodeId: '105:15', seedInput: 'noise_seed', duration: 5, seed: -1 }
 };

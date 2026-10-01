@@ -222,6 +222,46 @@ test('MiniMax H3 R2V 将所有分镜图写入动态参考图节点且不要求�
   assert.equal(single['1'].inputs['ref_images.ref_image_1'], undefined);
 });
 
+test('MiniMax H3 多参考工作流移除固定引导帧并保留提示图、时长和参考图注入', () => {
+  const config = { ...defaultSettings().comfy.video };
+  const raw = JSON.parse(config.workflowJson);
+  raw['126'].inputs.conditioning = ['169', 0];
+  raw['147'] = { class_type: 'MiniMaxH3AddGuide', inputs: { positive: ['136', 0], image: ['157', 0], frame_idx: ['153', 1], latent: ['136', 1] } };
+  raw['162'] = { class_type: 'MiniMaxH3AddGuide', inputs: { positive: ['147', 0], image: ['159', 0], frame_idx: ['161', 1], latent: ['136', 1] } };
+  raw['169'] = { class_type: 'MiniMaxH3AddGuide', inputs: { positive: ['162', 0], image: ['167', 0], frame_idx: ['170', 1], latent: ['136', 1] } };
+  raw['153'] = { class_type: 'ComfyMathExpression', inputs: { 'values.a': ['154', 0] } };
+  raw['154'] = { class_type: 'PrimitiveFloat', inputs: { value: 1.5 } };
+  raw['157'] = { class_type: 'LoadImage', inputs: { image: 'example1.png' } };
+  raw['159'] = { class_type: 'LoadImage', inputs: { image: 'example2.png' } };
+  raw['161'] = { class_type: 'ComfyMathExpression', inputs: { 'values.a': ['160', 0] } };
+  raw['160'] = { class_type: 'PrimitiveFloat', inputs: { value: 3 } };
+  raw['167'] = { class_type: 'LoadImage', inputs: { image: 'example3.png' } };
+  raw['170'] = { class_type: 'ComfyMathExpression', inputs: { 'values.a': ['168', 0] } };
+  raw['168'] = { class_type: 'PrimitiveFloat', inputs: { value: 5 } };
+  config.workflowJson = JSON.stringify(raw);
+  const graph = buildMediaWorkflow(config, 'video', { prompt: '按提交的参考顺序生成', duration: 5, ratio: '16:9', videoResolution: 480 }, 'first.png', ['second.png']);
+  assert.equal(Object.values(graph).some(node => node.class_type === 'MiniMaxH3AddGuide'), false);
+  for (const id of ['153', '154', '157', '159', '160', '161', '167', '168', '170']) assert.equal(graph[id], undefined);
+  assert.deepEqual(graph['126'].inputs.conditioning, ['136', 0]);
+  assert.equal(graph['138'].inputs.value, '按提交的参考顺序生成');
+  assert.deepEqual(graph['136'].inputs['ref_images.ref_image_0'], ['164', 0]);
+  assert.equal(graph['164'].inputs.image, 'first.png');
+  assert.equal(graph['136'].inputs['ref_images.ref_image_1'] && graph[graph['136'].inputs['ref_images.ref_image_1'][0]].inputs.image, 'second.png');
+  assert.equal(graph['132'].inputs.value, 5);
+  assert.equal(graph['136'].inputs.length[0], '131');
+  assert.equal(graph['129'].inputs.noise_seed >= 0, true);
+  assert.equal(graph['115'].inputs.megapixels, 480 ** 2 * (16 / 9) / 1_000_000);
+});
+
+test('ComfyUI 文生音频工作流注入音乐描述、台词、时长和随机种子', () => {
+  const config = defaultSettings().comfy.audio;
+  const graph = buildMediaWorkflow(config, 'audio', { prompt: '年轻女声，温柔克制，清晰口语', lyrics: '今晚的风很轻。\n我们继续向前。', duration: 18 });
+  assert.equal(graph['37:13'].inputs.caption, '年轻女声，温柔克制，清晰口语');
+  assert.equal(graph['37:13'].inputs.lyrics, '今晚的风很轻。\n我们继续向前。');
+  assert.equal(graph['37:13'].inputs.max_duration, 18);
+  assert.ok(graph['37:38'].inputs.seed >= 0);
+});
+
 test('生图参考图数量、格式和引用顺序校验', () => {
   const settings = defaultSettings(); settings.imageProvider = 'gpt';
   const base = { projectId: 'testmedia123', kind: 'image', prompt: '测试', provider: 'gpt' };
@@ -275,6 +315,26 @@ test('模拟 ComfyUI 完成图片和首帧视频任务并保存文件', async t 
   assert.equal((await readMedia(projectId, videoResult.result.url.split('/').pop())).toString(), 'mock-video');
   await discardMediaJobResult(startedVideo.id);
   await assert.rejects(readMedia(projectId, videoResult.result.url.split('/').pop()));
+});
+
+test('文生音频 ComfyUI 任务读取 MP3 输出并保存到项目媒体目录', async t => {
+  const audioBytes = Buffer.from('ID3-mock-audio');
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/prompt') { for await (const _ of req) { /* consume request */ } res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ prompt_id: 'mock-audio-task' })); return; }
+    if (url.pathname === '/history/mock-audio-task') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ 'mock-audio-task': { outputs: { '35': { audio: [{ filename: 'generated.mp3', subfolder: '', type: 'output' }] } } } })); return; }
+    if (url.pathname === '/view') { res.setHeader('content-type', 'audio/mpeg'); res.end(audioBytes); return; }
+    res.writeHead(404); res.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const settings = defaultSettings(); settings.comfy.baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const projectId = 'audiojob123'; t.after(async () => { await removeProjectMedia(projectId); });
+  const started = createMediaJob(settings, { projectId, kind: 'audio', prompt: '温柔的青年女声', lyrics: '今夜月色很好。', duration: 5 });
+  const result = await finished(started.id);
+  assert.equal(result.status, 'completed', result.error);
+  assert.equal(result.result.mime, 'audio/mpeg');
+  assert.deepEqual(await readMedia(projectId, result.result.url.split('/').pop()), audioBytes);
 });
 
 test('ComfyUI 生图和生视频共用队列并与其它途径区分，排位更新且取消后不保存结果', async t => {

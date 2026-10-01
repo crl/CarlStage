@@ -19,7 +19,7 @@ const DOC_PARTS: Record<string, string[]> = {
   outline: ['doc-outline', 'doc-cast', 'doc-art', 'artifacts', 'source'],
   script: ['doc-script', 'doc-outline', 'doc-cast', 'doc-art', 'artifacts', 'consultations'],
   cast: ['doc-cast', 'doc-outline', 'assets', 'artifacts'],
-  art: ['doc-art', 'doc-outline', 'doc-cast', 'assets', 'artifacts'],
+  art: ['doc-art', 'doc-outline', 'doc-cast', 'doc-script', 'doc-storyboard', 'assets', 'artifacts'],
   storyboard: ['doc-storyboard', 'doc-outline', 'doc-script', 'doc-cast', 'doc-art', 'assets', 'artifacts'],
   library: ['assets', 'references'],
   history: ['changes']
@@ -528,7 +528,7 @@ function ProjectPage({ project, tab, detail, go, saveDoc, updateProject, ensureP
       const result = await loadProjectParts(project.id, [`change:${id}`]);
       return result.changeDetails?.[id] || null;
     }} ensureProjectParts={ensureProjectParts}/>}
-    {tab === 'library' && <ProjectMaterialTabs project={project} onPrompts={() => ensureProjectParts(project.id, ['doc-cast', 'doc-art', 'doc-storyboard'])}><ProjectLibrary project={project} globalAssets={globalAssets} importAsset={importAsset} deleteAsset={deleteAsset} deleteReference={deleteReference} updateProject={updateProject} addProjectAsset={asset => updateProject(project.id, p => { p.assets.push(asset); return p; })} notify={notify} go={go}/></ProjectMaterialTabs>}
+    {tab === 'library' && <ProjectMaterialTabs project={project} onPrompts={() => ensureProjectParts(project.id, ['doc-cast', 'doc-art', 'doc-storyboard'])} updateProject={updateProject}><ProjectLibrary project={project} globalAssets={globalAssets} importAsset={importAsset} deleteAsset={deleteAsset} deleteReference={deleteReference} updateProject={updateProject} addProjectAsset={asset => updateProject(project.id, p => { p.assets.push(asset); return p; })} notify={notify} go={go}/></ProjectMaterialTabs>}
   </div></div>;
 }
 
@@ -775,9 +775,9 @@ function SegmentProduction({ project, episode, segment, save, openImage, go }: {
   const [imageJobs, setImageJobs] = useState<Record<string, MediaJob>>({});
   const imageJobsRef = useRef<Record<string, { id: string; job: MediaJob }>>({});
   useEffect(() => { getSettings().then(setSettings).catch(() => setSettings(null)); }, []);
-  const rawStoryboard = project.skillArtifacts?.storyboard?.raw as { episodes?: { ep?: number; segments?: { id?: string; cuts?: Record<string, unknown>[] }[] }[] } | undefined;
+  const rawStoryboard = project.skillArtifacts?.storyboard?.raw as { episodes?: { ep?: number; segments?: { id?: string; sceneIndex?: number; cuts?: Record<string, unknown>[] }[] }[] } | undefined;
+  const rawSegment = rawStoryboard?.episodes?.find(item => (Number(item.ep) || 1) === episode)?.segments?.find(item => item.id === segment);
   const shots = project.docs.storyboard.shots.filter(shot => (shot.episode || 1) === episode && (shot.segmentId || '未分段') === segment).map(shot => {
-    const rawSegment = rawStoryboard?.episodes?.find(item => (Number(item.ep) || 1) === episode)?.segments?.find(item => item.id === segment);
     const cutIndex = Number(shot.id.split('-').at(-1)) - 1;
     const rawCut = cutIndex >= 0 ? rawSegment?.cuts?.[cutIndex] : undefined;
     return {
@@ -849,7 +849,21 @@ function SegmentProduction({ project, episode, segment, save, openImage, go }: {
     const href = category === '角色' ? `/p/${project.id}/cast/${encodeURIComponent(item.id)}` : `/p/${project.id}/art/${category === '场景' ? 'scenes' : 'props'}/${encodeURIComponent(item.id)}`;
     segmentReferenceAssets.push({ id: item.id, name: item.name, category, href });
   };
-  shots.forEach(shot => {
+  if (rawSegment) {
+    const characterIds = [...new Set(rawSegment.cuts?.flatMap(cut => Array.isArray(cut.characters) ? cut.characters.filter((id): id is string => typeof id === 'string') : []) || [])];
+    const propIds = [...new Set(rawSegment.cuts?.flatMap(cut => Array.isArray(cut.props) ? cut.props.filter((id): id is string => typeof id === 'string') : []) || [])];
+    characterIds.forEach(id => { const item = project.docs.cast.find(character => character.id === id); if (item) addSegmentReference(item, '角色'); });
+    const sceneIndex = Number(rawSegment.sceneIndex);
+    const sceneId = Number.isInteger(sceneIndex) && sceneIndex > 0 ? project.docs.script.episodes[episode - 1]?.scenes?.[sceneIndex - 1]?.sceneId : undefined;
+    const scene = sceneId ? project.docs.art.scenes.find(item => item.id === sceneId) : undefined;
+    if (scene) addSegmentReference(scene, '场景');
+    propIds.forEach(id => {
+      const sceneAsset = project.docs.art.scenes.find(item => item.id === id);
+      const prop = project.docs.art.props.find(item => item.id === id);
+      if (sceneAsset) addSegmentReference(sceneAsset, '场景');
+      else if (prop) addSegmentReference(prop, '道具');
+    });
+  } else shots.forEach(shot => {
     (shot.characters || []).forEach(id => { const item = project.docs.cast.find(character => character.id === id); if (item) addSegmentReference(item, '角色'); });
     const scene = resolveShotScene(shot);
     if (scene) addSegmentReference(scene, '场景');

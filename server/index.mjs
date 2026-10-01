@@ -411,13 +411,13 @@ createServer(async (req, res) => {
       try { const { url: mediaUrl } = await body(req); await removeMediaUrl(mediaUrl); return send(res, 200, { ok: true }); }
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
-    const mediaFileMatch = url.pathname.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(?:png|jpg|jpeg|webp|mp4|webm|mov))$/);
+    const mediaFileMatch = url.pathname.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(?:png|jpg|jpeg|webp|mp4|webm|mov|mp3|wav|flac|ogg))$/);
     if (req.method === 'GET' && mediaFileMatch) {
       try {
         const path = mediaFilePath(mediaFileMatch[1], mediaFileMatch[2]);
         const info = await stat(path);
         const ext = mediaFileMatch[2].split('.').pop();
-        const mime = ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' })[ext];
+        const mime = ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', ogg: 'audio/ogg' })[ext];
         const range = req.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
         if (range) {
           const start = Number(range[1]); const end = range[2] ? Math.min(Number(range[2]), info.size - 1) : info.size - 1;

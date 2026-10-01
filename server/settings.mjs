@@ -7,8 +7,9 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 export const SETTINGS_FILE = join(process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs'), 'settings.json');
 const imageDefaults = { workflowJson: '', promptNodeId: '', promptInput: 'text', referenceNodeId: '', referenceInput: 'image', seedNodeId: '', seedInput: 'seed', widthNodeId: '', widthInput: 'width', heightNodeId: '', heightInput: 'height', stepsNodeId: '', stepsInput: 'steps', cfgNodeId: '', cfgInput: 'cfg', width: 1024, height: 1024, steps: 20, cfg: 7, seed: -1 };
 const videoDefaults = { workflowJson: '', promptNodeId: '', promptInput: 'text', referenceNodeId: '', referenceInput: 'image', durationNodeId: '', durationInput: 'duration', seedNodeId: '', seedInput: 'seed', duration: 5, seed: -1, referenceSlots: [] };
+const audioDefaults = { workflowJson: '', promptNodeId: '', promptInput: 'caption', lyricsNodeId: '', lyricsInput: 'lyrics', durationNodeId: '', durationInput: 'max_duration', seedNodeId: '', seedInput: 'seed', duration: 60, seed: -1 };
 const firstLastVideoDefaults = { ...videoDefaults, lastFrameNodeId: '', lastFrameInput: 'image', referenceSlots: undefined };
-export function defaultSettings() { return { showCreativeTemplates: true, codex: { provider: 'codex', executablePath: '', model: process.env.REELBENCH_CODEX_MODEL || 'gpt-5.5', ollamaModel: 'gemma4:latest', reasoningEffort: 'low', timeoutMinutes: 45 }, imageProvider: 'qwen', chatgptImage: { proxy: '', timeoutMinutes: 4 }, gptImage: { model: 'gpt-image-2.5-sunburst', quality: 'medium', apiKey: '' }, comfy: { baseUrl: 'http://127.0.0.1:8188', image: { ...PRESETS.image }, imageEdit: { ...PRESETS.imageEdit }, video: { ...PRESETS.video }, videoFirstLast: { ...PRESETS.videoFirstLast } } }; }
+export function defaultSettings() { return { showCreativeTemplates: true, codex: { provider: 'codex', executablePath: '', model: process.env.REELBENCH_CODEX_MODEL || 'gpt-5.5', ollamaModel: 'gemma4:latest', reasoningEffort: 'low', timeoutMinutes: 45 }, imageProvider: 'qwen', chatgptImage: { proxy: '', timeoutMinutes: 4 }, gptImage: { model: 'gpt-image-2.5-sunburst', quality: 'medium', apiKey: '' }, comfy: { baseUrl: 'http://127.0.0.1:8188', image: { ...PRESETS.image }, imageEdit: { ...PRESETS.imageEdit }, video: { ...PRESETS.video }, videoFirstLast: { ...PRESETS.videoFirstLast }, audio: { ...PRESETS.audio } } }; }
 export function publicSettings(settings) { return { ...settings, gptImage: { ...settings.gptImage, apiKey: undefined, hasApiKey: !!(settings.gptImage.apiKey || process.env.OPENAI_API_KEY) } }; }
 export function getPreset(kind) { if (!Object.hasOwn(PRESETS, kind)) throw new Error('未知工作流预设。'); return structuredClone(PRESETS[kind]); }
 
@@ -29,6 +30,22 @@ export function validateWorkflow(workflowJson, promptNodeId = '', promptInput = 
   if (!workflow || Array.isArray(workflow) || typeof workflow !== 'object' || !Object.keys(workflow).length || Object.values(workflow).some(node => !node || typeof node !== 'object' || typeof node.class_type !== 'string' || !node.inputs || typeof node.inputs !== 'object' || Array.isArray(node.inputs))) throw new Error('请导入 ComfyUI 的 API 格式工作流 JSON（节点需包含 class_type 和 inputs）。');
   if (promptNodeId) validateMapping(workflow, promptNodeId, promptInput, '提示词');
   return { nodeCount: Object.keys(workflow).length };
+}
+function normalizeAudioWorkflow(input) {
+  const workflowJson = String(input.workflowJson || '').trim();
+  if (workflowJson.length > 2_000_000) throw new Error('工作流 JSON 不得超过 2 MB。');
+  const result = { workflowJson, workflowFileName: String(input.workflowFileName || '').trim().slice(0, 255) };
+  for (const key of Object.keys(audioDefaults).filter(key => key.endsWith('NodeId') || key.endsWith('Input'))) result[key] = String(input[key] ?? audioDefaults[key]).trim();
+  if (workflowJson) {
+    const graph = JSON.parse(workflowJson);
+    validateWorkflow(workflowJson);
+    for (const [prefix, label] of [['prompt', '描述词'], ['lyrics', '歌词'], ['duration', '时长']]) {
+      if (!result[`${prefix}NodeId`]) throw new Error(`文生音频工作流需要${label}节点 ID。`);
+      validateMapping(graph, result[`${prefix}NodeId`], result[`${prefix}Input`], label);
+    }
+    if (result.seedNodeId) validateMapping(graph, result.seedNodeId, result.seedInput, '随机种子');
+  }
+  return { ...result, duration: numberInRange(input.duration, '音频时长', 1, 60), seed: numberInRange(input.seed, '随机种子', -1, Number.MAX_SAFE_INTEGER) };
 }
 const numberInRange = (value, name, min, max) => { const n = Number(value); if (!Number.isFinite(n) || n < min || n > max) throw new Error(`${name}应在 ${min}–${max} 之间。`); return n; };
 function normalizeWorkflow(input, defaults, kind) {
@@ -117,7 +134,7 @@ export function normalizeSettings(input) {
       if (bundledDefault || bundledLegacyEdit) Object.assign(workflow, PRESETS[kind]);
     } catch { /* Custom workflows are validated and preserved below. */ }
   }
-  return { showCreativeTemplates: typeof input.showCreativeTemplates === 'boolean' ? input.showCreativeTemplates : defaults.showCreativeTemplates, codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, chatgptImage, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video'), videoFirstLast } };
+  return { showCreativeTemplates: typeof input.showCreativeTemplates === 'boolean' ? input.showCreativeTemplates : defaults.showCreativeTemplates, codex: { provider: codex.provider, executablePath, model, ollamaModel, reasoningEffort: codex.reasoningEffort, timeoutMinutes: numberInRange(codex.timeoutMinutes, '任务超时分钟数', 1, 180) }, imageProvider: provider, chatgptImage, gptImage: { model: gpt.model, quality: gpt.quality, apiKey: gpt.apiKey }, comfy: { baseUrl: validateComfyUrl(comfy.baseUrl || defaults.comfy.baseUrl), image, imageEdit, video: normalizeWorkflow({ ...PRESETS.video, ...comfy.video }, videoDefaults, 'video'), videoFirstLast, audio: normalizeAudioWorkflow({ ...PRESETS.audio, ...comfy.audio }) } };
 }
 export async function loadSettings() { try { return normalizeSettings(JSON.parse(await readFile(SETTINGS_FILE, 'utf8'))); } catch (error) { if (error?.code === 'ENOENT') return defaultSettings(); throw error; } }
 export async function saveSettings(value) { const normalized = normalizeSettings(value); await mkdir(dirname(SETTINGS_FILE), { recursive: true }); await writeFile(SETTINGS_FILE, JSON.stringify(normalized, null, 2), { encoding: 'utf8', mode: 0o600 }); return normalized; }
