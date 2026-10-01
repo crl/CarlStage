@@ -23,7 +23,7 @@ try { await copyFile(license, join(runtime, 'NODE-LICENSE')); } catch {}
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 if (!pkg.dependencies?.['@openai/codex-sdk']) throw new Error('缺少 Codex SDK 依赖');
 await new Promise((resolve, reject) => {
-  const command = spawn(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['ci', '--omit=dev', '--omit=optional', '--ignore-scripts'], { cwd: runtime, stdio: 'inherit', shell: process.platform === 'win32', windowsHide: true });
+  const command = spawn(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['ci', '--omit=dev', '--ignore-scripts'], { cwd: runtime, stdio: 'inherit', shell: process.platform === 'win32', windowsHide: true });
   command.on('error', reject);
   command.on('exit', code => code === 0 ? resolve() : reject(new Error('桌面运行环境依赖安装失败')));
 });

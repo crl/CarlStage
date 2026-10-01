@@ -1,6 +1,6 @@
 [package]
 name = "carlstage"
-version = "1.0.0"
+version = "1.0.1"
 description = "CarlStage 本地创作工作台"
 edition = "2021"
 
