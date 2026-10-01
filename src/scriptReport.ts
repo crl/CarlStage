@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Character } from './model';
 
-export type ScriptDialogueLine = { reference: string; episode: number; sceneIndex: number; sceneId?: string; text: string; delivery: string };
+export type ScriptDialogueLine = { reference: string; episode: number; sceneIndex: number; sceneId?: string; text: string; delivery: string; seconds: number };
 export type ScriptDialogueGroup = { id: string; name: string; metadata: string; voicePrompt?: string; copyAll: string; lines: ScriptDialogueLine[] };
 export type ScriptDialogueReport = { status: 'loading' } | { status: 'error' } | { status: 'ready'; groups: ScriptDialogueGroup[] };
 
@@ -30,6 +30,7 @@ export function buildScriptDialogueGroups(script: unknown, outline: unknown, cas
     const prompt = isRecord(character.voice) ? asString(character.voice.prompt) : '';
     if (name && prompt) voicePrompts.set(name, prompt);
   }
+  const charsPerSecond = isRecord(script.params) && typeof script.params.charsPerSecond === 'number' && script.params.charsPerSecond > 0 ? script.params.charsPerSecond : 4.5;
   const groups = new Map<string, ScriptDialogueGroup>();
   for (const [episodeIndex, episode] of script.episodes.entries()) {
     if (!isRecord(episode) || !Array.isArray(episode.scenes)) continue;
@@ -42,12 +43,13 @@ export function buildScriptDialogueGroups(script: unknown, outline: unknown, cas
         const id = asString(beat.speaker) || '未知';
         const name = id === 'VO' ? '画外音' : characterNames.get(id) || id;
         const group = groups.get(id) || { id, name, metadata: '', voicePrompt: voicePrompts.get(name), copyAll: '', lines: [] };
-        group.lines.push({ reference: `${episodeLabel} 第 ${sceneIndex + 1} 场`, episode: rawEpisode, sceneIndex: sceneIndex + 1, sceneId: asString(scene.sceneId) || undefined, text: asString(beat.line), delivery: asString(beat.delivery) });
+        const text = asString(beat.line);
+        const seconds = typeof beat.seconds === 'number' && Number.isFinite(beat.seconds) && beat.seconds > 0 ? beat.seconds : Math.max(0.1, [...text.replace(/\s/g, '')].length / charsPerSecond);
+        group.lines.push({ reference: `${episodeLabel} 第 ${sceneIndex + 1} 场`, episode: rawEpisode, sceneIndex: sceneIndex + 1, sceneId: asString(scene.sceneId) || undefined, text, delivery: asString(beat.delivery), seconds });
         groups.set(id, group);
       }
     }
   }
-  const charsPerSecond = isRecord(script.params) && typeof script.params.charsPerSecond === 'number' && script.params.charsPerSecond > 0 ? script.params.charsPerSecond : 4.5;
   return [...groups.values()].map(group => {
     const charCount = group.lines.reduce((total, line) => total + [...line.text.replace(/\s/g, '')].length, 0);
     const duration = (charCount / charsPerSecond).toFixed(1);

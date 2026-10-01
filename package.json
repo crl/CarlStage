@@ -7,7 +7,7 @@
     "dev": "node scripts/dev.mjs",
     "server": "node server/index.mjs",
     "chatgpt:prepare": "node scripts/prepare-chatgpt-runtime.mjs",
-    "test": "node --test server/chatgpt-service.test.mjs server/chatgpt-image.test.mjs server/map.test.mjs server/settings.test.mjs server/media.test.mjs server/gpt-image.test.mjs server/upload.test.mjs server/store.test.mjs server/file-store.test.mjs server/codex-path.test.mjs server/web-codex.test.mjs server/ollama.test.mjs",
+    "test": "node --test server/chatgpt-service.test.mjs server/chatgpt-image.test.mjs server/map.test.mjs server/settings.test.mjs server/media.test.mjs server/gpt-image.test.mjs server/upload.test.mjs server/store.test.mjs server/file-store.test.mjs server/codex-path.test.mjs server/web-codex.test.mjs server/ollama.test.mjs server/project-backup.test.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "desktop:prepare": "npm run build && node scripts/prepare-desktop.mjs",
@@ -21,7 +21,9 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "sharp": "^0.35.4",
-    "undici": "^6.22.0"
+    "undici": "^6.22.0",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.5",

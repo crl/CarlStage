@@ -52,6 +52,24 @@ export const uploadProjectImportFile = async (projectId: string, importId: strin
   if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || `导入文件失败（${response.status}）。`); }
 };
 export const finishProjectImport = (projectId: string, importId: string) => request<{ docs: Project['docs']; skillArtifacts: Project['skillArtifacts']; sourceText?: string; sourceName?: string }>(`/projects/${projectId}/proj/import/${importId}/finish`, { method: 'POST' });
+export type ProjectRestoreInfo = { restoreId: string; projectId: string; projectName: string; targetName: string; createdAt: number };
+export const prepareProjectRestore = async (projectId: string, file: File): Promise<ProjectRestoreInfo> => {
+  let response: Response;
+  try { response = await fetch(`/api/projects/${projectId}/backup/restore/prepare`, { method: 'POST', headers: { 'content-type': 'application/zip' }, body: file, signal: AbortSignal.timeout(15 * 60_000) }); }
+  catch { throw new Error('无法上传备份，请检查本机服务后重试。'); }
+  const result = await response.json().catch(() => null) as ProjectRestoreInfo & { error?: string } | null;
+  if (!response.ok) throw new Error(result?.error || `备份校验失败（${response.status}）。`);
+  if (!result) throw new Error('备份校验没有返回有效结果。');
+  return result;
+};
+export const commitProjectRestore = (projectId: string, restoreId: string) => request<{ ok: boolean; projectId: string; projectName: string }>(`/projects/${projectId}/backup/restore/${restoreId}/commit`, { method: 'POST' });
+export const cancelProjectRestore = (projectId: string, restoreId: string) => request<{ ok: boolean }>(`/projects/${projectId}/backup/restore/${restoreId}/cancel`, { method: 'POST' });
+export function downloadProjectBackup(projectId: string, filename: string) {
+  const anchor = document.createElement('a');
+  anchor.href = `/api/projects/${projectId}/backup?filename=${encodeURIComponent(filename)}`;
+  anchor.download = filename;
+  anchor.click();
+}
 export const consult = (project: Project, mode: 'talk' | 'edit', message: string) => request<{ reply: string; scene?: Project['docs']['script']['episodes'][number]['scenes'][number] }>('/consult', { method: 'POST', body: JSON.stringify({ project, mode, message }) });
 
 export type Settings = {

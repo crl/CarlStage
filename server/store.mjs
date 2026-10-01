@@ -10,6 +10,7 @@ const empty = () => ({ projects: [], library: [] });
 const DELETION_FIELDS = ['deletedProjectIds', 'deletedAssetIds', 'deletedImages', 'deletedReferenceKeys', 'deletedChangeIds', 'deletedConsultationIds'];
 const DOC_KEYS = ['outline', 'script', 'cast', 'art', 'storyboard'];
 let pending = Promise.resolve();
+export async function waitForStoreWrites() { await pending; }
 
 function imageKey(source) {
   let a = 2166136261, b = 0x9e3779b9;
@@ -360,6 +361,36 @@ export function saveStoreIndex(incoming) {
     await writeJsonAtomic(FILE, next);
     return next;
   });
+  pending = operation.catch(() => {});
+  return operation;
+}
+export function restoreProjectTombstones(id, tombstones = {}) {
+  const operation = pending.then(async () => {
+    const previous = await readIndex();
+    const project = await readFullProject(id);
+    if (!project) throw new Error('待还原的项目数据不存在。');
+    const assetIds = new Set((project.assets || []).map(item => item.id));
+    const changeIds = new Set((project.changes || []).map(item => item.id));
+    const consultationIds = new Set((project.consultations || []).map(item => item.id));
+    const referenceKeys = new Set((project.referenceImages || []).map(source => `${id}:${imageKey(source)}`));
+    const keepKnown = (values, allowed) => (Array.isArray(values) ? values : []).filter(value => allowed.has(value));
+    const next = {
+      ...previous,
+      projectIds: [...new Set([...(previous.projectIds || []), id])],
+      deletedProjectIds: (previous.deletedProjectIds || []).filter(value => value !== id),
+      deletedAssetIds: [...new Set([...(previous.deletedAssetIds || []).filter(value => !assetIds.has(value)), ...keepKnown(tombstones.assets, assetIds)])],
+      deletedChangeIds: [...new Set([...(previous.deletedChangeIds || []).filter(value => !changeIds.has(value)), ...keepKnown(tombstones.changes, changeIds)])],
+      deletedConsultationIds: [...new Set([...(previous.deletedConsultationIds || []).filter(value => !consultationIds.has(value)), ...keepKnown(tombstones.consultations, consultationIds)])],
+      deletedReferenceKeys: [...new Set([...(previous.deletedReferenceKeys || []).filter(value => !referenceKeys.has(value)), ...keepKnown(tombstones.references, referenceKeys)])]
+    };
+    await writeJsonAtomic(FILE, next);
+    return previous;
+  });
+  pending = operation.catch(() => {});
+  return operation;
+}
+export function rollbackStoreIndex(snapshot) {
+  const operation = pending.then(() => writeJsonAtomic(FILE, snapshot));
   pending = operation.catch(() => {});
   return operation;
 }

@@ -394,6 +394,7 @@ export function createMediaJob(settings, input) {
   return publicJob(job);
 }
 export function getMediaJob(id) { const job = jobs.get(id); return job ? publicJob(job) : null; }
+export function hasActiveProjectMediaJobs(projectId) { return [...jobs.values()].some(job => job.projectId === projectId && ['queued', 'running'].includes(job.status)); }
 export async function cancelMediaJob(id, message = '任务已取消。') {
   const job = jobs.get(id);
   if (!job) throw new Error('媒体任务不存在或服务已重启。');

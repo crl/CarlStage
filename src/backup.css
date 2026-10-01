@@ -1,0 +1,9 @@
+.overview-backup-actions{position:fixed;right:32px;bottom:24px;z-index:35;display:flex;justify-content:flex-end;align-items:center;gap:9px;margin:0}
+.overview-backup-actions [role="alert"],.backup-restore-error{color:#eb8c80;font-size:12px;white-space:normal}
+.backup-file-input{display:none}
+.backup-file-picker{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;margin-top:12px}
+.backup-restore-status{padding:18px 14px;border:1px solid #393d36;border-radius:9px;background:#171a17;color:#d9c08f;font-size:13px}
+.backup-restore-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0;padding:14px;border:1px solid #393d36;border-radius:10px;background:#171a17}
+.backup-restore-summary div{min-width:0}.backup-restore-summary span,.backup-restore-summary strong{display:block;overflow-wrap:anywhere}.backup-restore-summary span{font-size:11px;color:#a79570;margin-bottom:5px}.backup-restore-summary strong{font-size:13px;font-weight:500}
+.backup-restore-warning{color:#efb0a8!important}
+@media(max-width:760px){.overview-backup-actions{right:16px;bottom:16px;flex-wrap:wrap}.backup-restore-summary{grid-template-columns:1fr}}

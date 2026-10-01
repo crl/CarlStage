@@ -12,9 +12,10 @@ import { singleEpisodeOutlineWarning } from './quality.mjs';
 import { ensureChatgptService, stopChatgptService } from './chatgpt-service.mjs';
 import { manageChatgptBrowser } from './chatgpt-image.mjs';
 import { loadSettings, normalizeSettings, saveSettings, publicSettings, getPreset, checkComfyWorkflow, testComfyConnection, validateWorkflow } from './settings.mjs';
-import { createMediaJob, getMediaJob, cancelMediaJob, mediaFilePath, copyMediaToLibrary, uploadLibraryMedia, discardMediaJobResult, cancelProjectMediaJobs, removeProjectMedia, removeMediaUrl } from './media.mjs';
+import { createMediaJob, getMediaJob, cancelMediaJob, mediaFilePath, copyMediaToLibrary, uploadLibraryMedia, discardMediaJobResult, cancelProjectMediaJobs, removeProjectMedia, removeMediaUrl, hasActiveProjectMediaJobs } from './media.mjs';
 import { resolveCodexPath } from './codex-path.mjs';
 import { readStore, saveStore, saveStoreIndex, storeRevision, readStoreSummary, readProjectParts, saveProjectMutation, createProject } from './store.mjs';
+import { writeProjectBackup, prepareProjectRestore, commitProjectRestore, cancelProjectRestore } from './project-backup.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RUNS = process.env.REELBENCH_DATA_DIR || join(ROOT, '.local-runs');
@@ -25,6 +26,7 @@ const SKILLS = { outline: 'novel-outline', cast: 'novel-characters', art: 'novel
 const NAMES = { outline: 'outline', cast: 'cast', art: 'art', script: 'script', storyboard: 'storyboard' };
 const jobs = new Map();
 const activeProjects = new Set();
+const restoringProjects = new Set();
 const codexFor = config => new Codex({ codexPathOverride: resolveCodexPath(config) });
 let settings = await loadSettings();
 void ensureChatgptService(settings.chatgptImage).catch(() => {});
@@ -253,16 +255,53 @@ async function consult(project, mode, message) {
   return JSON.parse(output);
 }
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://127.0.0.1');
     if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { ok: true, skillVersion: VERSION });
     if (req.method === 'GET' && url.pathname === '/api/store') return send(res, 200, await readStore());
     if (req.method === 'GET' && url.pathname === '/api/store/summary') return send(res, 200, await readStoreSummary());
     if (req.method === 'GET' && url.pathname === '/api/store/revision') return send(res, 200, { revision: await storeRevision() });
-    if (req.method === 'PUT' && url.pathname === '/api/store/index') return send(res, 200, await saveStoreIndex(await body(req, 25 * 1024 * 1024)));
-    if (req.method === 'POST' && url.pathname === '/api/projects') return send(res, 201, { revisions: await createProject(await body(req, 50 * 1024 * 1024)) });
-    if (req.method === 'PUT' && url.pathname === '/api/store') return send(res, 200, await saveStore(await body(req, 200 * 1024 * 1024)));
+    if (req.method === 'PUT' && url.pathname === '/api/store/index') {
+      if (restoringProjects.size) return send(res, 409, { error: '项目正在还原，请稍后重试。' });
+      return send(res, 200, await saveStoreIndex(await body(req, 25 * 1024 * 1024)));
+    }
+    if (req.method === 'POST' && url.pathname === '/api/projects') {
+      const project = await body(req, 50 * 1024 * 1024);
+      if (restoringProjects.size) return send(res, 409, { error: '项目正在还原，请稍后重试。' });
+      return send(res, 201, { revisions: await createProject(project) });
+    }
+    if (req.method === 'PUT' && url.pathname === '/api/store') {
+      const incoming = await body(req, 200 * 1024 * 1024);
+      if (restoringProjects.size) return send(res, 409, { error: '项目正在还原，请稍后重试。' });
+      return send(res, 200, await saveStore(incoming));
+    }
+    const backupMatch = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/backup$/);
+    if (req.method === 'GET' && backupMatch) {
+      try { const requestedName = url.searchParams.get('filename') || 'project-backup.zip'; const filename = /^\d{4}-\d{2}-\d{2}\.zip$/.test(requestedName) ? requestedName : 'project-backup.zip'; await writeProjectBackup(backupMatch[1], res, filename); return; }
+      catch (error) { if (!res.headersSent) return send(res, 404, { error: error instanceof Error ? error.message : String(error) }); res.destroy(error); return; }
+    }
+    const backupRestoreMatch = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/backup\/restore\/(prepare|([a-f0-9-]{36})\/(commit|cancel))$/);
+    if (backupRestoreMatch) {
+      const id = backupRestoreMatch[1];
+      if (backupRestoreMatch[2] === 'prepare' && req.method === 'POST') {
+        try {
+          if (restoringProjects.has(id)) throw new Error('该项目正在还原。');
+          if (activeProjects.has(id) || hasActiveProjectMediaJobs(id)) throw new Error('该项目有正在运行的生成任务，请任务结束或取消后再还原。');
+          return send(res, 201, await prepareProjectRestore(id, req));
+        } catch (error) { return send(res, 400, { error: error instanceof Error ? error.message : String(error) }); }
+      }
+      const token = backupRestoreMatch[3], action = backupRestoreMatch[4];
+      if (req.method === 'POST' && action === 'cancel') return send(res, 200, await cancelProjectRestore(token));
+      if (req.method === 'POST' && action === 'commit') {
+        if (restoringProjects.has(id)) return send(res, 409, { error: '该项目正在还原。' });
+        if (activeProjects.has(id) || hasActiveProjectMediaJobs(id)) return send(res, 409, { error: '该项目有正在运行的生成任务，请任务结束或取消后再还原。' });
+        restoringProjects.add(id);
+        try { return send(res, 200, await commitProjectRestore(id, token)); }
+        catch (error) { return send(res, 400, { error: error instanceof Error ? error.message : String(error) }); }
+        finally { restoringProjects.delete(id); }
+      }
+    }
     const projectParts = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/parts$/);
     if (req.method === 'GET' && projectParts) {
       try { const parts = (url.searchParams.get('parts') || '').split(',').filter(Boolean); const result = await readProjectParts(projectParts[1], parts); return result ? send(res, 200, result) : send(res, 404, { error: '项目不存在。' }); }
@@ -270,11 +309,12 @@ createServer(async (req, res) => {
     }
     const projectMutation = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/mutation$/);
     if (req.method === 'PUT' && projectMutation) {
-      try { const result = await saveProjectMutation(projectMutation[1], await body(req, 50 * 1024 * 1024)); return send(res, result.conflict ? 409 : 200, result); }
+      try { const input = await body(req, 50 * 1024 * 1024); if (restoringProjects.has(projectMutation[1])) return send(res, 409, { error: '项目正在还原，请稍后重试。' }); const result = await saveProjectMutation(projectMutation[1], input); return send(res, result.conflict ? 409 : 200, result); }
       catch (error) { return send(res, 400, { error: error instanceof Error ? error.message : String(error) }); }
     }
     const projStart = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})\/proj\/import\/start$/);
     if (req.method === 'POST' && projStart) {
+      if (restoringProjects.has(projStart[1])) return send(res, 409, { error: '项目正在还原，请稍后重试。' });
       const importId = randomUUID();
       await mkdir(join(projectPath(projStart[1]), `.proj-import-${importId}`), { recursive: true });
       return send(res, 201, { importId });
@@ -300,7 +340,7 @@ createServer(async (req, res) => {
       const id = projFinish[1];
       const root = join(projectPath(id), `.proj-import-${projFinish[2]}`);
       try {
-        if (activeProjects.has(id)) throw new Error('该项目有正在运行的生成任务，请任务结束或取消后再导入。');
+        if (restoringProjects.has(id) || activeProjects.has(id)) throw new Error('该项目有正在运行的导入或生成任务，请任务结束或取消后再还原。');
         const index = join(root, 'index.html');
         if (!existsSync(index)) throw new Error('选择的目录中没有根目录 index.html。');
         const candidates = { outline: ['outline.json'], cast: ['cast.json', 'characters.json'], art: ['art.json'], script: ['script.json'], storyboard: ['storyboard.json'] };
@@ -391,7 +431,7 @@ createServer(async (req, res) => {
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
     if (req.method === 'POST' && url.pathname === '/api/media/jobs') {
-      try { return send(res, 202, createMediaJob(settings, await body(req))); }
+      try { const input = await body(req); if (restoringProjects.has(input.projectId)) return send(res, 409, { error: '项目正在还原，请稍后重试。' }); return send(res, 202, createMediaJob(settings, input)); }
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
     const mediaJobMatch = url.pathname.match(/^\/api\/media\/jobs\/([a-f0-9-]{36})$/);
@@ -408,7 +448,7 @@ createServer(async (req, res) => {
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
     if (req.method === 'POST' && url.pathname === '/api/media/delete') {
-      try { const { url: mediaUrl } = await body(req); await removeMediaUrl(mediaUrl); return send(res, 200, { ok: true }); }
+      try { const { url: mediaUrl } = await body(req); const owner = typeof mediaUrl === 'string' ? mediaUrl.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\//)?.[1] : undefined; if (owner && restoringProjects.has(owner)) return send(res, 409, { error: '项目正在还原，请稍后重试。' }); await removeMediaUrl(mediaUrl); return send(res, 200, { ok: true }); }
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
     }
     const mediaFileMatch = url.pathname.match(/^\/api\/media\/([a-zA-Z0-9_-]{3,80})\/([a-f0-9-]{36}\.(?:png|jpg|jpeg|webp|mp4|webm|mov|mp3|wav|flac|ogg))$/);
@@ -433,6 +473,7 @@ createServer(async (req, res) => {
       const { project, section } = await body(req);
       if (!project || !SKILLS[section] || typeof project.id !== 'string') return send(res, 400, { error: '生成请求无效。' });
       projectPath(project.id);
+      if (restoringProjects.has(project.id)) return send(res, 409, { error: '项目正在还原，请稍后重试。' });
       if (activeProjects.has(project.id)) return send(res, 409, { error: '该项目已有运行中的任务。' });
       if (['cast', 'art', 'script'].includes(section) && !project.skillArtifacts?.outline?.raw) return send(res, 400, { error: '请先用 Codex 生成并确认大纲，再生成此阶段。' });
       if (section === 'storyboard' && !project.skillArtifacts?.script?.raw) return send(res, 400, { error: '请先用 Codex 生成并确认剧本，再生成分镜。' });
@@ -455,6 +496,7 @@ createServer(async (req, res) => {
     const projectMatch = url.pathname.match(/^\/api\/projects\/([a-zA-Z0-9_-]{3,80})$/);
     if (req.method === 'DELETE' && projectMatch) {
       const id = projectMatch[1];
+      if (restoringProjects.has(id)) return send(res, 409, { error: '项目正在还原，请稍后重试。' });
       for (const job of jobs.values()) if (job.project.id === id) { job.controller.abort(); jobs.delete(job.id); }
       activeProjects.delete(id);
       await cancelProjectMediaJobs(id);
@@ -475,4 +517,6 @@ createServer(async (req, res) => {
     }
     send(res, 404, { error: '接口不存在。' });
   } catch (e) { send(res, 500, { error: e instanceof Error ? e.message : String(e) }); }
-}).listen(Number(process.env.REELBENCH_PORT || 8787), '127.0.0.1', () => console.log('Codex 本机服务：http://127.0.0.1:' + (process.env.REELBENCH_PORT || 8787)));
+});
+server.requestTimeout = 30 * 60 * 1000;
+server.listen(Number(process.env.REELBENCH_PORT || 8787), '127.0.0.1', () => console.log('Codex 本机服务：http://127.0.0.1:' + (process.env.REELBENCH_PORT || 8787)));

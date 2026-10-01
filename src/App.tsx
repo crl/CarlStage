@@ -2,13 +2,14 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { clone, IMAGE_RATIOS, makeDocs, makeProject, sectionLabel, uid } from './model';
 import type { ArtAsset, Asset, AssetType, Character, Consultation, DocKey, ImageRatio, Outline, Project, ProjectSummary, Shot, Store } from './model';
 import { listenForUpdates, loadProjectParts, loadStoreSummary, saveProjectMutation, createProject as persistProject, saveStoreIndex } from './db';
-import { consult, continueJob, createJob, createMediaJob, getMediaJob, cancelMediaJob, discardMediaJob, copyMediaToLibrary, uploadLibraryMedia, deleteMedia, getSettings, getJob, removeProjectRuns, startProjectImport, uploadProjectImportFile, finishProjectImport } from './codex';
+import { consult, continueJob, createJob, createMediaJob, getMediaJob, cancelMediaJob, discardMediaJob, copyMediaToLibrary, uploadLibraryMedia, deleteMedia, getSettings, getJob, removeProjectRuns, startProjectImport, uploadProjectImportFile, finishProjectImport, downloadProjectBackup, prepareProjectRestore, commitProjectRestore, cancelProjectRestore } from './codex';
 import type { Job, MediaJob } from './codex';
 import SettingsPage from './SettingsPage';
 import { decodeImportedText } from './textImport';
 import { imageKey, ownedMediaUrl } from './mediaRefs';
 import { copyText } from './clipboard';
 import { CopyPromptIcon } from './CopyPromptIcon';
+import './backup.css';
 import { DeleteIcon } from './DeleteIcon';
 import { ProjectDetail, ProjectMaterialTabs, ProjectStoryboardSummary, ProjectSubnav } from './ProjectDetails';
 import { useScriptDialogueReport, voiceoverDialogueGroup } from './scriptReport';
@@ -561,6 +562,13 @@ function applyOutlineProjectSettings(project: Project, raw: unknown) {
 
 function Overview({ project, go, onStyleChange, onRegenerateAll, regenerateDisabled, onImportPackage }: { project: Project; go: (path: string) => void; onStyleChange: (style: string) => void; onRegenerateAll: () => void; regenerateDisabled: boolean; onImportPackage: (files: File[]) => void }) {
   const [confirmRegenerateAll, setConfirmRegenerateAll] = useState(false);
+  const [restoreStep, setRestoreStep] = useState<'select' | 'checking' | 'confirm' | 'restoring' | null>(null);
+  const [restoreFile, setRestoreFile] = useState<File>();
+  const [restoreInfo, setRestoreInfo] = useState<Awaited<ReturnType<typeof prepareProjectRestore>>>();
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupError, setBackupError] = useState('');
+  const restorePicker = useRef<HTMLInputElement>(null);
+  const restoreCancelled = useRef(false);
   const packagePicker = useRef<HTMLInputElement>(null);
   const stats = project.docStats || { outlineEpisodes: 0, outlineBeats: 0, cast: 0, scenes: 0, props: 0, scriptScenes: 0, scriptBeats: 0, shots: 0, segments: 0, storyboardEpisodes: 0 };
   const metrics = [
@@ -571,7 +579,29 @@ function Overview({ project, go, onStyleChange, onRegenerateAll, regenerateDisab
     { key: 'storyboard', number: '05', label: '分镜', caption: '怎么拍', summary: `${stats.segments} 段 · ${stats.shots} 个镜头` }
   ];
   const card = (m: typeof metrics[number]) => <button key={m.key} className="flow-stage" onClick={() => go(`/p/${project.id}/${m.key}`)}><span className="flow-stage-top"><small>{m.number}</small><strong>{m.label}</strong><em>{m.caption}</em></span><span className="flow-stage-summary">{m.summary}</span></button>;
-  return <><PageHeading stage="工作台 · 项目总览" title={project.name} subtitle="从大纲到分镜，五个阶段的文案与素材都在这里改。每一次改动都记在变更里，随时可以撤回。" actions={<><button className="btn" onClick={() => packagePicker.current?.click()}>{project.skillProjectImported ? '重新导入项目目录' : '导入 shuohao-skills 项目'}</button><input ref={packagePicker} type="file" multiple hidden onChange={event => { const files = Array.from(event.target.files || []); if (files.length) onImportPackage(files); event.target.value = ''; }} {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}/><button className="btn primary" disabled={regenerateDisabled} onClick={() => setConfirmRegenerateAll(true)}>{regenerateDisabled ? '正在逐步生成…' : '一键重新生成全部'}</button></>}/><div className="flow-diagram"><div className="flow-source">{project.kind === 'novel' ? '小说原文' : '创意原文'}<small>{project.sourceName || '素材来源'}</small></div><span className="flow-arrow">→</span>{card(metrics[0])}<span className="flow-arrow">→</span><div className="flow-cluster"><div className="flow-cluster-head">收敛层 · 三者同步迭代，无先后</div>{metrics.slice(1, 4).map(card)}<div className="flow-cluster-foot">人工过一遍 · 不满意就微调，重新生成</div></div><span className="flow-arrow">→</span>{card(metrics[4])}<span className="flow-arrow">→</span><div className="flow-source">批量生成<small>按镜出片</small></div></div><div className="overview-meta"><span>题材：{project.genre || '未设置'}</span><span>改编幅度：{project.adaptation}</span><span>画面比例：{project.ratio}</span><div className="overview-style"><span>统一画风</span><ImageStylePicker value={project.style} onChange={onStyleChange}/></div></div>{confirmRegenerateAll && <Modal title="确认重新生成全部" onClose={() => setConfirmRegenerateAll(false)}><p>将依次重新生成大纲、角色、剧本、美术和分镜。此流程会多次调用创作模型，可能消耗较多用量；已有内容会记录到变更历史。确认继续吗？</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmRegenerateAll(false)}>取消</button><button className="btn primary" onClick={() => { setConfirmRegenerateAll(false); onRegenerateAll(); }}>确认重新生成</button></div></Modal>}</>;
+  const closeRestore = () => {
+    restoreCancelled.current = true;
+    if (restoreInfo) void cancelProjectRestore(project.id, restoreInfo.restoreId).catch(() => {});
+    setRestoreStep(null); setRestoreInfo(undefined); setRestoreFile(undefined); setBackupError('');
+  };
+  const localDate = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.zip`; };
+  const beginRestoreCheck = async () => {
+    if (!restoreFile) { setBackupError('请选择项目备份 ZIP 文件。'); return; }
+    restoreCancelled.current = false; setBackupError(''); setRestoreStep('checking');
+    try {
+      const result = await prepareProjectRestore(project.id, restoreFile);
+      if (restoreCancelled.current) { await cancelProjectRestore(project.id, result.restoreId).catch(() => {}); return; }
+      setRestoreInfo(result); setRestoreStep('confirm');
+    } catch (error) { if (!restoreCancelled.current) { setBackupError((error as Error).message); setRestoreStep('select'); } }
+  };
+  const commitRestore = async () => {
+    if (!restoreInfo) return;
+    setBackupError(''); setRestoreStep('restoring');
+    try { await commitProjectRestore(project.id, restoreInfo.restoreId); window.location.reload(); }
+    catch (error) { setBackupError((error as Error).message); setRestoreStep('confirm'); }
+  };
+  const backupProject = () => { setBackupBusy(true); downloadProjectBackup(project.id, localDate()); window.setTimeout(() => setBackupBusy(false), 1200); };
+  return <><PageHeading stage="工作台 · 项目总览" title={project.name} subtitle="从大纲到分镜，五个阶段的文案与素材都在这里改。每一次改动都记在变更里，随时可以撤回。" actions={<><button className="btn" onClick={() => packagePicker.current?.click()}>{project.skillProjectImported ? '重新导入项目目录' : '导入 shuohao-skills 项目'}</button><input ref={packagePicker} type="file" multiple hidden onChange={event => { const files = Array.from(event.target.files || []); if (files.length) onImportPackage(files); event.target.value = ''; }} {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}/><button className="btn primary" disabled={regenerateDisabled} onClick={() => setConfirmRegenerateAll(true)}>{regenerateDisabled ? '正在逐步生成…' : '一键重新生成全部'}</button></>}/><div className="flow-diagram"><div className="flow-source">{project.kind === 'novel' ? '小说原文' : '创意原文'}<small>{project.sourceName || '素材来源'}</small></div><span className="flow-arrow">→</span>{card(metrics[0])}<span className="flow-arrow">→</span><div className="flow-cluster"><div className="flow-cluster-head">收敛层 · 三者同步迭代，无先后</div>{metrics.slice(1, 4).map(card)}<div className="flow-cluster-foot">人工过一遍 · 不满意就微调，重新生成</div></div><span className="flow-arrow">→</span>{card(metrics[4])}<span className="flow-arrow">→</span><div className="flow-source">批量生成<small>按镜出片</small></div></div><div className="overview-meta"><span>题材：{project.genre || '未设置'}</span><span>改编幅度：{project.adaptation}</span><span>画面比例：{project.ratio}</span><div className="overview-style"><span>统一画风</span><ImageStylePicker value={project.style} onChange={onStyleChange}/></div></div><section className="overview-backup-actions" aria-label="项目备份"><button className="btn" disabled={backupBusy} onClick={() => void backupProject()}>{backupBusy ? '正在打包…' : '备份项目'}</button><button className="btn" onClick={() => { restoreCancelled.current = false; setBackupError(''); setRestoreStep('select'); }}>还原备份</button>{backupError && !restoreStep && <span role="alert">{backupError}</span>}</section>{confirmRegenerateAll && <Modal title="确认重新生成全部" onClose={() => setConfirmRegenerateAll(false)}><p>将依次重新生成大纲、角色、剧本、美术和分镜。此流程会多次调用创作模型，可能消耗较多用量；已有内容会记录到变更历史。确认继续吗？</p><div className="modal-actions"><button className="btn" onClick={() => setConfirmRegenerateAll(false)}>取消</button><button className="btn primary" onClick={() => { setConfirmRegenerateAll(false); onRegenerateAll(); }}>确认重新生成</button></div></Modal>}{restoreStep && <Modal title={restoreStep === 'confirm' || restoreStep === 'restoring' ? '二次确认：覆盖当前项目' : '还原项目备份'} onClose={restoreStep === 'restoring' ? () => {} : closeRestore}><p>还原会覆盖当前项目的全部内容、变更历史、项目文件和项目引用的媒体。请先选择由 CarlStage 导出的项目备份 ZIP；只有完成下一步确认后才会覆盖。</p>{restoreStep === 'select' && <><input ref={restorePicker} className="backup-file-input" type="file" accept=".zip,application/zip" onChange={event => { setRestoreFile(event.target.files?.[0]); setBackupError(''); event.target.value = ''; }}/><button className="btn backup-file-picker" onClick={() => restorePicker.current?.click()}>{restoreFile ? restoreFile.name : '选择备份 ZIP'}</button><div className="modal-actions"><button className="btn" onClick={closeRestore}>取消</button><button className="btn primary" disabled={!restoreFile} onClick={() => void beginRestoreCheck()}>上传并校验备份</button></div></>}{restoreStep === 'checking' && <div className="backup-restore-status" role="status">正在上传并校验 ZIP。此时不会修改当前项目……</div>}{restoreStep === 'confirm' && restoreInfo && <><div className="backup-restore-summary"><div><span>备份项目</span><strong>{restoreInfo.projectName}</strong></div><div><span>目标项目</span><strong>{restoreInfo.targetName}</strong></div><div><span>备份时间</span><strong>{restoreInfo.createdAt ? new Date(restoreInfo.createdAt).toLocaleString() : '未知'}</strong></div><div><span>项目 ID</span><strong>{restoreInfo.projectId}</strong></div></div><p className="backup-restore-warning">确认后将用该备份完整覆盖当前项目，此操作无法撤销。要继续吗？</p><div className="modal-actions"><button className="btn" onClick={closeRestore}>取消还原</button><button className="btn danger" onClick={() => void commitRestore()}>确认覆盖当前项目</button></div></>}{restoreStep === 'restoring' && <div className="backup-restore-status" role="status">正在还原项目，请勿关闭窗口……</div>}{backupError && <p className="backup-restore-error" role="alert">{backupError}</p>}</Modal>}</>;
 }
 
 function ImageStylePicker({ value, onChange }: { value: string; onChange: (style: string) => void }) {

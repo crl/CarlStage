@@ -159,6 +159,29 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
     const outlineCharacter = project.docs.outline.characters?.find(item => item.name === character.name);
     const relations = Array.isArray(persona.relationships) ? persona.relationships as { name?: string; relation?: string }[] : Array.isArray(persona.relations) ? persona.relations as { name?: string; relation?: string }[] : [];
     const evidence = persona.evidence || [];
+    const characterNames = new Set([character.id, character.name, ...(character.aliases || [])].map(value => value.trim()).filter(Boolean));
+    const usageByKey = new Map<string, { episode: number; sceneIndex: number; sceneId?: string; sceneName: string; lighting: string; props: Set<string>; label: string; path: string }>();
+    const propName = (id: string) => project.docs.art.props.find(prop => prop.id === id || prop.name === id)?.name || id;
+    project.docs.script.episodes.forEach((episode, episodeIndex) => episode.scenes.forEach((scene, sceneIndex) => {
+      const appears = (scene.characters || []).some(id => characterNames.has(id.trim())) || (scene.flow || []).some(beat => !!beat.speaker && characterNames.has(beat.speaker.trim()));
+      if (!appears) return;
+      const episodeNumber = episodeIndex + 1;
+      const sceneNumber = sceneIndex + 1;
+      const target = sceneStoryboardTarget(project, episodeNumber, sceneNumber, scene.sceneId);
+      usageByKey.set(`${episodeNumber}:${sceneNumber}`, { episode: episodeNumber, sceneIndex: sceneNumber, sceneId: scene.sceneId, sceneName: scene.title || scene.location || '未命名场景', lighting: scene.lighting || '', props: new Set((scene.props || []).map(propName)), label: target.label, path: target.path });
+    }));
+    project.docs.storyboard.shots.forEach((shot, shotIndex) => {
+      if (!(shot.characters || []).some(id => characterNames.has(id.trim()))) return;
+      const episodeNumber = shot.episode || 1;
+      const existing = [...usageByKey.values()].find(item => item.episode === episodeNumber && ((shot.sceneId && item.sceneId === shot.sceneId) || (!!shot.scene && item.sceneName === shot.scene)));
+      if (existing) { (shot.props || []).forEach(id => existing.props.add(propName(id))); return; }
+      const key = `shot:${episodeNumber}:${shot.segmentId || shot.id}`;
+      const entry = usageByKey.get(key);
+      if (entry) { (shot.props || []).forEach(id => entry.props.add(propName(id))); return; }
+      const path = shot.segmentId ? `${root}/storyboard/${episodeNumber}/${encodeURIComponent(shot.segmentId)}` : `${root}/storyboard/${episodeNumber}`;
+      usageByKey.set(key, { episode: episodeNumber, sceneIndex: shotIndex + 1, sceneId: shot.sceneId || undefined, sceneName: shot.scene || '未命名场景', lighting: '', props: new Set((shot.props || []).map(propName)), label: shot.segmentId || `镜头 ${shotIndex + 1}`, path });
+    });
+    const characterUsage = [...usageByKey.values()];
     const editPersona = (field: string, value: string) => { const next = clone(project.docs.cast); next[index].persona = { ...next[index].persona, [field]: value }; save('cast', next, `修改${character.name}${field}`); };
     const voiceLabels: Record<string, string> = { timbre: '音色', pitch: '音高', pace: '语速', accent: '口音', emotion: '情绪', referenceHint: '参考提示', prompt: '音色提示词', voiceTimbre: '音色', voicePitch: '音高', voicePace: '语速', voiceAccent: '口音', voiceEmotion: '情绪', voiceReferenceHint: '参考提示', voicePrompt: '音色提示词' };
     const voiceEntries = Object.entries(character.voice || {}).filter(([key]) => key !== 'audioSample');
@@ -184,6 +207,7 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
           <section className="panel character-voice-panel"><div className="character-voice-panel-head"><h2>音色</h2><div className="character-voice-panel-actions">{audioHistory.length > 0 && <CharacterAudioHistoryButton character={character} versions={audioHistory} activeId={character.activeAudioId} onSelect={setActiveAudio}/>}{voiceEntries.length > 0 && <button className="copy-prompt-button" type="button" onClick={() => void copyVoice()} title="复制全部音色" aria-label="复制全部音色"><CopyPromptIcon/></button>}</div></div>{activeAudio && <div className="character-audio-featured"><div><span>当前语音</span><button type="button" onClick={() => setActiveAudio()}>收起</button></div><audio controls src={activeAudio.url}/></div>}{voiceEntries.length ? voiceEntries.map(([key, value]) => <Editable key={key} label={voiceLabels[key] || key} value={value} multiline copy={false} onSave={nextValue => { const next = clone(project.docs.cast); next[index].voice = { ...next[index].voice, [key]: nextValue }; save('cast', next, `修改${character.name}音色`); }}/>) : <p className="character-detail-empty">暂无音色设定</p>}</section>
         </aside>
       </div>
+      <section className="character-detail-section character-usage-section"><h2>用在哪</h2>{characterUsage.length ? <div className="panel character-usage-table"><table><thead><tr><th>分镜</th><th>场景</th><th>光照</th><th>道具</th></tr></thead><tbody><ExpandableTableRows items={characterUsage} colSpan={4} renderRow={(item, usageIndex) => <tr key={`${item.episode}-${item.sceneIndex}-${usageIndex}`}><td><button className="detail-link" title={`跳转到${item.label}`} onClick={() => go(item.path)}>{item.label}</button></td><td>{item.sceneName}</td><td>{item.lighting || '—'}</td><td>{item.props.size ? [...item.props].join('、') : '—'}</td></tr>}/></tbody></table></div> : <p className="character-detail-empty">当前还没有剧本或分镜记录该角色的出场。</p>}</section>
     </div>;
   }
   if (tab === 'art' && ['scenes', 'props'].includes(detail[0]) && detail[1]) {
@@ -216,7 +240,7 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
           <section className="panel art-prompt-panel"><h2>出图提示词</h2><div className="art-detail-fields"><Editable label="主视角提示词" value={asset.prompt || asset.description} multiline onSave={value => edit('prompt', value)}/><Editable label="设定图提示词" value={settingPrompt} multiline onSave={value => edit('settingPrompt', value)}/><Editable label="反向提示词" value={asset.negativePrompt || ''} multiline onSave={value => edit('negativePrompt', value)}/></div></section>
         </aside>
       </div>
-      <section className="art-detail-section art-usage-section"><h2>用在哪</h2>{usage.length || shotUsage.length ? <div className="panel art-usage-table"><table><thead>{kind === 'scenes' ? <tr><th>分镜</th><th>光照</th></tr> : <tr><th>集</th><th>镜头</th><th>引用位置</th></tr>}</thead><tbody>{kind === 'scenes' ? usage.map((item, usageIndex) => { const target = sceneStoryboardTarget(project, item.episode, item.sceneIndex, item.sceneId); return <tr key={`${item.episode}-${item.sceneIndex}-${usageIndex}`}><td><button className="detail-link art-usage-storyboard-link" title={`跳转到${target.label}`} onClick={() => go(target.path)}>{target.label}</button></td><td>{item.lighting || '—'}</td></tr>; }) : [...usage, ...shotUsage].map((item, usageIndex) => <tr key={`${item.episode}-${item.sceneIndex}-${usageIndex}`}><td><button className="detail-link" onClick={() => go(`${root}/script/${item.episode}`)}>E{String(item.episode).padStart(2, '0')}</button></td><td>#{item.sceneIndex}</td><td>{item.lighting || '—'}</td></tr>)}</tbody></table></div> : <p className="character-detail-empty">当前还没有剧本或分镜引用此{kind === 'scenes' ? '场景' : '道具'}。</p>}</section>
+      <section className="art-detail-section art-usage-section"><h2>用在哪</h2>{usage.length || shotUsage.length ? <div className="panel art-usage-table"><table><thead>{kind === 'scenes' ? <tr><th>分镜</th><th>光照</th></tr> : <tr><th>集</th><th>镜头</th><th>引用位置</th></tr>}</thead><tbody>{kind === 'scenes' ? <ExpandableTableRows items={usage} colSpan={2} renderRow={(item, usageIndex) => { const target = sceneStoryboardTarget(project, item.episode, item.sceneIndex, item.sceneId); return <tr key={`${item.episode}-${item.sceneIndex}-${usageIndex}`}><td><button className="detail-link art-usage-storyboard-link" title={`跳转到${target.label}`} onClick={() => go(target.path)}>{target.label}</button></td><td>{item.lighting || '—'}</td></tr>; }}/> : <ExpandableTableRows items={[...usage, ...shotUsage]} colSpan={3} renderRow={(item, usageIndex) => <tr key={`${item.episode}-${item.sceneIndex}-${usageIndex}`}><td><button className="detail-link" onClick={() => go(`${root}/script/${item.episode}`)}>E{String(item.episode).padStart(2, '0')}</button></td><td>#{item.sceneIndex}</td><td>{item.lighting || '—'}</td></tr>}/>}</tbody></table></div> : <p className="character-detail-empty">当前还没有剧本或分镜引用此{kind === 'scenes' ? '场景' : '道具'}。</p>}</section>
     </div>;
   }
   if (tab === 'storyboard' && detail[0]) {
@@ -229,14 +253,20 @@ export function ProjectDetail({ project, tab, detail, go, save, openImage, media
   return null;
 }
 
+function ExpandableTableRows<T>({ items, colSpan, renderRow }: { items: T[]; colSpan: number; renderRow: (item: T, index: number) => ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, 10);
+  return <>{visible.map(renderRow)}{items.length > 10 && <tr className="usage-expand-row"><td colSpan={colSpan}><button type="button" className="btn small" onClick={() => setExpanded(value => !value)}>{expanded ? '收起' : `展开全部 ${items.length} 条`}</button></td></tr>}</>;
+}
+
 function CharacterDialogueBook({ project, go, character, voiceover = false, onSaveAudio }: { project: Project; go: Props['go']; character?: Character; voiceover?: boolean; onSaveAudio?: (version: CharacterAudioVersion) => void }) {
   const report = useScriptDialogueReport(project.id);
   const group = report.status === 'ready' ? voiceover ? voiceoverDialogueGroup(report.groups) : character ? characterDialogueGroup(report.groups, character) : undefined : undefined;
   const [audioOpen, setAudioOpen] = useState(false);
   return <section className="character-detail-section character-dialogue-section">
-    <div className="character-dialogue-head"><div><h2>台词本</h2>{group?.metadata && <span>{group.metadata}</span>}</div>{group && <div className="character-dialogue-actions">{group.voicePrompt && <button className="btn small" onClick={() => void copyText(group.voicePrompt!)}>音色提示词</button>}{group.copyAll && <button className="btn small" onClick={() => void copyText(group.copyAll!)}>复制全部台词</button>}{!voiceover && onSaveAudio && !!group.lines.length && <button className="btn small primary" onClick={() => setAudioOpen(true)}>生成语音</button>}</div>}</div>
+    <div className="character-dialogue-head"><div><h2>台词本</h2>{group?.metadata && <span>{group.metadata}</span>}</div>{group && <div className="character-dialogue-actions">{!voiceover && onSaveAudio && !!group.lines.length && <button className="btn small primary" onClick={() => setAudioOpen(true)}>生成语音</button>}{group.copyAll && <button type="button" className="copy-prompt-button" title="复制全部台词" aria-label="复制全部台词" onClick={() => void copyText(group.copyAll!)}><CopyPromptIcon/></button>}</div>}</div>
     {dialogueEmptyState(report, group, voiceover ? '剧本数据中暂无画外音台词。' : '剧本数据中暂无该角色的台词。')}
-    {group && <ol className="character-dialogue-lines">{group.lines.map((line, index) => <li key={`${line.reference}-${index}`}><button type="button" className="character-dialogue-jump" title="查看对应分镜" onClick={() => go(dialogueStoryboardPath(project, line))}>{line.reference}</button><span>{line.text}</span>{line.delivery && <em>{line.delivery}</em>}</li>)}</ol>}
+    {group && <ol className="character-dialogue-lines">{group.lines.map((line, index) => <li key={`${line.reference}-${index}`}><button type="button" className="character-dialogue-jump" title="查看对应分镜" onClick={() => go(dialogueStoryboardPath(project, line))}>{line.reference}</button><span>{line.text}</span><span className="character-dialogue-line-meta">{line.delivery && <em>{line.delivery}</em>}<small>{line.seconds.toFixed(1)}s</small></span></li>)}</ol>}
     {audioOpen && group && character && onSaveAudio && <CharacterVoiceGenerator project={project} character={character} group={group} onSave={onSaveAudio} onClose={() => setAudioOpen(false)}/>}
   </section>;
 }
