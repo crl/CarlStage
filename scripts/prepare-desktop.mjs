@@ -1,5 +1,5 @@
 import { prepareChatgptRuntime } from './prepare-chatgpt-runtime.mjs';
-import { cp, mkdir, copyFile, rm, readFile } from 'node:fs/promises';
+import { cp, mkdir, copyFile, rm, readFile, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -27,4 +27,8 @@ await new Promise((resolve, reject) => {
   command.on('error', reject);
   command.on('exit', code => code === 0 ? resolve() : reject(new Error('桌面运行环境依赖安装失败')));
 });
+const openaiModules = join(runtime, 'node_modules', '@openai');
+for (const name of await readdir(openaiModules)) {
+  if (/^codex-(?:darwin|linux|win32)-/.test(name)) await rm(join(openaiModules, name), { recursive: true, force: true });
+}
 console.log('桌面运行环境已准备好：' + runtime);

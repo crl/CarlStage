@@ -6,3 +6,4 @@ src-tauri/target/
 *.tsbuildinfo
 .local-runs/
 vendor/shuohao-skills/
+shuohao-demo/2026-10-01.zip
